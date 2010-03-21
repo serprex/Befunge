@@ -42,7 +42,6 @@ int main(int argc,char**argv){
 	}
 	RunProg:
 	fclose(prog);
-	puts("??");fflush(stdout);
 	goto**pt;
 	p0:*++sp=0;
 	nop:dir();goto**pt;
