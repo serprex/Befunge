@@ -1,9 +1,6 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-static void*pg[2000];
+static void*pg[2000],**pt=pg;
 static unsigned char ps[2000]={[0 ... 1999]=32};
-static void**pt=pg;
 static inline void gea(){pt++;if((pt-pg)%80==0)pt-=80;}
 static inline void gwe(){if((pt-pg)%80==0)pt+=80;pt--;}
 static inline void gso(){pt+=80;if(pt-pg>=2000)pt-=2000;}
@@ -23,7 +20,7 @@ int main(int argc,char**argv){
 	&&hif,&&gt,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&get,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,
 	&&nop,&&put,&&nop,&&nop,&&nop,&&nop,&&nop,&&so,&&nop,&&nop,&&nop,&&nop,&&nop,&&vif,&&nop,&&ich
 	,[127 ... 255]=&&nop};
-	srand(time(0));
+	FILE*rand=fopen("/dev/urandom","r");
 	for(int i=0;i<2000;i++) pg[i]=ft[ps[i]];
 	goto**pt;
 	p0:*++sp=0;
@@ -86,11 +83,11 @@ int main(int argc,char**argv){
 	dir();goto**pt;
 	stm:for(;dir(),*pt!=&&stm;*++sp=ps[pt-pg]);
 	dir();goto**pt;
-	rnd:dir=df[rand()&3];
+	rnd:dir=df[getc(rand)&3];
 	dir();goto**pt;
-	get:sp--;*sp=ps[sp[1]+*sp*80];
+	get:sp--;*sp=ps[sp[1]*80+*sp];
 	dir();goto**pt;
-	put:sp-=3;pg[sp[3]+sp[2]*80]=ft[ps[sp[3]+sp[2]*80]=sp[1]];
+	put:sp-=3;pg[sp[3]*80+sp[2]]=ft[ps[sp[3]*80+sp[2]]=sp[1]];
 	dir();goto**pt;
 	och:putchar(*sp--);
 	dir();goto**pt;
@@ -100,5 +97,5 @@ int main(int argc,char**argv){
 	dir();goto**pt;
 	iin:scanf("%ld",++sp);
 	dir();goto**pt;
-	end:putchar('\n');exit(*sp);
+	end:putchar('\n');return *sp;
 }
