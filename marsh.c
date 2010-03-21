@@ -6,8 +6,8 @@ static unsigned char ps[2000]={[0 ... 1999]=32};
 static void**pt=pg;
 static inline void gea(){pt++;if((pt-pg)%80==0)pt-=80;}
 static inline void gwe(){if((pt-pg)%80==0)pt+=80;pt--;}
-static inline void gso(){pt+=80;if(pt-pg>2000)pt-=2000;}
-static inline void gno(){pt-=80;if(pt-pg<0)pt+=2000;}
+static inline void gso(){pt+=80;if(pt-pg>=2000)pt-=2000;}
+static inline void gno(){pt-=80;if(pt<pg)pt+=2000;}
 void(*const df[])(void)={gea,gno,gwe,gso};
 static void(*dir)(void)=gea;
 int main(int argc,char**argv){
@@ -24,7 +24,7 @@ int main(int argc,char**argv){
 	&&nop,&&put,&&nop,&&nop,&&nop,&&nop,&&nop,&&so,&&nop,&&nop,&&nop,&&nop,&&nop,&&vif,&&nop,&&ich
 	,[127 ... 255]=&&nop};
 	srand(time(0));
-	for(unsigned i=0;i<2000;i++) pg[i]=ft[ps[i]];
+	for(int i=0;i<2000;i++) pg[i]=ft[ps[i]];
 	goto**pt;
 	p0:*++sp=0;
 	nop:dir();goto**pt;

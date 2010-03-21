@@ -1,13 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-static void*pg[2000]={};
+static void*pg[2000];
 static unsigned char ps[2000]={[0 ... 1999]=32};
 static void**pt=pg;
 static inline void gea(){pt++;if((pt-pg)%80==0)pt-=80;}
 static inline void gwe(){if((pt-pg)%80==0)pt+=80;pt--;}
-static inline void gso(){pt+=80;if(pt-pg>2000)pt-=2000;}
-static inline void gno(){pt-=80;if(pt-pg<0)pt+=2000;}
+static inline void gso(){pt+=80;if(pt-pg>=2000)pt-=2000;}
+static inline void gno(){pt-=80;if(pt<pg)pt+=2000;}
 void(*const df[])(void)={gea,gno,gwe,gso};
 static void(*dir)(void)=gea;
 int main(int argc,char**argv){
@@ -25,8 +25,9 @@ int main(int argc,char**argv){
 	,[127 ... 255]=&&nop};
 	srand(time(0));
 	FILE*prog=fopen(argv[1],"r");
-	for(unsigned i=0;i<25;i++){
-		for(unsigned j=0;j<80;j++){
+	for(int i=0;i<2000;i++) pg[i]=&&nop;
+	for(int i=0;i<25;i++){
+		for(int j=0;j<80;j++){
 			int c=getc(prog);
 			if(c=='\n') goto FoundNew;
 			if(c==-1) goto RunProg;
@@ -41,6 +42,7 @@ int main(int argc,char**argv){
 	}
 	RunProg:
 	fclose(prog);
+	puts("??");fflush(stdout);
 	goto**pt;
 	p0:*++sp=0;
 	nop:dir();goto**pt;

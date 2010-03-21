@@ -1,5 +1,5 @@
 #!/usr/bin/env python
 from re import compile as re
-with open("goto.s") as a:a=a.read()
+with open("funge.s") as a:a=a.read()
 b=re(r"\.L(\d+):\n\tjmp\t\*%rax",8).search(a).groups()[0]
-open("goto.s","w").write(a.replace("jmp\t.L"+b,"jmp\t*%rax"))
+open("funge.s","w").write(a.replace("jmp\t.L"+b,"jmp\t*%rax"))
