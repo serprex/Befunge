@@ -2,7 +2,7 @@
 from sys import argv
 a=[a[:80]+" "*(80-len(a)) for a in open(argv[1]).read().split("\n")[:25]]
 a+=" "*(80*(25-len(a))),
-b=open("marsh","rb").read()
+b=open("marsh" if len(argv)==2 else "marshsafe","rb").read()
 c=b.find(" "*2000)
 e=open(argv[2] if len(argv)==3 else argv[1]+".","wb")
 e.write(b[:c]+"".join(a)+b[c+2000:])

@@ -17,3 +17,9 @@ marsh: marsh.c
 	as marsh.s -o marsh.o
 	gcc marsh.o -o marsh
 	strip marsh
+marshsafe: marshsafe.c
+	gcc -std=gnu99 marshsafe.c -O3 -march=native -fmerge-all-constants -fomit-frame-pointer -fno-gcse -S
+	./fixit.py marshsafe.s
+	as marshsafe.s -o marshsafe.o
+	gcc marshsafe.o -o marshsafe
+	strip marshsafe
