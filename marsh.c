@@ -5,11 +5,11 @@ static inline void gea(){pt++;if((pt-pg)%80==0)pt-=80;}
 static inline void gwe(){if((pt-pg)%80==0)pt+=80;pt--;}
 static inline void gso(){pt+=80;if(pt-pg>=2000)pt-=2000;}
 static inline void gno(){pt-=80;if(pt<pg)pt+=2000;}
-void(*const df[])(void)={gea,gno,gwe,gso};
+static void(*const df[])(void)={gea,gno,gwe,gso};
 static void(*dir)(void)=gea;
 int main(int argc,char**argv){
 	long st[65536],*sp=st-1;
-	void*const ft[256]={
+	void*const ft[127]={
 	&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,
 	&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,
 	&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,
@@ -18,10 +18,28 @@ int main(int argc,char**argv){
 	&&end,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,
 	&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&swp,&&nop,&&no,
 	&&hif,&&gt,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&get,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,
-	&&nop,&&put,&&nop,&&nop,&&nop,&&nop,&&nop,&&so,&&nop,&&nop,&&nop,&&nop,&&nop,&&vif,&&nop,&&ich
-	,[127 ... 255]=&&nop};
+	&&nop,&&put,&&nop,&&nop,&&nop,&&nop,&&nop,&&so,&&nop,&&nop,&&nop,&&nop,&&nop,&&vif,&&nop,&&ich};
 	FILE*rand=fopen("/dev/urandom","r");
-	for(int i=0;i<2000;i++) pg[i]=ft[ps[i]];
+#ifdef FUNGE
+	FILE*prog=fopen(argv[1],"r");
+	for(int i=0;i<25;i++){
+		for(int j=0;j<80;j++){
+			int c=getc(prog);
+			if(c=='\n') goto FoundNew;
+			if(c==-1) goto RunProg;
+			ps[i*80+j]=c;
+		}
+		for(;;){
+			int c=getc(prog);
+			if(c=='\n') goto FoundNew;
+			if(c==-1) goto RunProg;
+		}
+		FoundNew:;
+	}
+	RunProg:
+	fclose(prog);
+#endif
+	for(int i=0;i<2000;i++) pg[i]=ps[i]<127?ft[ps[i]]:0;
 	goto**pt;
 	p0:*++sp=0;
 	nop:dir();goto**pt;
@@ -87,7 +105,10 @@ int main(int argc,char**argv){
 	dir();goto**pt;
 	get:sp--;*sp=ps[sp[1]*80+*sp];
 	dir();goto**pt;
-	put:sp-=3;pg[sp[3]*80+sp[2]]=ft[ps[sp[3]*80+sp[2]]=sp[1]];
+	put:
+		sp-=3;
+		ps[sp[3]+sp[2]*80]=sp[1];
+		pg[sp[3]+sp[2]*80]=sp[1]<127?ft[sp[1]]:&&nop;
 	dir();goto**pt;
 	och:putchar(*sp--);
 	dir();goto**pt;
@@ -95,7 +116,7 @@ int main(int argc,char**argv){
 	dir();goto**pt;
 	ich:*++sp=getchar();
 	dir();goto**pt;
-	iin:scanf("%ld",++sp);
+	iin:while(!scanf("%ld",++sp));
 	dir();goto**pt;
-	end:putchar('\n');return *sp;
+	end:putchar('\n');return 0;
 }

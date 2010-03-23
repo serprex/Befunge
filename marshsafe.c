@@ -5,7 +5,7 @@ static inline void gea(){pt++;if((pt-pg)%80==0)pt-=80;}
 static inline void gwe(){if((pt-pg)%80==0)pt+=80;pt--;}
 static inline void gso(){pt+=80;if(pt-pg>=2000)pt-=2000;}
 static inline void gno(){pt-=80;if(pt<pg)pt+=2000;}
-void(*const df[])(void)={gea,gno,gwe,gso};
+static void(*const df[])(void)={gea,gno,gwe,gso};
 static void(*dir)(void)=gea;
 int main(int argc,char**argv){
 	long st[65536],*sp=st-1;
@@ -20,7 +20,26 @@ int main(int argc,char**argv){
 	&&hif,&&gt,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&get,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,
 	&&nop,&&put,&&nop,&&nop,&&nop,&&nop,&&nop,&&so,&&nop,&&nop,&&nop,&&nop,&&nop,&&vif,&&nop,&&ich};
 	FILE*rand=fopen("/dev/urandom","r");
-	for(int i=0;i<2000;i++) pg[i]=ft[ps[i]];
+#ifdef FUNGE
+	FILE*prog=fopen(argv[1],"r");
+	for(int i=0;i<25;i++){
+		for(int j=0;j<80;j++){
+			int c=getc(prog);
+			if(c=='\n') goto FoundNew;
+			if(c==-1) goto RunProg;
+			ps[i*80+j]=c;
+		}
+		for(;;){
+			int c=getc(prog);
+			if(c=='\n') goto FoundNew;
+			if(c==-1) goto RunProg;
+		}
+		FoundNew:;
+	}
+	RunProg:
+	fclose(prog);
+#endif
+	for(int i=0;i<2000;i++) pg[i]=ps[i]<127?ft[ps[i]]:&&nop;
 	goto**pt;
 	p0:*++sp=0;
 	nop:dir();goto**pt;
@@ -85,28 +104,34 @@ int main(int argc,char**argv){
 	rnd:dir=df[getc(rand)&3];
 	dir();goto**pt;
 	get:
-		if(sp>st){sp--;*sp=ps[sp[1]+*sp*80];}
-		else if(sp==st){sp--;*sp=ps[*sp];}
+		if(sp>st){sp--;*sp<25&&*sp>=0&&sp[1]<80&&sp[1]>=0?*sp=ps[sp[1]+*sp*80]:0;}
+		else if(sp==st){sp--;*sp=*sp<80&&*sp>=0?ps[*sp]:0;}
 		else{*sp=ps[0];}
 	dir();goto**pt;
 	put:
 		switch(sp-st){
+		case 0:
+			if(*sp<80&&*sp>=0){
+				ps[*sp]=0;
+				pg[*sp]=&&nop;
+				sp=st-1;
+				break;
+			}
 		case -1:
 			ps[0]=0;
 			pg[0]=&&nop;
 			sp=st-1;
-		break;case 0:
-			ps[*sp]=0;
-			pg[*sp]=&&nop;
-			sp=st-1;
-		break;case 1:
-			ps[sp[1]+*sp*80]=0;
-			pg[sp[1]+*sp*80]=&&nop;
-			sp=st-1;
-		break;default:
+		break;case 1:{
+			unsigned x=sp[1]<80?sp[1]:0,y=*sp<25?*sp:0;
+			ps[x+y*80]=0;
+			pg[x+y*80]=&&nop;
+			sp=st-1;}
+		break;default:{
+			unsigned x=sp[3]<80?sp[3]:0,y=sp[2]<25?sp[2]:0;
 			sp-=3;
-			ps[sp[3]+sp[2]*80]=sp[1];
-			pg[sp[3]+sp[2]*80]=sp[1]<127?ft[sp[1]]:&&nop;
+			ps[x+y*80]=sp[1];
+			pg[x+y*80]=sp[1]<127?ft[sp[1]]:&&nop;
+			}
 		}
 	dir();goto**pt;
 	och:putchar(sp>=st?*sp--:0);
@@ -115,7 +140,7 @@ int main(int argc,char**argv){
 	dir();goto**pt;
 	ich:*++sp=getchar();
 	dir();goto**pt;
-	iin:scanf("%ld",++sp);
+	iin:while(!scanf("%ld",++sp));
 	dir();goto**pt;
-	end:putchar('\n');return *sp;
+	end:putchar('\n');return 0;
 }
