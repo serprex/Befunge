@@ -8,6 +8,7 @@ static inline void gno(){pt-=80;if(pt<pg)pt+=2000;}
 static void(*const df[])(void)={gea,gno,gwe,gso};
 static void(*dir)(void)=gea;
 int main(int argc,char**argv){
+	FILE*rand=fopen("/dev/urandom","r");
 	long st[65536],*sp=st-1;
 	void*const ft[127]={
 	&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,
@@ -19,7 +20,6 @@ int main(int argc,char**argv){
 	&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&swp,&&nop,&&no,
 	&&hif,&&gt,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&get,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,
 	&&nop,&&put,&&nop,&&nop,&&nop,&&nop,&&nop,&&so,&&nop,&&nop,&&nop,&&nop,&&nop,&&vif,&&nop,&&ich};
-	FILE*rand=fopen("/dev/urandom","r");
 #ifdef FUNGE
 	FILE*prog=fopen(argv[1],"r");
 	for(int i=0;i<25;i++){
@@ -39,7 +39,7 @@ int main(int argc,char**argv){
 	RunProg:
 	fclose(prog);
 #endif
-	for(int i=0;i<2000;i++) pg[i]=ps[i]<127?ft[ps[i]]:0;
+	for(int i=0;i<2000;i++) pg[i]=ps[i]<127?ft[ps[i]]:&&nop;
 	goto**pt;
 	p0:*++sp=0;
 	nop:dir();goto**pt;

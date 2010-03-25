@@ -8,6 +8,7 @@ static inline void gno(){pt-=80;if(pt<pg)pt+=2000;}
 static void(*const df[])(void)={gea,gno,gwe,gso};
 static void(*dir)(void)=gea;
 int main(int argc,char**argv){
+	FILE*rand=fopen("/dev/urandom","r");
 	long st[65536],*sp=st-1;
 	void*const ft[127]={
 	&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,
@@ -19,7 +20,6 @@ int main(int argc,char**argv){
 	&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&swp,&&nop,&&no,
 	&&hif,&&gt,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&get,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,
 	&&nop,&&put,&&nop,&&nop,&&nop,&&nop,&&nop,&&so,&&nop,&&nop,&&nop,&&nop,&&nop,&&vif,&&nop,&&ich};
-	FILE*rand=fopen("/dev/urandom","r");
 #ifdef FUNGE
 	FILE*prog=fopen(argv[1],"r");
 	for(int i=0;i<25;i++){
@@ -61,15 +61,15 @@ int main(int argc,char**argv){
 	dir();goto**pt;
 	p9:*++sp=9;
 	dir();goto**pt;
-	add:if(sp>st){sp--;*sp+=sp[1];}else if(sp<st){*sp++=0;}
+	add:if(sp>st){sp--;*sp+=sp[1];}else if(sp<st){*++sp=0;}
 	dir();goto**pt;
-	sub:if(sp>st){sp--;*sp-=sp[1];}else if(sp==st){*sp=-*sp;}else{*sp++=0;}
+	sub:if(sp>st){sp--;*sp-=sp[1];}else if(sp==st){*sp*=-1;}else{*++sp=0;}
 	dir();goto**pt;
-	mul:if(sp>st){sp--;*sp*=sp[1];}else{*(sp+=sp<st)=0;}
+	mul:if(sp>st){sp--;*sp*=sp[1];}else{*(sp=st)=0;}
 	dir();goto**pt;
-	dvi:if(sp>st){sp--;*sp/=sp[1];}
+	dvi:if(sp>st){sp--;if(!sp[1]) goto iin;*sp/=sp[1];}else goto iin;
 	dir();goto**pt;
-	mod:if(sp>st){sp--;*sp%=sp[1];}
+	mod:if(sp>st){sp--;if(!sp[1]) goto iin;*sp%=sp[1];}else goto iin;
 	dir();goto**pt;
 	not:*sp=!*sp;
 	dir();goto**pt;
@@ -83,7 +83,7 @@ int main(int argc,char**argv){
 	dir();goto**pt;
 	no:dir=gno;
 	dir();goto**pt;
-	dup:sp[1]=sp>=st?*sp:0;sp++;
+	dup:if(sp>=st){sp[1]=*sp;sp++;}else{st[0]=0;st[1]=0;sp=st+1;}
 	dir();goto**pt;
 	pop:if(sp>=st) sp--;
 	dir();goto**pt;
@@ -93,7 +93,7 @@ int main(int argc,char**argv){
 	dir();goto**pt;
 	vif:dir=sp>=st&&*sp--?gno:gso;
 	dir();goto**pt;
-	swp:if(sp>=st){
+	swp:if(sp>st){
 		long tmp=*sp;
 		*sp=sp[-1];
 		sp[-1]=tmp;
@@ -105,8 +105,8 @@ int main(int argc,char**argv){
 	dir();goto**pt;
 	get:
 		if(sp>st){sp--;*sp<25&&*sp>=0&&sp[1]<80&&sp[1]>=0?*sp=ps[sp[1]+*sp*80]:0;}
-		else if(sp==st){sp--;*sp=*sp<80&&*sp>=0?ps[*sp]:0;}
-		else{*sp=ps[0];}
+		else if(sp==st){*sp=*sp<80&&*sp>=0?ps[*sp]:0;}
+		else{*++sp=ps[0];}
 	dir();goto**pt;
 	put:
 		switch(sp-st){
@@ -122,12 +122,12 @@ int main(int argc,char**argv){
 			pg[0]=&&nop;
 			sp=st-1;
 		break;case 1:{
-			unsigned x=sp[1]<80?sp[1]:0,y=*sp<25?*sp:0;
+			int x=sp[1]>=0&&sp[1]<80?sp[1]:0,y=*sp>=0&&*sp<25?*sp:0;
 			ps[x+y*80]=0;
 			pg[x+y*80]=&&nop;
 			sp=st-1;}
 		break;default:{
-			unsigned x=sp[3]<80?sp[3]:0,y=sp[2]<25?sp[2]:0;
+			int x=sp[3]>=0&&sp[3]<80?sp[3]:0,y=sp[2]>=0&&sp[2]<25?sp[2]:0;
 			sp-=3;
 			ps[x+y*80]=sp[1];
 			pg[x+y*80]=sp[1]<127?ft[sp[1]]:&&nop;
