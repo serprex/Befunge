@@ -88,7 +88,7 @@ int main(int argc,char**argv){
 	dir();goto**pt;
 	dup:if(sp>=st){sp[1]=*sp;sp++;}else{st[0]=0;st[1]=0;sp=st+1;}
 	dir();goto**pt;
-	pop:if(sp>=st) sp--;
+	pop:sp-=sp>=st;
 	dir();goto**pt;
 	hop:dir();
 	dir();goto**pt;
@@ -107,15 +107,15 @@ int main(int argc,char**argv){
 	rnd:dir=df[getc(rand)&3];
 	dir();goto**pt;
 	get:
-		if(sp>st){sp--;*sp<25&&*sp>=0&&sp[1]<80&&sp[1]>=0?*sp=ps[sp[1]+*sp*80]:0;}
-		else if(sp==st){*sp=*sp<80&&*sp>=0?ps[*sp]:0;}
+		if(sp>st){sp--;*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?*sp=ps[*sp+sp[1]*80]:0;}
+		else if(sp==st){*sp=*sp<25&&*sp>=0?ps[*sp*80]:0;}
 		else{*++sp=ps[0];}
 	dir();goto**pt;
 	put:
 		switch(sp-st){
 		case 0:
 			sp=st-1;
-			int y=sp[1]<80&&sp[1]>=0?sp[1]:0;
+			int y=sp[1]<25&&sp[1]>=0?sp[1]:0;
 			ps[y*80]=0;
 			pg[y*80]=&&nop;
 		break;case-1:
