@@ -1,12 +1,15 @@
 #include <stdio.h>
+#define likely(x) __builtin_expect((x),1)
+#define unlikely(x) __builtin_expect((x),0)
 static void*pg[2000],**pt=pg;
 static unsigned char ps[2000]={[0 ... 1999]=32};
-static inline void gea(){pt++;if((pt-pg)%80==0)pt-=80;}
-static inline void gwe(){if((pt-pg)%80==0)pt+=80;pt--;}
-static inline void gso(){pt+=80;if(pt-pg>=2000)pt-=2000;}
-static inline void gno(){pt-=80;if(pt<pg)pt+=2000;}
+static inline void gea(){pt++;if(unlikely((pt-pg)%80==0))pt-=80;}
+static inline void gwe(){if(unlikely((pt-pg)%80==0))pt+=80;pt--;}
+static inline void gso(){pt+=80;if(unlikely(pt-pg>=2000))pt-=2000;}
+static inline void gno(){pt-=80;if(unlikely(pt<pg))pt+=2000;}
 static void(*const df[])(void)={gea,gno,gwe,gso};
 static void(*dir)(void)=gea;
+static char fgs[16];
 int main(int argc,char**argv){
 	FILE*rand=fopen("/dev/urandom","r");
 	long st[65536],*sp=st-1;
@@ -25,14 +28,14 @@ int main(int argc,char**argv){
 	for(int i=0;i<25;i++){
 		for(int j=0;j<80;j++){
 			int c=getc(prog);
-			if(c=='\n') goto FoundNew;
-			if(c==-1) goto RunProg;
+			if(unlikely(c=='\n')) goto FoundNew;
+			if(unlikely(c==-1)) goto RunProg;
 			ps[i*80+j]=c;
 		}
 		for(;;){
 			int c=getc(prog);
-			if(c=='\n') goto FoundNew;
-			if(c==-1) goto RunProg;
+			if(unlikely(c=='\n')) goto FoundNew;
+			if(unlikely(c==-1)) goto RunProg;
 		}
 		FoundNew:;
 	}
@@ -111,24 +114,22 @@ int main(int argc,char**argv){
 	put:
 		switch(sp-st){
 		case 0:
-			if(*sp<80&&*sp>=0){
-				ps[*sp]=0;
-				pg[*sp]=&&nop;
-				sp=st-1;
-				break;
-			}
-		case -1:
+			sp=st-1;
+			int y=sp[1]<80&&sp[1]>=0?sp[1]:0;
+			ps[y*80]=0;
+			pg[y*80]=&&nop;
+		break;case-1:
 			ps[0]=0;
 			pg[0]=&&nop;
-			sp=st-1;
 		break;case 1:{
-			int x=sp[1]>=0&&sp[1]<80?sp[1]:0,y=*sp>=0&&*sp<25?*sp:0;
+			sp=st-1;
+			int x=sp[1]>=0&&sp[1]<80?sp[1]:0,y=sp[2]>=0&&sp[2]<25?sp[2]:0;
 			ps[x+y*80]=0;
 			pg[x+y*80]=&&nop;
-			sp=st-1;}
+			}
 		break;default:{
-			int x=sp[3]>=0&&sp[3]<80?sp[3]:0,y=sp[2]>=0&&sp[2]<25?sp[2]:0;
 			sp-=3;
+			int x=sp[2]>=0&&sp[2]<80?sp[2]:0,y=sp[3]>=0&&sp[3]<25?sp[3]:0;
 			ps[x+y*80]=sp[1];
 			pg[x+y*80]=sp[1]<127?ft[sp[1]]:&&nop;
 			}
@@ -140,7 +141,9 @@ int main(int argc,char**argv){
 	dir();goto**pt;
 	ich:*++sp=getchar();
 	dir();goto**pt;
-	iin:while(!scanf("%ld",++sp));
+	iin:
+	fgets(fgs,16,stdin);
+	sscanf(fgs,"%ld",++sp);
 	dir();goto**pt;
 	end:putchar('\n');return 0;
 }

@@ -1,12 +1,15 @@
 #include <stdio.h>
+#define likely(x) __builtin_expect((x),1)
+#define unlikely(x) __builtin_expect((x),0)
 static void*pg[2000],**pt=pg;
 static unsigned char ps[2000]={[0 ... 1999]=32};
-static inline void gea(){pt++;if((pt-pg)%80==0)pt-=80;}
-static inline void gwe(){if((pt-pg)%80==0)pt+=80;pt--;}
-static inline void gso(){pt+=80;if(pt-pg>=2000)pt-=2000;}
-static inline void gno(){pt-=80;if(pt<pg)pt+=2000;}
+static inline void gea(){pt++;if(unlikely((pt-pg)%80==0))pt-=80;}
+static inline void gwe(){if(unlikely((pt-pg)%80==0))pt+=80;pt--;}
+static inline void gso(){pt+=80;if(unlikely(pt-pg>=2000))pt-=2000;}
+static inline void gno(){pt-=80;if(unlikely(pt<pg))pt+=2000;}
 static void(*const df[])(void)={gea,gno,gwe,gso};
 static void(*dir)(void)=gea;
+static char fgs[16];
 int main(int argc,char**argv){
 	FILE*rand=fopen("/dev/urandom","r");
 	long st[65536],*sp=st-1;
@@ -103,20 +106,23 @@ int main(int argc,char**argv){
 	dir();goto**pt;
 	rnd:dir=df[getc(rand)&3];
 	dir();goto**pt;
-	get:sp--;*sp=ps[sp[1]*80+*sp];
+	get:sp--;*sp=ps[*sp+sp[1]*80];
 	dir();goto**pt;
 	put:
 		sp-=3;
-		ps[sp[3]+sp[2]*80]=sp[1];
-		pg[sp[3]+sp[2]*80]=sp[1]<127?ft[sp[1]]:&&nop;
+		ps[sp[2]+sp[3]*80]=sp[1];
+		pg[sp[2]+sp[3]*80]=sp[1]<127?ft[sp[1]]:&&nop;
 	dir();goto**pt;
 	och:putchar(*sp--);
 	dir();goto**pt;
 	oin:printf("%ld",*sp--);
+	fflush(stdout);
 	dir();goto**pt;
 	ich:*++sp=getchar();
 	dir();goto**pt;
-	iin:while(!scanf("%ld",++sp));
+	iin:
+	fgets(fgs,16,stdin);
+	sscanf(fgs,"%ld",++sp);
 	dir();goto**pt;
 	end:putchar('\n');return 0;
 }
