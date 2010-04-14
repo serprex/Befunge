@@ -1,6 +1,6 @@
-CF = -O3 -march=native -fmerge-all-constants -fomit-frame-pointer -fno-gcse
+CF = -O3 -march=native -fmerge-all-constants -fno-gcse -fomit-frame-pointer
 CC = gcc -std=gnu99
-all: funge fungesafe marsh marshsafe
+all: funge marsh
 funge: marsh.c
 	${CC} -DFUNGE marsh.c -o funge.s -S ${CF}
 	./fixit.py funge.s
@@ -13,17 +13,5 @@ marsh: marsh.c
 	as marsh.s -o marsh.o
 	gcc marsh.o -o marsh
 	strip marsh
-fungesafe: marshsafe.c
-	${CC} -DFUNGE marshsafe.c -o fungesafe.s -S ${CF}
-	./fixit.py fungesafe.s
-	as fungesafe.s -o fungesafe.o
-	gcc fungesafe.o -o fungesafe
-	strip fungesafe
-marshsafe: marshsafe.c
-	${CC} marshsafe.c -o marshsafe.s -S ${CF}
-	./fixit.py marshsafe.s
-	as marshsafe.s -o marshsafe.o
-	gcc marshsafe.o -o marshsafe
-	strip marshsafe
 clean:
 	rm *.o *.s

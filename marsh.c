@@ -28,14 +28,14 @@ int main(int argc,char**argv){
 	for(int i=0;i<25;i++){
 		for(int j=0;j<80;j++){
 			int c=getc(prog);
-			if(c=='\n') goto FoundNew;
-			if(c==-1) goto RunProg;
+			if(unlikely(c=='\n')) goto FoundNew;
+			if(unlikely(c==-1)) goto RunProg;
 			ps[i*80+j]=c;
 		}
 		for(;;){
 			int c=getc(prog);
-			if(c=='\n') goto FoundNew;
-			if(c==-1) goto RunProg;
+			if(unlikely(c=='\n')) goto FoundNew;
+			if(unlikely(c==-1)) goto RunProg;
 		}
 		FoundNew:;
 	}
@@ -64,19 +64,19 @@ int main(int argc,char**argv){
 	dir();goto**pt;
 	p9:*++sp=9;
 	dir();goto**pt;
-	add:sp--;*sp+=sp[1];
+	add:if(sp>st){sp--;*sp+=sp[1];}else if(sp<st){*++sp=0;}
 	dir();goto**pt;
-	sub:sp--;*sp-=sp[1];
+	sub:if(sp>st){sp--;*sp-=sp[1];}else if(sp==st){*sp*=-1;}else{*++sp=0;}
 	dir();goto**pt;
-	mul:sp--;*sp*=sp[1];
+	mul:if(sp>st){sp--;*sp*=sp[1];}else{*(sp=st)=0;}
 	dir();goto**pt;
-	dvi:sp--;*sp/=sp[1];
+	dvi:if(sp>st){sp--;if(!sp[1]) goto iin;*sp/=sp[1];}else goto iin;
 	dir();goto**pt;
-	mod:sp--;*sp%=sp[1];
+	mod:if(sp>st){sp--;if(!sp[1]) goto iin;*sp%=sp[1];}else goto iin;
 	dir();goto**pt;
 	not:*sp=!*sp;
 	dir();goto**pt;
-	gt:sp--;*sp=*sp>sp[1];
+	gt:if(sp>st){sp--;*sp=*sp>sp[1];}else{*sp=sp==st&&0>*sp;}
 	dir();goto**pt;
 	ea:dir=gea;
 	dir();goto**pt;
@@ -86,37 +86,58 @@ int main(int argc,char**argv){
 	dir();goto**pt;
 	no:dir=gno;
 	dir();goto**pt;
-	dup:sp[1]=*sp;sp++;
+	dup:if(sp>=st){sp[1]=*sp;sp++;}else{st[0]=0;st[1]=0;sp=st+1;}
 	dir();goto**pt;
-	pop:sp--;
+	pop:sp-=sp>=st;
 	dir();goto**pt;
 	hop:dir();
 	dir();goto**pt;
-	hif:dir=*sp--?gwe:gea;
+	hif:dir=sp>=st&&*sp--?gwe:gea;
 	dir();goto**pt;
-	vif:dir=*sp--?gno:gso;
+	vif:dir=sp>=st&&*sp--?gno:gso;
 	dir();goto**pt;
-	swp:{
+	swp:if(sp>st){
 		long tmp=*sp;
 		*sp=sp[-1];
 		sp[-1]=tmp;
-	}
+	}else if(sp==st){sp[1]=*sp;*sp++=0;}else{*++sp=0;*++sp=0;}
 	dir();goto**pt;
 	stm:for(;dir(),*pt!=&&stm;*++sp=ps[pt-pg]);
 	dir();goto**pt;
 	rnd:dir=df[getc(rand)&3];
 	dir();goto**pt;
-	get:sp--;*sp=ps[*sp+sp[1]*80];
+	get:
+		if(sp>st){sp--;*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?*sp=ps[*sp+sp[1]*80]:0;}
+		else if(sp==st){*sp=*sp<25&&*sp>=0?ps[*sp*80]:0;}
+		else{*++sp=ps[0];}
 	dir();goto**pt;
 	put:
-		sp-=3;
-		ps[sp[2]+sp[3]*80]=sp[1];
-		pg[sp[2]+sp[3]*80]=sp[1]<127?ft[sp[1]]:&&nop;
+		switch(sp-st){
+		case 0:
+			sp=st-1;
+			int y=sp[1]<25&&sp[1]>=0?sp[1]:0;
+			ps[y*80]=0;
+			pg[y*80]=&&nop;
+		break;case-1:
+			ps[0]=0;
+			pg[0]=&&nop;
+		break;case 1:{
+			sp=st-1;
+			int x=sp[1]>=0&&sp[1]<80?sp[1]:0,y=sp[2]>=0&&sp[2]<25?sp[2]:0;
+			ps[x+y*80]=0;
+			pg[x+y*80]=&&nop;
+			}
+		break;default:{
+			sp-=3;
+			int x=sp[2]>=0&&sp[2]<80?sp[2]:0,y=sp[3]>=0&&sp[3]<25?sp[3]:0;
+			ps[x+y*80]=sp[1];
+			pg[x+y*80]=sp[1]<127?ft[sp[1]]:&&nop;
+			}
+		}
 	dir();goto**pt;
-	och:putchar(*sp--);
+	och:putchar(sp>=st?*sp--:0);
 	dir();goto**pt;
-	oin:printf("%ld",*sp--);
-	fflush(stdout);
+	oin:printf("%ld",sp>=st?*sp--:0);
 	dir();goto**pt;
 	ich:*++sp=getchar();
 	dir();goto**pt;
