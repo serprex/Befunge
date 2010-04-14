@@ -1,5 +1,2 @@
-Il y a un petit peut trop ici, mais c'est bon
-Funge est l'interpreteur, utilise par suppli des fichier comme "./funge fichier"
-Utilise safe si le programme pense qu'une pile vide donne les zéros
-Marsh est un modèle pour les programmes qui contennu lui même
-Crées avec marsh par "./spawn fichier". Donne un paramètre auxiliaire si tu veux qu'elle utilise marshsafe
+Funge est l'interpreteur explicite, utilise par funge
+Marsh est un modèle pour les programmes qui contennu lui même, crées par spawn
