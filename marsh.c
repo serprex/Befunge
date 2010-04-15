@@ -7,7 +7,7 @@ static inline void gso(){pt+=80;if(pt-pg>=2000)pt-=2000;}
 static inline void gno(){pt-=80;if(pt<pg)pt+=2000;}
 static void(*const df[])(void)={gea,gno,gwe,gso};
 static void(*dir)(void)=gea;
-static char fgs[16];
+static char fgs[(int)(2.41*sizeof(long))+1];
 int main(int argc,char**argv){
 	FILE*rand=fopen("/dev/urandom","r");
 	long st[65536],*sp=st-1;
@@ -68,8 +68,7 @@ int main(int argc,char**argv){
 	dir();goto**pt;
 	mul:if(sp>st){sp--;*sp*=sp[1];}else{*(sp=st)=0;}
 	dir();goto**pt;
-	dvi:
-	if(sp>st){sp--;if(!sp[1]) goto iin;*sp/=sp[1];}else goto iin;
+	dvi:if(sp>st){sp--;if(!sp[1]) goto iin;*sp/=sp[1];}else goto iin;
 	dir();goto**pt;
 	mod:if(sp>st){sp--;if(!sp[1]) goto iin;*sp%=sp[1];}else goto iin;
 	dir();goto**pt;
@@ -106,32 +105,31 @@ int main(int argc,char**argv){
 	rnd:dir=df[getc(rand)&3];
 	dir();goto**pt;
 	get:
-		if(sp>st){sp--;*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?*sp=ps[*sp+sp[1]*80]:0;}
+		if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[*sp+sp[1]*80]:0;}
 		else if(sp==st){*sp=*sp<25&&*sp>=0?ps[*sp*80]:0;}
 		else{*++sp=ps[0];}
 	dir();goto**pt;
 	put:
 		switch(sp-st){
-		case 0:
-			sp=st-1;
-			int y=sp[1]<25&&sp[1]>=0?sp[1]:0;
-			ps[y*80]=0;
-			pg[y*80]=&&nop;
-		break;case-1:
+		int x;
+		case-1:
 			ps[0]=0;
 			pg[0]=&&nop;
-		break;case 1:{
+		break;case 0:
 			sp=st-1;
-			int x=sp[1]>=0&&sp[1]<80?sp[1]:0,y=sp[2]>=0&&sp[2]<25?sp[2]:0;
-			ps[x+y*80]=0;
-			pg[x+y*80]=&&nop;
-			}
-		break;default:{
+			x=sp[1]<25&&sp[1]>=0?sp[1]*80:0;
+			ps[x]=0;
+			pg[x]=&&nop;
+		break;case 1:
+			sp=st-1;
+			x=(sp[1]>=0&&sp[1]<80?sp[1]:0)+(sp[2]>=0&&sp[2]<25?sp[2]*80:0);
+			ps[x]=0;
+			pg[x]=&&nop;
+		break;default:
 			sp-=3;
-			int x=sp[2]>=0&&sp[2]<80?sp[2]:0,y=sp[3]>=0&&sp[3]<25?sp[3]:0;
-			ps[x+y*80]=sp[1];
-			pg[x+y*80]=sp[1]<127?ft[sp[1]]:&&nop;
-			}
+			x=(sp[2]>=0&&sp[2]<80?sp[2]:0)+(sp[3]>=0&&sp[3]<25?sp[3]*80:0);
+			ps[x]=sp[1];
+			pg[x]=sp[1]<127?ft[sp[1]]:&&nop;
 		}
 	dir();goto**pt;
 	och:putchar(sp>=st?*sp--:0);
@@ -141,7 +139,7 @@ int main(int argc,char**argv){
 	ich:*++sp=getchar();
 	dir();goto**pt;
 	iin:
-	fgets(fgs,16,stdin);
+	fgets(fgs,sizeof(fgs),stdin);
 	sscanf(fgs,"%ld",++sp);
 	dir();goto**pt;
 	end:putchar('\n');return 0;
