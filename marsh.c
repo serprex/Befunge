@@ -1,12 +1,10 @@
 #include <stdio.h>
-#define likely(x) __builtin_expect((x),1)
-#define unlikely(x) __builtin_expect((x),0)
 static void*pg[2000],**pt=pg;
-static unsigned char ps[2000]={[0 ... 1999]=32};
-static inline void gea(){pt++;if(unlikely((pt-pg)%80==0))pt-=80;}
-static inline void gwe(){if(unlikely((pt-pg)%80==0))pt+=80;pt--;}
-static inline void gso(){pt+=80;if(unlikely(pt-pg>=2000))pt-=2000;}
-static inline void gno(){pt-=80;if(unlikely(pt<pg))pt+=2000;}
+static long ps[2000]={[0 ... 1999]=0x20};
+static inline void gea(){pt++;if((pt-pg)%80==0)pt-=80;}
+static inline void gwe(){if((pt-pg)%80==0)pt+=80;pt--;}
+static inline void gso(){pt+=80;if(pt-pg>=2000)pt-=2000;}
+static inline void gno(){pt-=80;if(pt<pg)pt+=2000;}
 static void(*const df[])(void)={gea,gno,gwe,gso};
 static void(*dir)(void)=gea;
 static char fgs[16];
@@ -28,14 +26,14 @@ int main(int argc,char**argv){
 	for(int i=0;i<25;i++){
 		for(int j=0;j<80;j++){
 			int c=getc(prog);
-			if(unlikely(c=='\n')) goto FoundNew;
-			if(unlikely(c==-1)) goto RunProg;
+			if(c=='\n') goto FoundNew;
+			if(c==-1) goto RunProg;
 			ps[i*80+j]=c;
 		}
 		for(;;){
 			int c=getc(prog);
-			if(unlikely(c=='\n')) goto FoundNew;
-			if(unlikely(c==-1)) goto RunProg;
+			if(c=='\n') goto FoundNew;
+			if(c==-1) goto RunProg;
 		}
 		FoundNew:;
 	}
@@ -70,7 +68,8 @@ int main(int argc,char**argv){
 	dir();goto**pt;
 	mul:if(sp>st){sp--;*sp*=sp[1];}else{*(sp=st)=0;}
 	dir();goto**pt;
-	dvi:if(sp>st){sp--;if(!sp[1]) goto iin;*sp/=sp[1];}else goto iin;
+	dvi:
+	if(sp>st){sp--;if(!sp[1]) goto iin;*sp/=sp[1];}else goto iin;
 	dir();goto**pt;
 	mod:if(sp>st){sp--;if(!sp[1]) goto iin;*sp%=sp[1];}else goto iin;
 	dir();goto**pt;
@@ -102,7 +101,7 @@ int main(int argc,char**argv){
 		sp[-1]=tmp;
 	}else if(sp==st){sp[1]=*sp;*sp++=0;}else{*++sp=0;*++sp=0;}
 	dir();goto**pt;
-	stm:for(;dir(),*pt!=&&stm;*++sp=ps[pt-pg]);
+	stm:for(;dir(),ps[pt-pg]!='"';*++sp=ps[pt-pg]);
 	dir();goto**pt;
 	rnd:dir=df[getc(rand)&3];
 	dir();goto**pt;
@@ -137,7 +136,7 @@ int main(int argc,char**argv){
 	dir();goto**pt;
 	och:putchar(sp>=st?*sp--:0);
 	dir();goto**pt;
-	oin:printf("%ld",sp>=st?*sp--:0);
+	oin:printf("%ld ",sp>=st?*sp--:0);
 	dir();goto**pt;
 	ich:*++sp=getchar();
 	dir();goto**pt;
