@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 from sys import argv
 a="".join(a[:80]+" "*(80-len(a)) for a in open(argv[1]).read().split("\n")[:25])
 b=open("marsh","rb").read()

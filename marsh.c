@@ -1,104 +1,166 @@
 #include <stdio.h>
-void*pg[2000],**pt=pg;
-long long ps[2000]={[0 ... 1999]=0x20};
-void gea(){pt++;if((pt-pg)%80==0)pt-=80;}
-void gwe(){if((pt-pg)%80==0)pt+=80;pt--;}
-void gso(){pt+=80;if(pt-pg>=2000)pt-=2000;}
-void gno(){pt-=80;if(pt<pg)pt+=2000;}
-void(*const df[])(void)={gea,gno,gwe,gso};
-void(*dir)(void)=gea;
+#ifdef STDRAND
+	#include <stdlib.h>
+#ifdef RDTSC
+	int rdtsc(){__asm__ __volatile__("rdtsc");}
+#else
+	#include <time.h>
+#endif
+#endif
 int main(int argc,char**argv){
+#ifdef STDRAND
+	srand(
+	#ifdef RDTSC
+		rdtsc()
+	#else
+		time(0)
+	#endif
+	);
+#else
 	FILE*rand=fopen("/dev/urandom","r");
-	long long st[65536],*sp=st-1;
-	void*const ft[127]={
-	&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,
-	&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,
-	&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,
+#endif
+	void*pg[2000],**pt=pg;
+	long long ps[2000]={[0 ... 1999]=
+#ifdef FUNGE
+0
+#else
+32
+#endif
+	};
+	void*const ft[]={
 	&&not,&&stm,&&hop,&&pop,&&mod,&&iin,&&nop,&&nop,&&nop,&&mul,&&add,&&och,&&sub,&&oin,&&dvi,
 	&&p0,&&p1,&&p2,&&p3,&&p4,&&p5,&&p6,&&p7,&&p8,&&p9,&&dup,&&nop,&&we,&&nop,&&ea,&&rnd,
 	&&end,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,
 	&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&swp,&&nop,&&no,
 	&&hif,&&gt,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&get,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,
 	&&nop,&&put,&&nop,&&nop,&&nop,&&nop,&&nop,&&so,&&nop,&&nop,&&nop,&&nop,&&nop,&&vif,&&nop,&&ich};
+	long long st[65536],*sp=st-1;
 #ifdef FUNGE
+#ifdef SPACE
+	for(int i=0;i<2000;i++)ps[i]=' ';
+#endif
 	FILE*prog=fopen(argv[1],"r");
 	for(int i=0;i<25;i++){
 		for(int j=0;j<80;j++){
 			int c=getc(prog);
-			if(c=='\n') goto FoundNew;
-			if(c==-1) goto RunProg;
+			if(c=='\n')goto FoundNew;
+			if(c==-1)goto RunProg;
 			ps[i*80+j]=c;
 		}
 		for(;;){
 			int c=getc(prog);
-			if(c=='\n') goto FoundNew;
-			if(c==-1) goto RunProg;
+			if(c=='\n')goto FoundNew;
+			if(c==-1)goto RunProg;
 		}
 		FoundNew:;
 	}
 	RunProg:fclose(prog);
 #endif
-	for(int i=0;i<2000;i++) pg[i]=ps[i]<127?ft[ps[i]]:&&nop;
+	for(int i=0;i<2000;i++) pg[i]=ps[i]>32&&ps[i]<127?ft[ps[i]-33]:&&nop;
+	void*const df[]={&&gea,&&gno,&&gwe,&&gso};
+	int dir=0;
+	goto**pt;
+	gea:pt++;if((pt-pg)%80==0)pt-=80;
+	goto**pt;
+	gno:pt-=80;if(pt<pg)pt+=2000;
+	goto**pt;
+	gwe:if((pt-pg)%80==0)pt+=80;pt--;
+	goto**pt;
+	gso:pt+=80;if(pt-pg>=2000)pt-=2000;
 	goto**pt;
 	p0:*++sp=0;
-	nop:dir();goto**pt;
+	nop:goto*df[dir];
 	p1:*++sp=1;
-	dir();goto**pt;
+	goto*df[dir];
 	p2:*++sp=2;
-	dir();goto**pt;
+	goto*df[dir];
 	p3:*++sp=3;
-	dir();goto**pt;
+	goto*df[dir];
 	p4:*++sp=4;
-	dir();goto**pt;
+	goto*df[dir];
 	p5:*++sp=5;
-	dir();goto**pt;
+	goto*df[dir];
 	p6:*++sp=6;
-	dir();goto**pt;
+	goto*df[dir];
 	p7:*++sp=7;
-	dir();goto**pt;
+	goto*df[dir];
 	p8:*++sp=8;
-	dir();goto**pt;
+	goto*df[dir];
 	p9:*++sp=9;
-	dir();goto**pt;
+	goto*df[dir];
 	add:if(sp>st){sp--;*sp+=sp[1];}else if(sp<st)*++sp=0;
-	dir();goto**pt;
+	goto*df[dir];
 	sub:if(sp>st){sp--;*sp-=sp[1];}else if(sp==st)*sp*=-1;else*++sp=0;
-	dir();goto**pt;
+	goto*df[dir];
 	mul:if(sp>st){sp--;*sp*=sp[1];}else*(sp=st)=0;
-	dir();goto**pt;
+	goto*df[dir];
 	dvi:if(sp>st){sp--;*sp=sp[1]?*sp/sp[1]:*sp+(*sp>0)-(*sp<0);}else*(sp=st)=0;
-	dir();goto**pt;
+	goto*df[dir];
 	mod:if(sp>st){sp--;if(sp[1])*sp%=sp[1];}else*(sp=st)=0;
-	dir();goto**pt;
+	goto*df[dir];
 	not:*sp=!*sp;
-	dir();goto**pt;
+	goto*df[dir];
 	gt:if(sp>st){sp--;*sp=*sp>sp[1];}else*sp=sp==st&&0>*sp;
-	dir();goto**pt;
-	ea:(dir=gea)();goto**pt;
-	we:(dir=gwe)();goto**pt;
-	so:(dir=gso)();goto**pt;
-	no:(dir=gno)();goto**pt;
+	goto*df[dir];
+	ea:goto*df[dir=0];
+	we:goto*df[dir=2];
+	so:goto*df[dir=3];
+	no:goto*df[dir=1];
 	dup:if(sp>=st){sp[1]=*sp;sp++;}else{sp=st+1;st[0]=st[1]=0;}
-	dir();goto**pt;
+	goto*df[dir];
 	pop:sp-=sp>=st;
-	dir();goto**pt;
-	hop:dir();
-	dir();goto**pt;
-	hif:(dir=sp>=st&&*sp--?gwe:gea)();goto**pt;
-	vif:(dir=sp>=st&&*sp--?gno:gso)();goto**pt;
+	goto*df[dir];
+	hop:
+	switch(dir){
+	case 0:pt+=2;if((pt-pg)%80<2)pt-=80;
+	goto**pt;case 1:pt-=160;if(pt<pg)pt+=2000;
+	goto**pt;case 2:if((pt-pg)%80<2)pt+=80;pt-=2;
+	goto**pt;case 3:pt+=160;if(pt-pg>=2000)pt-=2000;
+	goto**pt;default:__builtin_unreachable();
+	}
+	hif:goto*df[dir=sp>=st&&*sp--?2:0];
+	vif:goto*df[dir=sp>=st&&*sp--?1:3];
 	swp:if(sp>st){
 		long tmp=*sp;
 		*sp=sp[-1];
 		sp[-1]=tmp;
 	}else if(sp==st){sp[1]=*sp;*sp++=0;}else{sp=st+1;st[0]=st[1]=0;}
-	dir();goto**pt;
-	stm:for(;dir(),ps[pt-pg]!='"';*++sp=ps[pt-pg]);
-	dir();goto**pt;
-	rnd:(dir=df[getc(rand)&3])();goto**pt;
+	goto*df[dir];
+	stm:
+	switch(dir){
+	case 0:for(;;){
+		pt++;if((pt-pg)%80==0)pt-=80;
+		if(ps[pt-pg]=='"')goto*df[dir];
+		*++sp=ps[pt-pg];
+	}
+	case 1:for(;;){
+		pt-=80;if(pt<pg)pt+=2000;
+		if(ps[pt-pg]=='"')goto*df[dir];
+		*++sp=ps[pt-pg];
+	}
+	case 2:for(;;){
+		if((pt-pg)%80==0)pt+=80;pt--;
+		if(ps[pt-pg]=='"')goto*df[dir];
+		*++sp=ps[pt-pg];
+	}
+	case 3:for(;;){
+		pt+=80;if(pt-pg>=2000)pt-=2000;
+		if(ps[pt-pg]=='"')goto*df[dir];
+		*++sp=ps[pt-pg];
+	}
+	default:__builtin_unreachable();
+	}
+	rnd:goto*df[dir=
+#ifdef STDRAND
+	rand()
+#else
+	getc(rand)
+#endif
+	&3];
 	get:
 		if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[*sp+sp[1]*80]:0;}
 		else if(sp==st)*sp=*sp<25&&*sp>=0?ps[*sp*80]:0;else*++sp=ps[0];
-	dir();goto**pt;
+	goto*df[dir];
 	put:
 		switch(sp-st){
 		int x;
@@ -119,16 +181,16 @@ int main(int argc,char**argv){
 			sp-=3;
 			x=(sp[2]>=0&&sp[2]<80?sp[2]:0)+(sp[3]>=0&&sp[3]<25?sp[3]*80:0);
 			ps[x]=sp[1];
-			pg[x]=sp[1]>32&&sp[1]<127?ft[sp[1]]:&&nop;
+			pg[x]=sp[1]>32&&sp[1]<127?&&nop:ft[sp[1]-33];
 		}
-	dir();goto**pt;
+	goto*df[dir];
 	och:putchar(sp>=st?*sp--:0);
-	dir();goto**pt;
+	goto*df[dir];
 	oin:printf("%lld ",sp>=st?*sp--:0);
-	dir();goto**pt;
+	goto*df[dir];
 	ich:*++sp=getchar();
-	dir();goto**pt;
+	goto*df[dir];
 	iin:scanf("%lld",++sp);
-	dir();goto**pt;
-	end:putchar('\n');return 0;
+	goto*df[dir];
+	end:;
 }
