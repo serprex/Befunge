@@ -36,8 +36,7 @@ int main(int argc,char**argv){
 		}
 		FoundNew:;
 	}
-	RunProg:
-	fclose(prog);
+	RunProg:fclose(prog);
 #endif
 	for(int i=0;i<2000;i++) pg[i]=ps[i]<127?ft[ps[i]]:&&nop;
 	goto**pt;
@@ -129,10 +128,7 @@ int main(int argc,char**argv){
 	dir();goto**pt;
 	ich:*++sp=getchar();
 	dir();goto**pt;
-	iin:{
-		char fgs[(int)(2.41*sizeof(long long))+1];
-		sscanf(fgets(fgs,sizeof(fgs),stdin)?:"r","%lld",++sp);
-	}
+	iin:scanf("%lld",++sp);
 	dir();goto**pt;
 	end:putchar('\n');return 0;
 }
