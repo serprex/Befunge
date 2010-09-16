@@ -1,4 +1,4 @@
-CF = -O3 -march=native -fwhole-program -s
+CF = -O3 -s -march=native -fwhole-program
 CC = gcc -std=gnu99
 all: funge marsh
 funge: marsh.c

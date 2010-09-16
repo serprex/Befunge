@@ -110,12 +110,11 @@ int main(int argc,char**argv){
 	goto*df[dir];
 	pop:sp-=sp>=st;
 	goto*df[dir];
-	hop:
-	switch(dir){
+	hop:switch(dir){
 	case 0:pt+=64;if(pt-pg>=2560)pt-=2560;
 	goto**pt;case 1:if((pt-pg&31)<2)pt+=32;pt-=2;
 	goto**pt;case 2:pt-=64;if(pt<pg)pt+=2560;
-	goto**pt;case 3:pt+2;if((pt-pg&31)<2)pt-=32;
+	goto**pt;case 3:pt+=2;if((pt-pg&31)<2)pt-=32;
 	goto**pt;default:__builtin_unreachable();
 	}
 	hif:goto*df[dir=sp>=st&&*sp--?2:0];
@@ -126,8 +125,7 @@ int main(int argc,char**argv){
 		sp[-1]=tmp;
 	}else if(sp==st){sp[1]=*sp;*sp++=0;}else{sp=st+1;st[0]=st[1]=0;}
 	goto*df[dir];
-	stm:
-	switch(dir){
+	stm:switch(dir){
 	case 0:for(;;){
 		pt+=32;if(pt-pg>=2560)pt-=2560;
 		if(ps[pt-pg]=='"')goto*df[dir];
