@@ -10,17 +10,17 @@
 int main(int argc,char**argv){
 #ifdef STDRAND
 	srand(
-	#ifdef RDTSC
-		rdtsc()
-	#else
-		time(0)
-	#endif
+#ifdef RDTSC
+	rdtsc()
+#else
+	time(0)
+#endif
 	);
 #else
 	FILE*rand=fopen("/dev/urandom","r");
 #endif
-	void*pg[2000],**pt=pg;
-	long long ps[2000]={[0 ... 1999]=
+	void*pg[2560],**pt=pg;
+	long long ps[2560]={[0 ... 2559]=
 #ifdef FUNGE
 0
 #else
@@ -37,7 +37,7 @@ int main(int argc,char**argv){
 	long long st[65536],*sp=st-1;
 #ifdef FUNGE
 #ifdef SPACE
-	for(int i=0;i<2000;i++)ps[i]=' ';
+	for(int i=0;i<2560;i++)ps[i]=' ';
 #endif
 	FILE*prog=fopen(argv[1],"r");
 	for(int i=0;i<25;i++){
@@ -45,7 +45,7 @@ int main(int argc,char**argv){
 			int c=getc(prog);
 			if(c=='\n')goto FoundNew;
 			if(c==-1)goto RunProg;
-			ps[i*80+j]=c;
+			ps[i+j*32]=c;
 		}
 		for(;;){
 			int c=getc(prog);
@@ -56,17 +56,17 @@ int main(int argc,char**argv){
 	}
 	RunProg:fclose(prog);
 #endif
-	for(int i=0;i<2000;i++) pg[i]=ps[i]>32&&ps[i]<127?ft[ps[i]-33]:&&nop;
+	for(int i=0;i<2560;i++)pg[i]=ps[i]>32&&ps[i]<127?ft[ps[i]-33]:&&nop;
 	void*const df[]={&&gea,&&gno,&&gwe,&&gso};
 	int dir=0;
 	goto**pt;
-	gea:pt++;if((pt-pg)%80==0)pt-=80;
+	gea:pt+=32;if(pt-pg>=2560)pt-=2560;
 	goto**pt;
-	gno:pt-=80;if(pt<pg)pt+=2000;
+	gno:if(!(pt-pg&31))pt+=32;pt--;
 	goto**pt;
-	gwe:if((pt-pg)%80==0)pt+=80;pt--;
+	gwe:pt-=32;if(pt<pg)pt+=2560;
 	goto**pt;
-	gso:pt+=80;if(pt-pg>=2000)pt-=2000;
+	gso:pt++;if(!(pt-pg&31))pt-=32;
 	goto**pt;
 	p0:*++sp=0;
 	nop:goto*df[dir];
@@ -112,10 +112,10 @@ int main(int argc,char**argv){
 	goto*df[dir];
 	hop:
 	switch(dir){
-	case 0:pt+=2;if((pt-pg)%80<2)pt-=80;
-	goto**pt;case 1:pt-=160;if(pt<pg)pt+=2000;
-	goto**pt;case 2:if((pt-pg)%80<2)pt+=80;pt-=2;
-	goto**pt;case 3:pt+=160;if(pt-pg>=2000)pt-=2000;
+	case 0:pt+=64;if(pt-pg>=2560)pt-=2560;
+	goto**pt;case 1:if((pt-pg&31)<2)pt+=32;pt-=2;
+	goto**pt;case 2:pt-=64;if(pt<pg)pt+=2560;
+	goto**pt;case 3:pt+2;if((pt-pg&31)<2)pt-=32;
 	goto**pt;default:__builtin_unreachable();
 	}
 	hif:goto*df[dir=sp>=st&&*sp--?2:0];
@@ -129,22 +129,22 @@ int main(int argc,char**argv){
 	stm:
 	switch(dir){
 	case 0:for(;;){
-		pt++;if((pt-pg)%80==0)pt-=80;
+		pt+=32;if(pt-pg>=2560)pt-=2560;
 		if(ps[pt-pg]=='"')goto*df[dir];
 		*++sp=ps[pt-pg];
 	}
 	case 1:for(;;){
-		pt-=80;if(pt<pg)pt+=2000;
+		if(!(pt-pg&31))pt+=32;pt--;
 		if(ps[pt-pg]=='"')goto*df[dir];
 		*++sp=ps[pt-pg];
 	}
 	case 2:for(;;){
-		if((pt-pg)%80==0)pt+=80;pt--;
+		pt-=32;if(pt<pg)pt+=2560;
 		if(ps[pt-pg]=='"')goto*df[dir];
 		*++sp=ps[pt-pg];
 	}
 	case 3:for(;;){
-		pt+=80;if(pt-pg>=2000)pt-=2000;
+		pt++;if(!(pt-pg&31))pt-=32;
 		if(ps[pt-pg]=='"')goto*df[dir];
 		*++sp=ps[pt-pg];
 	}
@@ -158,8 +158,8 @@ int main(int argc,char**argv){
 #endif
 	&3];
 	get:
-		if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[*sp+sp[1]*80]:0;}
-		else if(sp==st)*sp=*sp<25&&*sp>=0?ps[*sp*80]:0;else*++sp=ps[0];
+		if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[*sp*32+sp[1]]:0;}
+		else if(sp==st)*sp=*sp<25&&*sp>=0?ps[*sp]:0;else*++sp=ps[0];
 	goto*df[dir];
 	put:
 		switch(sp-st){
@@ -169,17 +169,17 @@ int main(int argc,char**argv){
 			pg[0]=&&nop;
 		break;case 0:
 			sp=st-1;
-			x=sp[1]<25&&sp[1]>=0?sp[1]*80:0;
+			x=sp[1]<25&&sp[1]>=0?sp[1]*32:0;
 			ps[x]=0;
 			pg[x]=&&nop;
 		break;case 1:
 			sp=st-1;
-			x=(sp[1]>=0&&sp[1]<80?sp[1]:0)+(sp[2]>=0&&sp[2]<25?sp[2]*80:0);
+			x=(sp[1]>=0&&sp[1]<80?sp[1]*32:0)+(sp[2]>=0&&sp[2]<25?sp[2]:0);
 			ps[x]=0;
 			pg[x]=&&nop;
 		break;default:
 			sp-=3;
-			x=(sp[2]>=0&&sp[2]<80?sp[2]:0)+(sp[3]>=0&&sp[3]<25?sp[3]*80:0);
+			x=(sp[2]>=0&&sp[2]<80?sp[2]*32:0)+(sp[3]>=0&&sp[3]<25?sp[3]:0);
 			ps[x]=sp[1];
 			pg[x]=sp[1]>32&&sp[1]<127?&&nop:ft[sp[1]-33];
 		}
