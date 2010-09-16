@@ -7,6 +7,9 @@
 	#include <time.h>
 #endif
 #endif
+#ifndef STACK
+	#include <sys/resource.h>
+#endif
 int main(int argc,char**argv){
 #ifdef STDRAND
 	srand(
@@ -19,14 +22,20 @@ int main(int argc,char**argv){
 #else
 	FILE*rand=fopen("/dev/urandom","r");
 #endif
+#ifdef SMALL
 	void*pg[2560],**pt=pg;
+#else
+	unsigned char pg[2560],*pt=pg;
+#endif
 	long long ps[2560]={[0 ... 2559]=
 #ifdef FUNGE
-0
+	0
 #else
-32
+	32
 #endif
 	};
+#ifdef SMALL
+	void*const df[]={&&gea,&&gno,&&gwe,&&gso};
 	void*const ft[]={
 	&&not,&&stm,&&hop,&&pop,&&mod,&&iin,&&nop,&&nop,&&nop,&&mul,&&add,&&och,&&sub,&&oin,&&dvi,
 	&&p0,&&p1,&&p2,&&p3,&&p4,&&p5,&&p6,&&p7,&&p8,&&p9,&&dup,&&nop,&&we,&&nop,&&ea,&&rnd,
@@ -34,7 +43,45 @@ int main(int argc,char**argv){
 	&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&swp,&&nop,&&no,
 	&&hif,&&gt,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&get,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,
 	&&nop,&&put,&&nop,&&nop,&&nop,&&nop,&&nop,&&so,&&nop,&&nop,&&nop,&&nop,&&nop,&&vif,&&nop,&&ich};
-	long long st[65536],*sp=st-1;
+#else
+	void*const ft[4][127-33]={
+	{&&not0,&&stm0,&&hop0,&&pop0,&&mod0,&&iin0,&&nop0,&&nop0,&&nop0,&&mul0,&&add0,&&och0,&&sub0,&&oin0,&&dvi0,
+	&&p00,&&p10,&&p20,&&p30,&&p40,&&p50,&&p60,&&p70,&&p80,&&p90,&&dup0,&&nop0,&&gwe,&&nop0,&&gea,&&rnd0,
+	&&end,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,
+	&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&swp0,&&nop0,&&gno,
+	&&hif0,&&gt0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&get0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,
+	&&nop0,&&put0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&gso,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&vif0,&&nop0,&&ich0},
+	{&&not1,&&stm1,&&hop1,&&pop1,&&mod1,&&iin1,&&nop1,&&nop1,&&nop1,&&mul1,&&add1,&&och1,&&sub1,&&oin1,&&dvi1,
+	&&p01,&&p11,&&p21,&&p31,&&p41,&&p51,&&p61,&&p71,&&p81,&&p91,&&dup1,&&nop1,&&gwe,&&nop1,&&gea,&&rnd1,
+	&&end,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,
+	&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&swp1,&&nop1,&&gno,
+	&&hif1,&&gt1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&get1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,
+	&&nop1,&&put1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&gso,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&vif1,&&nop1,&&ich1},
+	{&&not2,&&stm2,&&hop2,&&pop2,&&mod2,&&iin2,&&nop2,&&nop2,&&nop2,&&mul2,&&add2,&&och2,&&sub2,&&oin2,&&dvi2,
+	&&p02,&&p12,&&p22,&&p32,&&p42,&&p52,&&p62,&&p72,&&p82,&&p92,&&dup2,&&nop2,&&gwe,&&nop2,&&gea,&&rnd2,
+	&&end,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,
+	&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&swp2,&&nop2,&&gno,
+	&&hif2,&&gt2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&get2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,
+	&&nop2,&&put2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&gso,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&vif2,&&nop2,&&ich2},
+	{&&not3,&&stm3,&&hop3,&&pop3,&&mod3,&&iin3,&&nop3,&&nop3,&&nop3,&&mul3,&&add3,&&och3,&&sub3,&&oin3,&&dvi3,
+	&&p03,&&p13,&&p23,&&p33,&&p43,&&p53,&&p63,&&p73,&&p83,&&p93,&&dup3,&&nop3,&&gwe,&&nop3,&&gea,&&rnd3,
+	&&end,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,
+	&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&swp3,&&nop3,&&gno,
+	&&hif3,&&gt3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&get3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,
+	&&nop3,&&put3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&gso,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&vif3,&&nop3,&&ich3}};
+#endif
+#ifdef STACK
+	long long st[STACK
+#else
+	struct rlimit ss;
+	getrlimit(RLIMIT_STACK,&ss);
+	long long st[(ss.rlim_cur-sizeof(pg)-sizeof(ft)-sizeof(ps)
+#ifdef SMALL
+	-sizeof(df)
+#endif
+	)/sizeof(long long)-4096
+#endif
+	],*sp=st-1;
 #ifdef FUNGE
 #ifdef SPACE
 	for(int i=0;i<2560;i++)ps[i]=' ';
@@ -56,8 +103,9 @@ int main(int argc,char**argv){
 	}
 	RunProg:fclose(prog);
 #endif
-	for(int i=0;i<2560;i++)pg[i]=ps[i]>32&&ps[i]<127?ft[ps[i]-33]:&&nop;
-	void*const df[]={&&gea,&&gno,&&gwe,&&gso};
+	for(int i=0;i<2560;i++)pg[i]=ps[i]>32&&ps[i]<127?
+#ifdef SMALL
+	ft[ps[i]-33]:&&nop;
 	int dir=0;
 	goto**pt;
 	gea:pt+=32;if(pt-pg>=2560)pt-=2560;
@@ -190,5 +238,37 @@ int main(int argc,char**argv){
 	goto*df[dir];
 	iin:scanf("%lld",++sp);
 	goto*df[dir];
+#else
+	ps[i]-33:7;
+	#define DIR 0
+	#define OP(x) x##0
+	#define LOOP pt+=32;if(pt-pg>=2560)pt-=2560;goto*ft[0][*pt];
+	goto*ft[0][*pt];gea:LOOP;
+	#include "marsh.h"
+	#undef DIR
+	#undef OP
+	#undef LOOP
+	#define DIR 1
+	#define OP(x) x##1
+	#define LOOP if(!(pt-pg&31))pt+=32;pt--;goto*ft[1][*pt];
+	gno:LOOP;
+	#include "marsh.h"
+	#undef DIR
+	#undef OP
+	#undef LOOP
+	#define DIR 2
+	#define OP(x) x##2
+	#define LOOP pt-=32;if(pt<pg)pt+=2560;goto*ft[2][*pt];
+	gwe:LOOP;
+	#include "marsh.h"
+	#undef DIR
+	#undef OP
+	#undef LOOP
+	#define DIR 3
+	#define OP(x) x##3
+	#define LOOP pt++;if(!(pt-pg&31))pt-=32;goto*ft[3][*pt];
+	gso:LOOP;
+	#include "marsh.h"
+#endif
 	end:;
 }
