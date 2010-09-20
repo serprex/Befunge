@@ -45,7 +45,7 @@
 		sp[-1]=tmp;
 	}else if(sp==st){sp[1]=*sp;*sp++=0;}else{sp=st+1;st[0]=st[1]=0;}
 	LOOP;
-	OP(stm):switch(DIR){
+	OP(stm):switch(dir){
 	case 0:for(;;){
 		pt+=32;if(pt-pg>=2560)pt-=2560;
 		if(ps[pt-pg]=='"'){LOOP;}
@@ -65,6 +65,7 @@
 		pt++;if(!(pt-pg&31))pt-=32;
 		if(ps[pt-pg]=='"'){LOOP;}
 		*++sp=ps[pt-pg];
+	default:__builtin_unreachable();
 	}
 	}
 	OP(rnd):RND(

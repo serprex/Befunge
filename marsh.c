@@ -1,11 +1,14 @@
+#ifndef WORD
+	#define WORD long long
+#endif
 #include <stdio.h>
 #ifdef STDRAND
 	#include <stdlib.h>
-#ifdef RDTSC
-	int rdtsc(){__asm__ __volatile__("rdtsc");}
-#else
-	#include <time.h>
-#endif
+	#ifdef RDTSC
+		int rdtsc(){__asm__ __volatile__("rdtsc");}
+	#else
+		#include <time.h>
+	#endif
 #endif
 #ifndef STACK
 	#include <sys/resource.h>
@@ -13,11 +16,11 @@
 int main(int argc,char**argv){
 #ifdef STDRAND
 	srand(
-#ifdef RDTSC
-	rdtsc()
-#else
-	time(0)
-#endif
+	#ifdef RDTSC
+		rdtsc()
+	#else
+		time(0)
+	#endif
 	);
 #else
 	FILE*rand=fopen("/dev/urandom","r");
@@ -27,13 +30,7 @@ int main(int argc,char**argv){
 #else
 	unsigned char pg[2560],*pt=pg;
 #endif
-	long long ps[2560]={[0 ... 2559]=
-#ifdef FUNGE
-	0
-#else
-	32
-#endif
-	};
+	WORD ps[2560];
 	void*const ft[]={
 #ifdef SMALL
 	&&not,&&stm,&&hop,&&pop,&&mod,&&iin,&&nop,&&nop,&&nop,&&mul,&&add,&&och,&&sub,&&oin,&&dvi,
@@ -70,20 +67,19 @@ int main(int argc,char**argv){
 	&&nop3,&&put3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&gso,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&vif3,&&nop3,&&ich3};
 #endif
 #ifdef STACK
-	long long st[STACK
+	WORD st[STACK
 #else
 	struct rlimit ss;
 	getrlimit(RLIMIT_STACK,&ss);
-	long long st[(ss.rlim_cur-sizeof(pg)-sizeof(ft)-sizeof(ps)
-#ifdef SMALL
+	WORD st[(ss.rlim_cur-sizeof(pg)-sizeof(ft)-sizeof(ps)
+	#ifdef SMALL
 	-sizeof(df)
-#endif
-	)/sizeof(long long)-4096
+	#endif
+	)/sizeof(WORD)-4096
 #endif
 	],*sp=st-1;
-#ifdef FUNGE
 #ifdef SPACE
-	for(int i=0;i<2560;i++)ps[i]=' ';
+	for(int i=0;i<2560;i++)ps[i]=SPACE;
 #endif
 	FILE*prog=fopen(argv[1],"r");
 	for(int i=0;i<25;i++){
@@ -101,7 +97,6 @@ int main(int argc,char**argv){
 		FoundNew:;
 	}
 	RunProg:fclose(prog);
-#endif
 	for(int i=0;i<2560;i++)pg[i]=ps[i]>32&&ps[i]<127?
 #ifdef SMALL
 	ft[ps[i]-33]:&&nop;
@@ -109,7 +104,6 @@ int main(int argc,char**argv){
 	goto**pt;
 	#define FT(x) ft[x]
 	#define OP(x) x
-	#define DIR dir
 	#define LOOP goto*df[dir]
 	#define HOP switch(dir){\
 	case 0:pt+=64;if(pt-pg>=2560)pt-=2560;\
@@ -131,42 +125,38 @@ int main(int argc,char**argv){
 	ps[i]-33:7;
 	goto*ft[*pt];
 	#define FT(x) x
-	#define RND(x) switch(x){\
-	case 0:goto gea;\
-	case 1:goto gno;\
-	case 2:goto gwe;\
-	case 3:goto gso;}
-	#define DIR 0
+	#define RND(x) switch(x){case 0:goto gea;case 1:goto gno;case 2:goto gwe;case 3:goto gso;}
+	#define dir 0
 	#define OP(x) x##0
 	#define LOOP pt+=32;if(pt-pg>=2560)pt-=2560;goto*ft[*pt]
 	#define HOP pt+=64;if(pt-pg>=2560)pt-=2560;goto*ft[*pt]
 	gea:LOOP;
 	#include "marsh.h"
-	#undef DIR
+	#undef dir
 	#undef OP
 	#undef LOOP
 	#undef HOP
-	#define DIR 1
+	#define dir 1
 	#define OP(x) x##1
 	#define LOOP if(!(pt-pg&31))pt+=32;pt--;goto*ft[94+*pt]
 	#define HOP if((pt-pg&31)<2)pt+=32;pt-=2;goto*ft[94+*pt]
 	gno:LOOP;
 	#include "marsh.h"
-	#undef DIR
+	#undef dir
 	#undef OP
 	#undef LOOP
 	#undef HOP
-	#define DIR 2
+	#define dir 2
 	#define OP(x) x##2
 	#define LOOP pt-=32;if(pt<pg)pt+=2560;goto*ft[188+*pt]
 	#define HOP pt-=64;if(pt<pg)pt+=2560;goto*ft[188+*pt]
 	gwe:LOOP;
 	#include "marsh.h"
-	#undef DIR
+	#undef dir
 	#undef OP
 	#undef LOOP
 	#undef HOP
-	#define DIR 3
+	#define dir 3
 	#define OP(x) x##3
 	#define LOOP pt++;if(!(pt-pg&31))pt-=32;goto*ft[282+*pt]
 	#define HOP pt+=2;if((pt-pg&31)<2)pt-=32;goto*ft[282+*pt]
