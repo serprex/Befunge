@@ -1,3 +1,6 @@
+#if __GNUC__*100+__GNUC_MINOR__<405
+	#define __builtin_unreachable()
+#endif
 #ifndef WORD
 	#define WORD long long
 #endif
@@ -33,6 +36,7 @@ int main(int argc,char**argv){
 	WORD ps[2560];
 	void*const ft[]={
 #ifdef SMALL
+	#define FT(x) ft[x]
 	&&not,&&stm,&&hop,&&pop,&&mod,&&iin,&&nop,&&nop,&&nop,&&mul,&&add,&&och,&&sub,&&oin,&&dvi,
 	&&p0,&&p1,&&p2,&&p3,&&p4,&&p5,&&p6,&&p7,&&p8,&&p9,&&dup,&&nop,&&gwe,&&nop,&&gea,&&rnd,
 	&&end,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,&&nop,
@@ -41,6 +45,7 @@ int main(int argc,char**argv){
 	&&nop,&&put,&&nop,&&nop,&&nop,&&nop,&&nop,&&gso,&&nop,&&nop,&&nop,&&nop,&&nop,&&vif,&&nop,&&ich};
 	void*const df[]={&&ea,&&no,&&we,&&so};
 #else
+	#define FT(x) x
 	&&not0,&&stm0,&&hop0,&&pop0,&&mod0,&&iin0,&&nop0,&&nop0,&&nop0,&&mul0,&&add0,&&och0,&&sub0,&&oin0,&&dvi0,
 	&&p00,&&p10,&&p20,&&p30,&&p40,&&p50,&&p60,&&p70,&&p80,&&p90,&&dup0,&&nop0,&&gwe,&&nop0,&&gea,&&rnd0,
 	&&end,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,
@@ -97,12 +102,10 @@ int main(int argc,char**argv){
 		FoundNew:;
 	}
 	RunProg:fclose(prog);
-	for(int i=0;i<2560;i++)pg[i]=ps[i]>32&&ps[i]<127?
+	for(int i=0;i<2560;i++)pg[i]=ps[i]>32&&ps[i]<127?FT(ps[i]-33):FT(7);
 #ifdef SMALL
-	ft[ps[i]-33]:&&nop;
 	int dir=0;
 	goto**pt;
-	#define FT(x) ft[x]
 	#define OP(x) x
 	#define LOOP goto*df[dir]
 	#define HOP switch(dir){\
@@ -122,9 +125,7 @@ int main(int argc,char**argv){
 	so:pt++;if(!(pt-pg&31))pt-=32;goto**pt;
 	#include "marsh.h"
 #else
-	ps[i]-33:7;
 	goto*ft[*pt];
-	#define FT(x) x
 	#define RND(x) switch(x){case 0:goto gea;case 1:goto gno;case 2:goto gwe;case 3:goto gso;}
 	#define dir 0
 	#define OP(x) x##0
