@@ -24,9 +24,21 @@
 	LOOP;
 	OP(mul):if(sp>st){sp--;*sp*=sp[1];}else*(sp=st)=0;
 	LOOP;
-	OP(dvi):if(sp>st){sp--;*sp=sp[1]?*sp/sp[1]:*sp+(*sp>0)-(*sp<0);}else*(sp=st)=0;
+	OP(dvi):if(sp>st){sp--;
+		#ifdef FLOAT
+		*sp/=sp[1];
+		#else
+		*sp=sp[1]?*sp/sp[1]:*sp+(*sp>0)-(*sp<0);
+		#endif
+		}else*(sp=st)=0;
 	LOOP;
-	OP(mod):if(sp>st){sp--;if(sp[1])*sp%=sp[1];}else*(sp=st)=0;
+	OP(mod):if(sp>st){sp--;
+		#ifdef FLOAT
+		*sp=fmod(*sp,sp[1]);
+		#else
+		if(sp[1])*sp%=sp[1];
+		#endif
+		}else*(sp=st)=0;
 	LOOP;
 	OP(not):*sp=!*sp;
 	LOOP;
@@ -40,7 +52,7 @@
 	OP(hif):goto*(sp>=st&&*sp--?&&gwe:&&gea);
 	OP(vif):goto*(sp>=st&&*sp--?&&gno:&&gso);
 	OP(swp):if(sp>st){
-		long tmp=*sp;
+		WORD tmp=*sp;
 		*sp=sp[-1];
 		sp[-1]=tmp;
 	}else if(sp==st){sp[1]=*sp;*sp++=0;}else{sp=st+1;st[0]=st[1]=0;}
@@ -76,8 +88,8 @@
 #endif
 	&3);
 	OP(get):
-		if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[*sp*32+sp[1]]:0;}
-		else if(sp==st)*sp=*sp<25&&*sp>=0?ps[*sp]:0;else*++sp=ps[0];
+		if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[(int)*sp*32+(int)sp[1]]:0;}
+		else if(sp==st)*sp=*sp<25&&*sp>=0?ps[(int)*sp]:0;else*++sp=ps[0];
 	LOOP;
 	OP(put):
 		switch(sp-st){
@@ -104,9 +116,9 @@
 	LOOP;
 	OP(och):putchar(sp>=st?*sp--:0);
 	LOOP;
-	OP(oin):printf("%lld ",sp>=st?*sp--:0);
+	OP(oin):printf(WFMT" ",sp>=st?*sp--:0);
 	LOOP;
 	OP(ich):*++sp=getchar();
 	LOOP;
-	OP(iin):scanf("%lld",++sp);
+	OP(iin):scanf(WFMT,++sp);
 	LOOP;

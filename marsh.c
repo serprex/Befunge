@@ -1,10 +1,36 @@
-#if __GNUC__*100+__GNUC_MINOR__<405
+#include <stdint.h>
+#include <stdio.h>
+#if defined __GNUC__ && __GNUC__*100+__GNUC_MINOR__<405
 	#define __builtin_unreachable()
 #endif
-#ifndef WORD
-	#define WORD long long
+#if WBIT==8
+	#define WORD uint8_t
+	#define WFMT "%d"
+#elif WBIT==16
+	#define WORD uint16_t
+	#define WFMT "%d"
+#elif WBIT==32
+	#define WORD uint32_t
+	#define WFMT "%d"
+#elif WBIT==64
+	#define WORD uint64_t
+	#define WFMT "%lld"
+#elif WFLT
+	#define FLOAT
+	#define WORD float
+	#define WFMT "%f"
+#elif WDBL
+	#define FLOAT
+	#define WORD double
+	#define WFMT "%f"
+#elif WLDB
+	#define FLOAT
+	#define WORD long double
+	#define WFMT "%Lf"
 #endif
-#include <stdio.h>
+#ifdef FLOAT
+	#include <math.h>
+#endif
 #ifdef STDRAND
 	#include <stdlib.h>
 	#ifdef RDTSC
@@ -25,6 +51,8 @@ int main(int argc,char**argv){
 		time(0)
 	#endif
 	);
+#elif defined NOURANDOM
+	FILE*rand=fopen("/dev/random","r");
 #else
 	FILE*rand=fopen("/dev/urandom","r");
 #endif
