@@ -4,16 +4,32 @@
 	#define __builtin_unreachable()
 #endif
 #if WBIT==8
+	#ifdef UNSIGN
 	#define WORD uint8_t
+	#else
+	#define WORD int8_t
+	#endif
 	#define WFMT "%d"
 #elif WBIT==16
-	#define WORD uint16_t
+	#ifdef UNSIGN
+		#define WORD uint16_t
+	#else
+		#define WORD int16_t
+	#endif
 	#define WFMT "%d"
 #elif WBIT==32
-	#define WORD uint32_t
+	#ifdef UNSIGN
+		#define WORD uint32_t
+	#else
+		#define WORD int32_t
+	#endif
 	#define WFMT "%d"
 #elif WBIT==64
-	#define WORD uint64_t
+	#ifdef UNSIGN
+		#define WORD uint64_t
+	#else
+		#define WORD int64_t
+	#endif
 	#define WFMT "%lld"
 #elif WFLT
 	#define FLOAT
