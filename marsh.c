@@ -162,7 +162,7 @@ int main(int argc,char**argv){
 	gea:dir=0;
 	ea:pt+=32;if(pt-pg>=2560)pt-=2560;goto**pt;
 	gno:dir=1;
-	no:if(!(pt-pg&31))pt+=32;pt--;goto**pt;
+	no:if(!(pt-pg&31))pt+=25;pt--;goto**pt;
 	gwe:dir=2;
 	we:pt-=32;if(pt<pg)pt+=2560;goto**pt;
 	gso:dir=3;
@@ -183,8 +183,8 @@ int main(int argc,char**argv){
 	#undef HOP
 	#define dir 1
 	#define OP(x) x##1
-	#define LOOP if(!(pt-pg&31))pt+=32;pt--;goto*ft[94+*pt]
-	#define HOP if((pt-pg&31)<2)pt+=32;pt-=2;goto*ft[94+*pt]
+	#define LOOP if(!(pt-pg&31))pt+=25;pt--;goto*ft[94+*pt]
+	#define HOP if((pt-pg&31)<2)pt+=25;pt-=2;goto*ft[94+*pt]
 	gno:LOOP;
 	#include "marsh.h"
 	#undef dir

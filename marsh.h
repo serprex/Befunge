@@ -65,7 +65,7 @@
 		*++sp=ps[pt-pg];
 	}
 	case 1:for(;;){
-		if(!(pt-pg&31))pt+=32;pt--;
+		if(!(pt-pg&31))pt+=25;pt--;
 		if(ps[pt-pg]=='"'){LOOP;}
 		*++sp=ps[pt-pg];
 	}
@@ -75,7 +75,7 @@
 		*++sp=ps[pt-pg];
 	}
 	case 3:for(;;){
-		pt++;if(!(pt-pg&31))pt-=32;
+		pt++;if((pt-pg&31)>24)pt-=25;
 		if(ps[pt-pg]=='"'){LOOP;}
 		*++sp=ps[pt-pg];
 	}
