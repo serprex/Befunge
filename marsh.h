@@ -1,30 +1,30 @@
-	OP(p0):*++sp=0;
-	OP(nop):LOOP;
-	OP(p1):*++sp=1;
+	OP(p0)*++sp=0;
+	OP(nop)LOOP;
+	OP(p1)*++sp=1;
 	LOOP;
-	OP(p2):*++sp=2;
+	OP(p2)*++sp=2;
 	LOOP;
-	OP(p3):*++sp=3;
+	OP(p3)*++sp=3;
 	LOOP;
-	OP(p4):*++sp=4;
+	OP(p4)*++sp=4;
 	LOOP;
-	OP(p5):*++sp=5;
+	OP(p5)*++sp=5;
 	LOOP;
-	OP(p6):*++sp=6;
+	OP(p6)*++sp=6;
 	LOOP;
-	OP(p7):*++sp=7;
+	OP(p7)*++sp=7;
 	LOOP;
-	OP(p8):*++sp=8;
+	OP(p8)*++sp=8;
 	LOOP;
-	OP(p9):*++sp=9;
+	OP(p9)*++sp=9;
 	LOOP;
-	OP(add):if(sp>st){sp--;*sp+=sp[1];}else if(sp<st)*++sp=0;
+	OP(add)if(sp>st){sp--;*sp+=sp[1];}else if(sp<st)*++sp=0;
 	LOOP;
-	OP(sub):if(sp>st){sp--;*sp-=sp[1];}else if(sp==st)*sp*=-1;else*++sp=0;
+	OP(sub)if(sp>st){sp--;*sp-=sp[1];}else if(sp==st)*sp*=-1;else*++sp=0;
 	LOOP;
-	OP(mul):if(sp>st){sp--;*sp*=sp[1];}else*(sp=st)=0;
+	OP(mul)if(sp>st){sp--;*sp*=sp[1];}else*(sp=st)=0;
 	LOOP;
-	OP(dvi):if(sp>st){sp--;
+	OP(dvi)if(sp>st){sp--;
 		#ifdef FLOAT
 		*sp/=sp[1];
 		#else
@@ -32,7 +32,7 @@
 		#endif
 		}else*(sp=st)=0;
 	LOOP;
-	OP(mod):if(sp>st){sp--;
+	OP(mod)if(sp>st){sp--;
 		#ifdef FLOAT
 		*sp=fmod(*sp,sp[1]);
 		#else
@@ -40,24 +40,24 @@
 		#endif
 		}else*(sp=st)=0;
 	LOOP;
-	OP(not):*sp=!*sp;
+	OP(not)*sp=!*sp;
 	LOOP;
-	OP(gt):if(sp>st){sp--;*sp=*sp>sp[1];}else*sp=sp==st&&0>*sp;
+	OP(gt)if(sp>st){sp--;*sp=*sp>sp[1];}else*sp=sp==st&&0>*sp;
 	LOOP;
-	OP(dup):if(sp>=st){sp[1]=*sp;sp++;}else{sp=st+1;st[0]=st[1]=0;}
+	OP(dup)if(sp>=st){sp[1]=*sp;sp++;}else{sp=st+1;st[0]=st[1]=0;}
 	LOOP;
-	OP(pop):sp-=sp>=st;
+	OP(pop)sp-=sp>=st;
 	LOOP;
-	OP(hop):HOP;
-	OP(hif):goto*(sp>=st&&*sp--?&&gwe:&&gea);
-	OP(vif):goto*(sp>=st&&*sp--?&&gno:&&gso);
-	OP(swp):if(sp>st){
+	OP(hop)HOP;
+	OP(hif)goto*(sp>=st&&*sp--?&&gwe:&&gea);
+	OP(vif)goto*(sp>=st&&*sp--?&&gno:&&gso);
+	OP(swp)if(sp>st){
 		WORD tmp=*sp;
 		*sp=sp[-1];
 		sp[-1]=tmp;
 	}else if(sp==st){sp[1]=*sp;*sp++=0;}else{sp=st+1;st[0]=st[1]=0;}
 	LOOP;
-	OP(stm):switch(dir){
+	OP(stm)switch(dir){
 	default:__builtin_unreachable();
 	case 0:for(;;){
 		pt+=32;if(pt-pg>=2560)pt-=2560;
@@ -80,18 +80,18 @@
 		*++sp=ps[pt-pg];
 	}
 	}
-	OP(rnd):RND(
+	OP(rnd)RND(
 #ifdef STDRAND
 	rand()
 #else
 	getc(rand)
 #endif
 	&3);
-	OP(get):
+	OP(get)
 		if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[(int)*sp*32+(int)sp[1]]:0;}
 		else if(sp==st)*sp=*sp<25&&*sp>=0?ps[(int)*sp]:0;else*++sp=ps[0];
 	LOOP;
-	OP(put):
+	OP(put)
 		switch(sp-st){
 		int x;
 		case-1:
@@ -114,11 +114,11 @@
 			pg[x]=sp[1]>32&&sp[1]<127?FT(sp[1]-33):FT(7);
 		}
 	LOOP;
-	OP(och):putchar(sp>=st?*sp--:0);
+	OP(och)putchar(sp>=st?*sp--:0);
 	LOOP;
-	OP(oin):printf(WFMT" ",sp>=st?*sp--:0);
+	OP(oin)printf(WFMT" ",sp>=st?*sp--:0);
 	LOOP;
-	OP(ich):*++sp=getchar();
+	OP(ich)*++sp=getchar();
 	LOOP;
-	OP(iin):scanf(WFMT,++sp);
+	OP(iin)scanf(WFMT,++sp);
 	LOOP;

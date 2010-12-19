@@ -150,7 +150,7 @@ int main(int argc,char**argv){
 #ifdef SMALL
 	int dir=0;
 	goto**pt;
-	#define OP(x) x
+	#define OP(x) x:
 	#define LOOP goto*df[dir]
 	#define HOP switch(dir){\
 	case 0:pt+=64;if(pt-pg>=2560)pt-=2560;\
@@ -172,7 +172,7 @@ int main(int argc,char**argv){
 	goto*ft[*pt];
 	#define RND(x) switch(x){case 0:goto gea;case 1:goto gno;case 2:goto gwe;case 3:goto gso;}
 	#define dir 0
-	#define OP(x) x##0
+	#define OP(x) x##0:
 	#define LOOP pt+=32;if(pt-pg>=2560)pt-=2560;goto*ft[*pt]
 	#define HOP pt+=64;if(pt-pg>=2560)pt-=2560;goto*ft[*pt]
 	gea:LOOP;
@@ -182,7 +182,7 @@ int main(int argc,char**argv){
 	#undef LOOP
 	#undef HOP
 	#define dir 1
-	#define OP(x) x##1
+	#define OP(x) x##1:
 	#define LOOP if(!(pt-pg&31))pt+=25;pt--;goto*ft[94+*pt]
 	#define HOP if((pt-pg&31)<2)pt+=25;pt-=2;goto*ft[94+*pt]
 	gno:LOOP;
@@ -192,7 +192,7 @@ int main(int argc,char**argv){
 	#undef LOOP
 	#undef HOP
 	#define dir 2
-	#define OP(x) x##2
+	#define OP(x) x##2:
 	#define LOOP pt-=32;if(pt<pg)pt+=2560;goto*ft[188+*pt]
 	#define HOP pt-=64;if(pt<pg)pt+=2560;goto*ft[188+*pt]
 	gwe:LOOP;
@@ -202,7 +202,7 @@ int main(int argc,char**argv){
 	#undef LOOP
 	#undef HOP
 	#define dir 3
-	#define OP(x) x##3
+	#define OP(x) x##3:
 	#define LOOP pt++;if(!(pt-pg&31))pt-=32;goto*ft[282+*pt]
 	#define HOP pt+=2;if((pt-pg&31)<2)pt-=32;goto*ft[282+*pt]
 	gso:LOOP;
