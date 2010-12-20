@@ -31,12 +31,11 @@ uint8_t str[320];
 void*pg[10240];
 int mv(int i){
 	switch(i&3){
-	case(0)i+=128;if(i>=10240)i-=10240;
-	case(1)if(!(i&124))i+=100;i-=4;
-	case(2)i-=128;if(i<0)i+=10240;
-	case(3)i+=4;if(!(i&124))i-=128;
+	case(0)return i>=10112?i-10112:i+128;
+	case(1)return i&124?i-4:i+96;
+	case(2)return i<128?i+10112:i-128;
+	case(3)return (i+=4)&124?i:i-128;
 	}
-	return i;
 }
 int opc(int i){
 	switch(i){
@@ -85,19 +84,23 @@ void*compile(int i){
 		np[ns-1]=i;
 		return pg[i]=compile(i2);
 	}
-	i2=ns;ns=0;
+	i2=ns;
+	ns=0;
 	switch(op){
 	default:__builtin_unreachable();
 	case-1:ns=i2;return pg[i]=compile(i);
-	case(0 ... 25)
+	case 0 ... 25:
 		pg[i]=malloc(sizeof(struct op));
 		OP(pg[i])->o=opc(ps[i>>2]);
 		OP(pg[i])->n=compile(i);
 		if(op==24)OP(pg[i])->d1=i;
 		return pg[i];
-	case(26){
+	case 26:{
 		int j=mv(i);
-		if(ps[j>>2]=='"'){ns=i2;goto hash;}
+		if(ps[j>>2]=='"'){
+			ns=i2;
+			goto hash;
+		}
 		pg[i]=malloc(sizeof(struct op)+1);
 		OP(pg[i])->o=26;
 		OP(pg[i])->d0=0;
@@ -109,22 +112,16 @@ void*compile(int i){
 		OP(pg[i])->n=compile(j);
 		return pg[i];
 	}
-	case(28)
+	case 28:
 		pg[i]=pg[i^1]=pg[i^2]=pg[i^3]=malloc(sizeof(struct rn));
 		RN(pg[i])->o=28;
 		for(int j=0;j<4;j++)RN(pg[i])->n[j]=compile(i^j);
 		return pg[i];
-	case(29)return pg[i]=(void*)&at;
-	case(30)case 27:
+	case 29:return pg[i]=(void*)&at;
+	case 30:case 27:
 		pg[i]=pg[i^1]=pg[i^2]=pg[i^3]=malloc(sizeof(struct br));
 		BR(pg[i])->o=27;
-		if(op==30){
-			BR(pg[i])->n[0]=compile(i&~3);
-			BR(pg[i])->n[1]=compile(i&~3|2);
-		}else{
-			BR(pg[i])->n[0]=compile(i&~3|3);
-			BR(pg[i])->n[1]=compile(i&~3|1);
-		}
+		for(int j=0;j<2;j++)BR(pg[i])->n[j]=compile(i&~3|j*2^(op&1?3:0));
 		return pg[i];
 	}
 }
