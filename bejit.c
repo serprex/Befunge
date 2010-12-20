@@ -15,49 +15,50 @@ struct br{
 };
 struct op{
 	uint8_t o;
+	uint8_t d0;
+	uint16_t d1;
 	void*n;
 	uint8_t d[];
 };
 #define OP(x) ((struct op*)(x))
 #define BR(x) ((struct br*)(x))
 #define RN(x) ((struct rn*)(x))
-const char at=29,loop=30;
+const uint8_t at=29,loop=30;
 uint16_t*restrict np,ns;
 FILE*ran;
 int st[65536],*sp=st,ps[2560];
 uint8_t str[320];
-void*pg[2560][4];
-int mv(int i,int d){
-	switch(d){
-	default:__builtin_unreachable();
-	case(0)i+=32;if(i>=2560)i-=2560;
-	case(1)if(!(i&31))i+=25;i--;
-	case(2)i-=32;if(i<0)i+=2560;
-	case(3)i++;if(!(i&31))i-=32;
+void*pg[10240];
+int mv(int i){
+	switch(i&3){
+	case(0)i+=128;if(i>=10240)i-=10240;
+	case(1)if(!(i&124))i+=100;i-=4;
+	case(2)i-=128;if(i<0)i+=10240;
+	case(3)i+=4;if(!(i&124))i-=128;
 	}
 	return i;
 }
 int opc(int i){
 	switch(i){
-	default:return -1;
+	default:return-1;
 	case'0'...'9':return i&15;
-	case'"':return 10;
-	case'+':return 11;
-	case'-':return 12;
-	case'*':return 13;
-	case'/':return 14;
-	case'%':return 15;
-	case'`':return 16;
-	case'!':return 17;
-	case'$':return 18;
-	case':':return 19;
-	case'\\':return 20;
-	case'.':return 21;
-	case',':return 22;
-	case'~':return 23;
-	case'&':return 24;
-	case'p':return 25;
-	case'g':return 26;
+	case'+':return 10;
+	case'-':return 11;
+	case'*':return 12;
+	case'/':return 13;
+	case'%':return 14;
+	case'`':return 15;
+	case'!':return 16;
+	case'$':return 17;
+	case':':return 18;
+	case'\\':return 19;
+	case'.':return 20;
+	case',':return 21;
+	case'~':return 22;
+	case'&':return 23;
+	case'p':return 24;
+	case'g':return 25;
+	case'"':return 26;
 	case'|':return 27;
 	case'?':return 28;
 	case'@':return 29;
@@ -69,69 +70,62 @@ int opc(int i){
 	case'v':return 35;
 	}
 }
-void cknop(int i,int d){
-	while(opc(ps[i=mv(i,d)])==-1);
+void cknop(int i){
+	while(opc(ps[(i=mv(i))>>2])==-1);
 }
-void*compile(int i,int d){
-	i=mv(i,d);
-	if(pg[i][d])return pg[i][d];
-	int i2=i,d2=d,op=opc(ps[i]);
+void*compile(int i){
+	if(pg[i=mv(i)])return pg[i];
+	int i2=i,op=opc(ps[i>>2]);
 	if(op>=31&&op<=35){
-		if(op&32)d2=op-32;
-		else hash:i2=mv(i,d);
+		if(op&32)i2=i&~3|op-32;
+		else hash:i2=mv(i);
 		for(int j=0;j<ns;j++)
-			if(np[j]==(i<<2|d))return pg[i][d]=(void*)&loop;
+			if(np[j]==i)return pg[i]=(void*)&loop;
 		np=realloc(np,2*++ns);
-		np[ns-1]=i<<2|d;
-		return pg[i][d]=compile(i2,d2);
+		np[ns-1]=i;
+		return pg[i]=compile(i2);
 	}
 	i2=ns;ns=0;
 	switch(op){
 	default:__builtin_unreachable();
-	case-1:ns=i2;return pg[i][d]=compile(i,d);
-	case(0 ... 9)case 11 ... 24:case 26:
-		pg[i][d]=malloc(sizeof(struct op));
-		OP(pg[i][d])->o=opc(ps[i]);
-		OP(pg[i][d])->n=compile(i,d);
-		return pg[i][d];
-	case(30)case 27:
-		pg[i][0]=pg[i][1]=pg[i][2]=pg[i][3]=malloc(sizeof(struct br));
-		BR(pg[i][d])->o=27;
-		if(ps[i]=='_'){
-			BR(pg[i][d])->n[0]=compile(i,0);
-			BR(pg[i][d])->n[1]=compile(i,2);
-		}else{
-			BR(pg[i][d])->n[0]=compile(i,3);
-			BR(pg[i][d])->n[1]=compile(i,1);
-		}
-		return pg[i][0];
-	case(28)
-		pg[i][0]=pg[i][1]=pg[i][2]=pg[i][3]=malloc(sizeof(struct rn));
-		RN(pg[i][d])->o=28;
-		for(int j=0;j<4;j++)RN(pg[i][d])->n[j]=compile(i,j);
-		return pg[i][0];
-	case(29)return pg[i][d]=(void*)&at;
-	case(10){
-		int j=mv(i,d);
-		if(ps[j]=='"'){ns=i2;goto hash;}
-		pg[i][d]=malloc(sizeof(struct op)+2);
-		OP(pg[i][d])->o=10;
-		OP(pg[i][d])->d[0]=0;
-		do if((j&31)<25){
-			str[i>>3]|=1<<(i&7);
-			pg[i][d]=realloc(pg[i][d],sizeof(struct op)+OP(pg[i][d])->d[0]+2);
-			OP(pg[i][d])->d[++OP(pg[i][d])->d[0]]=ps[j];
-		}while(ps[j=mv(j,d)]!='"');
-		OP(pg[i][d])->n=compile(j,d);
-		return pg[i][d];
+	case-1:ns=i2;return pg[i]=compile(i);
+	case(0 ... 25)
+		pg[i]=malloc(sizeof(struct op));
+		OP(pg[i])->o=opc(ps[i>>2]);
+		OP(pg[i])->n=compile(i);
+		if(op==24)OP(pg[i])->d1=i;
+		return pg[i];
+	case(26){
+		int j=mv(i);
+		if(ps[j>>2]=='"'){ns=i2;goto hash;}
+		pg[i]=malloc(sizeof(struct op)+1);
+		OP(pg[i])->o=26;
+		OP(pg[i])->d0=0;
+		do if((j&124)<100){
+			str[i>>5]|=1<<((i>>2)&7);
+			pg[i]=realloc(pg[i],sizeof(struct op)+OP(pg[i])->d0+1);
+			OP(pg[i])->d[OP(pg[i])->d0++]=ps[j>>2];
+		}while(ps[(j=mv(j))>>2]!='"');
+		OP(pg[i])->n=compile(j);
+		return pg[i];
 	}
-	case(25)
-		pg[i][d]=malloc(sizeof(struct op)+3);
-		OP(pg[i][d])->o=25;
-		OP(pg[i][d])->n=compile(i,d);
-		*(uint16_t*)(OP(pg[i][d])->d)=i;
-		OP(pg[i][d])->d[3]=d;
-		return pg[i][d];
+	case(28)
+		pg[i]=pg[i^1]=pg[i^2]=pg[i^3]=malloc(sizeof(struct rn));
+		RN(pg[i])->o=28;
+		for(int j=0;j<4;j++)RN(pg[i])->n[j]=compile(i^j);
+		return pg[i];
+	case(29)return pg[i]=(void*)&at;
+	case(30)case 27:
+		pg[i]=pg[i^1]=pg[i^2]=pg[i^3]=malloc(sizeof(struct br));
+		BR(pg[i])->o=27;
+		if(op==30){
+			BR(pg[i])->n[0]=compile(i&~3);
+			BR(pg[i])->n[1]=compile(i&~3|2);
+		}else{
+			BR(pg[i])->n[0]=compile(i&~3|3);
+			BR(pg[i])->n[1]=compile(i&~3|1);
+		}
+		return pg[i];
 	}
 }
 int main(int argc,char**argv){
@@ -155,34 +149,32 @@ int main(int argc,char**argv){
 		FoundNew:;
 	}
 	RunProg:fclose(prog);
-	cknop(0,0);
-	void*op=compile(-32,0);
+	cknop(0);
+	void*op=compile(-128);
 	for(;;){
 		switch(OP(op)->o){
 		default:__builtin_unreachable();
 		case(0 ... 9)*++sp=OP(op)->o;
-		case(10)
-			for(int i=1;i<=OP(op)->d[0];i++)*++sp=OP(op)->d[i];
-		case(11)if(sp>st){sp--;*sp+=sp[1];}else if(sp<st)*++sp=0;
-		case(12)if(sp>st){sp--;*sp-=sp[1];}else if(sp==st)*sp*=-1;else*++sp=0;
-		case(13)if(sp>st){sp--;*sp*=sp[1];}else*(sp=st)=0;
-		case(14)if(sp>st){sp--;if(sp[1])*sp/=sp[1];}else*(sp=st)=0;
-		case(15)if(sp>st){sp--;if(sp[1])*sp%=sp[1];}else*(sp=st)=0;
-		case(16)if(sp>st){sp--;*sp=*sp>sp[1];}else*sp=sp==st&&0>*sp;
-		case(17)*sp=!*sp;
-		case(18)sp--;
-		case(19)sp[1]=*sp;sp++;
-		case(20)
+		case(10)if(sp>st){sp--;*sp+=sp[1];}else if(sp<st)*++sp=0;
+		case(11)if(sp>st){sp--;*sp-=sp[1];}else if(sp==st)*sp*=-1;else*++sp=0;
+		case(12)if(sp>st){sp--;*sp*=sp[1];}else*(sp=st)=0;
+		case(13)if(sp>st){sp--;if(sp[1])*sp/=sp[1];}else*(sp=st)=0;
+		case(14)if(sp>st){sp--;if(sp[1])*sp%=sp[1];}else*(sp=st)=0;
+		case(15)if(sp>st){sp--;*sp=*sp>sp[1];}else*sp=sp==st&&0>*sp;
+		case(16)*sp=!*sp;
+		case(17)sp--;
+		case(18)sp[1]=*sp;sp++;
+		case(19)
 		if(sp>st){
 			int tmp=*sp;
 			*sp=sp[-1];
 			sp[-1]=tmp;
 		}else if(sp==st){sp[1]=*sp;*sp++=0;}else{sp=st+1;st[0]=st[1]=0;}
-		case(21)printf("%d ",sp>=st?*sp--:0);
-		case(22)putchar(sp>=st?*sp--:0);
-		case(23)*++sp=getchar();
-		case(24)scanf("%d",++sp);
-		case(25){
+		case(20)printf("%d ",sp>=st?*sp--:0);
+		case(21)putchar(sp>=st?*sp--:0);
+		case(22)*++sp=getchar();
+		case(23)scanf("%d",++sp);
+		case(24){
 			int x,y;
 			switch(sp-st){
 			case-1:
@@ -204,26 +196,25 @@ int main(int argc,char**argv){
 				y=ps[x];
 				ps[x]=sp[1];
 			}
-			if(!(y==ps[x]||!(str[x>>3]&1<<(x&7))&&(opc(y)==opc(ps[x])||!(pg[x][0]||pg[x][1]||pg[x][2]||pg[x][3])))){
-				for(int i=0;i<2560;i++)
-					for(int j=0;j<4;j++){
-						if(pg[i][j]&&pg[i][j]!=&at&&pg[i][j]!=&loop){
-							void*p=pg[i][j];
-							free(p);
-							for(int k=i;k<2560;k++)
-								for(int l=0;l<4;l++)
-									if(pg[k][l]==p)pg[k][l]=0;
-						}
+			if(!(y==ps[x]||!(str[x>>3]&1<<(x&7))&&(opc(y)==opc(ps[x])||!(pg[x*4]||pg[x*4+1]||pg[x*4+2]||pg[x*4+3])))){
+				int d1=OP(op)->d1;
+				for(int i=0;i<10240;i++)
+					if(pg[i]&&pg[i]!=&at&&pg[i]!=&loop){
+						void*p=pg[i];
+						free(p);
+						for(int k=i;k<10240;k++)
+							if(pg[k]==p)pg[k]=0;
 					}
-				int a=*(uint16_t*)(OP(op)->d),b=OP(op)->d[3];
 				for(int i=0;i<320;i++)str[i]=0;
-				if(a==x)cknop(a,b);
-				op=compile(a,b);
+				if(d1>>2==x)cknop(d1);
+				op=compile(d1);
 				continue;
 			}
-		case(26)
+		case(25)
 			if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[(int)*sp*32+(int)sp[1]]:0;}
 			else if(sp==st)*sp=*sp<25&&*sp>=0?ps[(int)*sp]:0;else*++sp=ps[0];
+		case(26)
+			for(int i=0;i<OP(op)->d0;i++)*++sp=OP(op)->d[i];
 		case(27)
 			op=BR(op)->n[sp>=st&&*sp--];
 			continue;
