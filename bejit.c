@@ -8,10 +8,12 @@
 #define case(x) break;case x:;
 struct rn{
 	uint8_t o,c;
+	uint32_t d0;
 	void*n[4];
 };
 struct br{
 	uint8_t o,c;
+	uint32_t d0;
 	void*n[2];
 };
 struct op{
@@ -157,15 +159,37 @@ void repl(void*p1,void*p2){
 void*next(void*op){
 	return OP(OP(op)->n)->c?0:OP(op)->n;
 }
-void opti(void*op){
+void opti(void**opp){
+	void*op=*opp,*nx;
 	if(OP(op)->c==2||OP(op)->o==29||OP(op)->o==30)return;
 	OP(op)->c=2;
-	void*nx=next(op);
-	if(!nx)goto exit;
+	if(!(nx=next(op)))goto exit;
 	if(OP(nx)->o==29||OP(nx)->o==30)return;
+	if(OP(nx)->o==27){
+		switch(OP(op)->o){
+			case(0)
+				OP(op)->n=BR(nx)->n[!!OP(op)->d0];
+				repl(nx,op);
+				free(nx);
+				if(!(nx=next(op)))goto exit;
+			case(16)
+				BR(op)->o=27;
+				BR(op)->n[0]=BR(nx)->n[1];
+				BR(op)->n[1]=BR(nx)->n[0];
+				repl(nx,op);
+				free(nx);
+				goto exit;
+			case(18)
+				BR(op)->o=3;
+				BR(op)->n[0]=BR(nx)->n[0];
+				BR(op)->n[1]=BR(nx)->n[1];
+				repl(nx,op);
+				free(nx);
+				goto exit;
+		}
+	}
 	if(!OP(op)->o&&OP(op)->u0<256&&!OP(nx)->o&&OP(nx)->u0<256){
-		void*p=op;
-		repl(p,op=realloc(op,sizeof(struct op)+2));
+		repl(op,op=*opp=realloc(op,sizeof(struct op)+2));
 		OP(op)->d[0]=OP(op)->d0;
 		OP(op)->d[1]=OP(nx)->d0;
 		OP(op)->o=26;
@@ -176,8 +200,7 @@ void opti(void*op){
 		if(!(nx=next(op)))goto exit;
 	}
 	if(!OP(op)->o&&OP(op)->u0<256&&OP(nx)->o==26){
-		void*p=op;
-		repl(p,op=realloc(op,sizeof(struct op)+OP(nx)->d0+1));
+		repl(op,op=*opp=realloc(op,sizeof(struct op)+OP(nx)->d0+1));
 		memcpy(OP(op)->d+1,OP(nx)->d,OP(nx)->d0);
 		OP(op)->d[0]=OP(op)->d0;
 		OP(op)->o=26;
@@ -188,15 +211,14 @@ void opti(void*op){
 		if(!(nx=next(op)))goto exit;
 	}
 	while(OP(op)->o==26){
-		void*p=op;
 		switch(OP(nx)->o){
 		default:goto nostr;
 		case(0)
 			if(OP(nx)->u0<256){
-				repl(p,op=realloc(op,sizeof(struct op)+OP(op)->d0+1));
+				repl(op,op=*opp=realloc(op,sizeof(struct op)+OP(op)->d0+1));
 				OP(op)->d[OP(op)->d0++]=OP(nx)->d0;
 			}else goto nostr;
-		case(10 ... 15)case 25:{
+		case(10 ... 15)case 24 ... 25:{
 			uint32_t l=OP(op)->u0-=2;
 			void*p=l?nx:op;
 			switch(OP(nx)->o){
@@ -206,9 +228,10 @@ void opti(void*op){
 			case(13)OP(p)->d0=OP(op)->d[l+1]?OP(op)->d[l]/OP(op)->d[l+1]:OP(op)->d[l];
 			case(14)OP(p)->d0=OP(op)->d[l+1]?OP(op)->d[l]%OP(op)->d[l+1]:OP(op)->d[l];
 			case(15)OP(p)->d0=OP(op)->d[l]>OP(op)->d[l+1];
+			case(24)OP(p)->d0=(OP(op)->d[l]<80?OP(op)->d[l]*32:0)+(OP(op)->d[l+1]<25?OP(op)->d[l+1]:0);
 			case(25)OP(p)->d0=OP(op)->d[l]<80&&OP(op)->d[l+1]<25?OP(op)->d[l]*32+OP(op)->d[l+1]:0;
 			}
-			OP(p)->o=OP(nx)->o==25;
+			OP(p)->o=OP(nx)->o<24?0:26-OP(nx)->o;
 			if(l){
 				if(l==1){
 					OP(op)->o=0;
@@ -218,7 +241,7 @@ void opti(void*op){
 			}
 		}
 		case(26)
-			repl(p,op=realloc(op,sizeof(struct op)+OP(op)->d0+OP(nx)->d0));
+			repl(op,op=*opp=realloc(op,sizeof(struct op)+OP(op)->d0+OP(nx)->d0));
 			memcpy(OP(op)->d+OP(op)->d0,OP(nx)->d,OP(nx)->d0);
 			OP(op)->d0+=OP(nx)->d0;
 		}
@@ -229,13 +252,12 @@ void opti(void*op){
 	}
 	nostr:
 	exit:switch(OP(op)->o){
-	default:opti(OP(op)->n);
-	case(27)
-		for(int i=0;i<2;i++)opti(BR(op)->n[i]);
 	case(28)
-		for(int i=0;i<4;i++)opti(RN(op)->n[i]);
+		opti(RN(op)->n+3);
+		opti(RN(op)->n+2);
+	case 27:opti(BR(op)->n+1);
 	}
-	opti(OP(op)->n);
+	opti(&OP(op)->n);
 }
 int main(int argc,char**argv){
 	ran=fopen("/dev/urandom","r");
@@ -260,12 +282,16 @@ int main(int argc,char**argv){
 	RunProg:fclose(prog);
 	cknop(0);
 	void*op=comp(-128);
-	opti(op);
+	opti(&op);
 	for(;;){
 		switch(OP(op)->o){
 		default:__builtin_unreachable();
 		case(0)*++sp=OP(op)->d0;
 		case(1)*++sp=ps[OP(op)->d0];
+		case(2)goto from2;
+		case(3)
+			op=BR(op)->n[sp>=st&&*sp];
+			continue;
 		case(10)if(sp>st){sp--;*sp+=sp[1];}else if(sp<st)*++sp=0;
 		case(11)if(sp>st){sp--;*sp-=sp[1];}else if(sp==st)*sp*=-1;else*++sp=0;
 		case(12)if(sp>st){sp--;*sp*=sp[1];}else*(sp=st)=0;
@@ -307,6 +333,11 @@ int main(int argc,char**argv){
 				y=ps[x];
 				ps[x]=sp[1];
 			}
+			if(0){from2:
+				x=OP(op)->d0;
+				y=ps[x];
+				ps[x]=sp>=st?*sp--:0;
+			}
 			if(!(y==ps[x]||!(str[x>>3]&1<<(x&7))&&(opc(y)==opc(ps[x])||!(pg[x*4]||pg[x*4+1]||pg[x*4+2]||pg[x*4+3])))){
 				int d0=OP(op)->d0;
 				for(int i=0;i<10240;i++)
@@ -318,7 +349,8 @@ int main(int argc,char**argv){
 					}
 				memset(str,0,320);
 				if(d0>>2==x)cknop(d0);
-				opti(op=comp(d0));
+				op=comp(d0);
+				opti(&op);
 				continue;
 			}
 		case(25)
