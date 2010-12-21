@@ -43,7 +43,7 @@ int mv(int i){
 int opc(int i){
 	switch(i){
 	default:return-1;
-	case'0'...'9':return 0;
+	case'0'...'9':return i&15;
 	case'+':return 10;
 	case'-':return 11;
 	case'*':return 12;
@@ -95,11 +95,11 @@ void*comp(int i){
 	switch(op){
 	default:__builtin_unreachable();
 	case-1:ns=i2;return pg[i]=comp(i);
-	case 0:
+	case 0 ... 9:
 		pg[i]=malloc(sizeof(struct op));
 		OP(pg[i])->o=0;
 		OP(pg[i])->c=0;
-		OP(pg[i])->d0=ps[i>>2]-'0';
+		OP(pg[i])->d0=op;
 		OP(pg[i])->n=comp(i);
 		return pg[i];
 	case 10 ... 25:
@@ -114,6 +114,13 @@ void*comp(int i){
 		if(ps[j>>2]=='"'){
 			ns=i2;
 			goto hash;
+		}else if(ps[mv(j)>>2]=='"'){
+			pg[i]=malloc(sizeof(struct op));
+			OP(pg[i])->o=0;
+			OP(pg[i])->c=0;
+			OP(pg[i])->d0=ps[j>>2];
+			OP(pg[i])->n=comp(mv(j));
+			return pg[i];
 		}
 		pg[i]=malloc(sizeof(struct op)+1);
 		OP(pg[i])->o=26;
@@ -189,33 +196,27 @@ void opti(void*op){
 				repl(p,op=realloc(op,sizeof(struct op)+OP(op)->d0+1));
 				OP(op)->d[OP(op)->d0++]=OP(nx)->d0;
 			}else goto nostr;
-		case(10 ... 15)
-			switch(OP(op)->d0){
-				default:{
-					uint16_t l=OP(op)->d0-=2;
-					switch(OP(nx)->o){
-					case(10)OP(nx)->d0=OP(op)->d[l]+OP(op)->d[l+1];
-					case(11)OP(nx)->d0=OP(op)->d[l]-OP(op)->d[l+1];
-					case(12)OP(nx)->d0=OP(op)->d[l]*OP(op)->d[l+1];
-					case(13)OP(nx)->d0=OP(op)->d[l+1]?OP(op)->d[l]/OP(op)->d[l+1]:OP(op)->d[l];
-					case(14)OP(nx)->d0=OP(op)->d[l+1]?OP(op)->d[l]%OP(op)->d[l+1]:OP(op)->d[l];
-					case(15)OP(nx)->d0=OP(op)->d[l]>OP(op)->d[l+1];
-					}
-					OP(nx)->o=0;
-					continue;
-				}
-				case(1)goto nostr;
-				case(2)
-					switch(OP(nx)->o){
-					case(10)OP(op)->d0=OP(op)->d[0]+OP(op)->d[1];
-					case(11)OP(op)->d0=OP(op)->d[0]-OP(op)->d[1];
-					case(12)OP(op)->d0=OP(op)->d[0]*OP(op)->d[1];
-					case(13)OP(op)->d0=OP(op)->d[1]?OP(op)->d[0]/OP(op)->d[1]:OP(op)->d[0];
-					case(14)OP(op)->d0=OP(op)->d[1]?OP(op)->d[0]%OP(op)->d[1]:OP(op)->d[0];
-					case(15)OP(op)->d0=OP(op)->d[0]>OP(op)->d[1];
-					}
-					OP(op)->o=0;
+		case(10 ... 15)case 25:{
+			uint32_t l=OP(op)->u0-=2;
+			void*p=l?nx:op;
+			switch(OP(nx)->o){
+			case(10)OP(p)->d0=OP(op)->d[l]+OP(op)->d[l+1];
+			case(11)OP(p)->d0=OP(op)->d[l]-OP(op)->d[l+1];
+			case(12)OP(p)->d0=OP(op)->d[l]*OP(op)->d[l+1];
+			case(13)OP(p)->d0=OP(op)->d[l+1]?OP(op)->d[l]/OP(op)->d[l+1]:OP(op)->d[l];
+			case(14)OP(p)->d0=OP(op)->d[l+1]?OP(op)->d[l]%OP(op)->d[l+1]:OP(op)->d[l];
+			case(15)OP(p)->d0=OP(op)->d[l]>OP(op)->d[l+1];
+			case(25)OP(p)->d0=OP(op)->d[l]<80&&OP(op)->d[l+1]<25?OP(op)->d[l]*32+OP(op)->d[l+1]:0;
 			}
+			OP(p)->o=OP(nx)->o==25;
+			if(l){
+				if(l==1){
+					OP(op)->o=0;
+					OP(op)->d0=OP(op)->d[0];
+				}
+				continue;
+			}
+		}
 		case(26)
 			repl(p,op=realloc(op,sizeof(struct op)+OP(op)->d0+OP(nx)->d0));
 			memcpy(OP(op)->d+OP(op)->d0,OP(nx)->d,OP(nx)->d0);
@@ -227,10 +228,6 @@ void opti(void*op){
 		if(!(nx=next(op)))goto exit;
 	}
 	nostr:
-	if(OP(op)->o==26&&OP(op)->d0==1){
-		OP(op)->o=0;
-		OP(op)->d0=OP(op)->d[0];
-	}
 	exit:switch(OP(op)->o){
 	default:opti(OP(op)->n);
 	case(27)
@@ -238,6 +235,7 @@ void opti(void*op){
 	case(28)
 		for(int i=0;i<4;i++)opti(RN(op)->n[i]);
 	}
+	opti(OP(op)->n);
 }
 int main(int argc,char**argv){
 	ran=fopen("/dev/urandom","r");
@@ -267,6 +265,7 @@ int main(int argc,char**argv){
 		switch(OP(op)->o){
 		default:__builtin_unreachable();
 		case(0)*++sp=OP(op)->d0;
+		case(1)*++sp=ps[OP(op)->d0];
 		case(10)if(sp>st){sp--;*sp+=sp[1];}else if(sp<st)*++sp=0;
 		case(11)if(sp>st){sp--;*sp-=sp[1];}else if(sp==st)*sp*=-1;else*++sp=0;
 		case(12)if(sp>st){sp--;*sp*=sp[1];}else*(sp=st)=0;
@@ -323,8 +322,8 @@ int main(int argc,char**argv){
 				continue;
 			}
 		case(25)
-			if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[(int)*sp*32+(int)sp[1]]:0;}
-			else if(sp==st)*sp=*sp<25&&*sp>=0?ps[(int)*sp]:0;else*++sp=ps[0];
+			if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[*sp*32+sp[1]]:0;}
+			else if(sp==st)*sp=*sp<25&&*sp>=0?ps[*sp]:0;else*++sp=ps[0];
 		case(26)
 			for(int i=0;i<OP(op)->d0;i++)*++sp=OP(op)->d[i];
 		case(27)
