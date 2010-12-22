@@ -334,9 +334,23 @@ int main(int argc,char**argv){
 			if(!(y==ps[x]||!(str[x>>3]&1<<(x&7))&&(opc(y)==opc(ps[x])||!(pg[x*4]||pg[x*4+1]||pg[x*4+2]||pg[x*4+3])))){
 				uint16_t d=OP(op)->d;
 				for(int i=0;i<10240;i++)
-					if(pg[i]&&pg[i]!=&at&&pg[i]!=&loop){
+					if(pg[i]){
+						if(pg[i]==&at||pg[i]==&loop){
+							pg[i]=0;
+							continue;
+						}
 						void*p=pg[i];
-						free(p);
+						if(str[i>>3]&1<<(i&7)){
+							void*q=OP(p)->n;
+							while(!OP(q)->o){
+								for(int k=i;k<10240;k++)
+									if(pg[k]==q)goto nostr;
+								void*qq=OP(q)->n;
+								free(q);
+								q=qq;
+							}
+						}
+						nostr:free(p);
 						for(int k=i;k<10240;k++)
 							if(pg[k]==p)pg[k]=0;
 					}
