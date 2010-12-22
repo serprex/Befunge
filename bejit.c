@@ -291,9 +291,9 @@ int main(int argc,char**argv){
 		case(13)if(sp>st){sp--;if(sp[1])*sp/=sp[1];}else*(sp=st)=0;
 		case(14)if(sp>st){sp--;if(sp[1])*sp%=sp[1];}else*(sp=st)=0;
 		case(15)if(sp>st){sp--;*sp=*sp>sp[1];}else{st[0]=sp==st&&0>*sp;sp=st;}
-		case(16)*sp=!*sp;
-		case(17)sp--;
-		case(18)sp[1]=*sp;sp++;
+		case(16)if(sp>=st)*sp=!*sp;else*(sp=st)=1;
+		case(17)sp-=sp>=st;
+		case(18)if(sp>=st){sp[1]=*sp;sp++;}else{sp=st+1;st[0]=st[1]=0;}
 		case(19)
 		if(sp>st){
 			int tmp=*sp;

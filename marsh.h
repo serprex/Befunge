@@ -40,7 +40,7 @@
 		#endif
 		}else*(sp=st)=0;
 	LOOP;
-	OP(not)*sp=!*sp;
+	OP(not)if(sp>=st)*sp=!*sp;else*(sp=st)=1;
 	LOOP;
 	OP(gt)if(sp>st){sp--;*sp=*sp>sp[1];}else*sp=sp==st&&0>*sp;
 	LOOP;
