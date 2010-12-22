@@ -223,11 +223,11 @@ void opti(void*op){
 				OP(p)->o=1;
 				OP(p)->d=OP(p)->d<80&&OP(p)->d>=0&&OP(n)->d<25&&OP(n)->d>=0?OP(p)->d*32+OP(n)->d:0;
 			}
+			OP(p)->n=OP(o)->n;
 			repl(n,p);
 			repl(o,p);
 			free(n);
 			free(o);
-			OP(p)->n=OP(o)->n;
 			if(p==op&&!(nx=next(p)))goto exit;
 		}
 		nostr:if(!OP(op)->o&&OP(nx)->o>=10&&OP(nx)->o<=15){
