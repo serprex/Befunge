@@ -8,12 +8,12 @@
 #define case(x) break;case x:;
 struct rn{
 	uint8_t o,c;
-	uint32_t d;
+	int32_t d;
 	void*n[4];
 };
 struct br{
 	uint8_t o,c;
-	uint32_t d;
+	int32_t d;
 	void*n[2];
 };
 struct op{
@@ -246,6 +246,33 @@ void opti(void*op){
 	}
 	opti(OP(op)->n);
 }
+void fropmark(void**opp){
+	void*op=*opp;
+	if(op==&at||op==&loop)return;
+	if(OP(op)->c==3){
+		*opp=0;
+		return;
+	}
+	OP(op)->c=3;
+	switch(OP(op)->o){
+	case(28)
+		fropmark(RN(op)->n+3);
+		fropmark(RN(op)->n+2);
+	case 27:fropmark(BR(op)->n+1);
+	}
+	fropmark(&OP(op)->n);
+}
+void fropswep(void*op){
+	if(!op||op==&at||op==&loop)return;
+	switch(OP(op)->o){
+	case(28)
+		fropswep(RN(op)->n[3]);
+		fropswep(RN(op)->n[2]);
+	case 27:fropswep(BR(op)->n[1]);
+	}
+	fropswep(OP(op)->n);
+	free(op);
+}
 int main(int argc,char**argv){
 	ran=fopen("/dev/urandom","r");
 	FILE*prog=fopen(argv[1],"r");
@@ -268,7 +295,7 @@ int main(int argc,char**argv){
 	}
 	RunProg:fclose(prog);
 	cknop(0);
-	void*op=comp(-128);
+	void*op=comp(-128),*rt=op;
 	opti(op);
 	for(;;){
 		switch(OP(op)->o){
@@ -333,30 +360,12 @@ int main(int argc,char**argv){
 			}
 			if(!(y==ps[x]||!(str[x>>3]&1<<(x&7))&&(opc(y)==opc(ps[x])||!(pg[x*4]||pg[x*4+1]||pg[x*4+2]||pg[x*4+3])))){
 				uint16_t d=OP(op)->d;
-				for(int i=0;i<10240;i++)
-					if(pg[i]){
-						if(pg[i]==&at||pg[i]==&loop){
-							pg[i]=0;
-							continue;
-						}
-						void*p=pg[i];
-						if(str[i>>3]&1<<(i&7)){
-							void*q=OP(p)->n;
-							while(!OP(q)->o){
-								for(int k=i;k<10240;k++)
-									if(pg[k]==q)goto nostr;
-								void*qq=OP(q)->n;
-								free(q);
-								q=qq;
-							}
-						}
-						nostr:free(p);
-						for(int k=i;k<10240;k++)
-							if(pg[k]==p)pg[k]=0;
-					}
+				fropmark(&rt);
+				fropswep(rt);
+				for(int i=0;i<10240;i++)pg[i]=0;
 				memset(str,0,320);
 				if(d>>2==x)cknop(d);
-				opti(op=comp(d));
+				opti(rt=op=comp(d));
 				continue;
 			}
 		case(25)
