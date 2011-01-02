@@ -143,11 +143,6 @@ void*comp(int i){
 		return pg[i];
 	}
 }
-void repl(void*p1,void*p2){
-	if(p1!=p2)
-		for(int i=0;i<10240;i++)
-			if(pg[i]==p1)pg[i]=p2;
-}
 void*next(void*op){
 	return OP(OP(op)->n)->c?0:OP(op)->n;
 }
@@ -161,21 +156,18 @@ void opti(void*op){
 		switch(OP(op)->o){
 			case(0)
 				OP(op)->n=BR(nx)->n[!!OP(op)->d];
-				repl(nx,op);
 				free(nx);
 				if(!(nx=next(op)))goto exit;
 			case(16)
 				BR(op)->o=27;
 				BR(op)->n[0]=BR(nx)->n[1];
 				BR(op)->n[1]=BR(nx)->n[0];
-				repl(nx,op);
 				free(nx);
 				goto exit;
 			case(18)
 				BR(op)->o=3;
 				BR(op)->n[0]=BR(nx)->n[0];
 				BR(op)->n[1]=BR(nx)->n[1];
-				repl(nx,op);
 				free(nx);
 				goto exit;
 		}
@@ -216,6 +208,14 @@ void opti(void*op){
 			case(13)if(OP(n)->d)OP(p)->d/=OP(n)->d;
 			case(14)if(OP(n)->d)OP(p)->d%=OP(n)->d;
 			case(15)OP(p)->d=OP(p)->d>OP(n)->d;
+			case(19){
+				int32_t t=OP(p)->d;
+				OP(p)->d=OP(n)->d;
+				OP(n)->d=t;
+				OP(n)->n=OP(o)->n;
+				free(o);
+				continue;
+			}
 			case(24)
 				OP(p)->o=2;
 				OP(p)->d=OP(o)->d|(OP(p)->d<80&&OP(p)->d>=0?OP(p)->d*32:0)+(OP(n)->d<25&&OP(n)->d>=0?OP(n)->d:0)<<16;
@@ -224,8 +224,6 @@ void opti(void*op){
 				OP(p)->d=OP(p)->d<80&&OP(p)->d>=0&&OP(n)->d<25&&OP(n)->d>=0?OP(p)->d*32+OP(n)->d:0;
 			}
 			OP(p)->n=OP(o)->n;
-			repl(n,p);
-			repl(o,p);
 			free(n);
 			free(o);
 			if(p==op&&!(nx=next(p)))goto exit;
@@ -233,7 +231,6 @@ void opti(void*op){
 		nostr:if(!OP(op)->o&&OP(nx)->o>=10&&OP(nx)->o<=15){
 			OP(op)->o=19-OP(nx)->o;
 			OP(op)->n=OP(nx)->n;
-			repl(nx,op);
 			free(nx);
 			if(!(nx=next(op)))goto exit;
 		}
@@ -277,7 +274,8 @@ int main(int argc,char**argv){
 	ran=fopen("/dev/urandom","r");
 	FILE*prog=fopen(argv[1],"r");
 #ifdef SPACE
-	for(int i=0;i<2560;i++)ps[i]=SPACE;
+	for(int j=0;j<80;j++)
+		for(int i=0;i<25;i++)ps[i+j*32]=SPACE;
 #endif
 	for(int i=0;i<25;i++){
 		for(int j=0;j<80;j++){
@@ -323,9 +321,9 @@ int main(int argc,char**argv){
 		case(18)if(sp>=st){sp[1]=*sp;sp++;}else{sp=st+1;st[0]=st[1]=0;}
 		case(19)
 		if(sp>st){
-			int tmp=*sp;
+			int32_t t=*sp;
 			*sp=sp[-1];
-			sp[-1]=tmp;
+			sp[-1]=t;
 		}else if(sp==st){sp[1]=*sp;*sp++=0;}else{sp=st+1;st[0]=st[1]=0;}
 		case(20)printf("%d ",sp>=st?*sp--:0);
 		case(21)putchar(sp>=st?*sp--:0);
@@ -362,8 +360,9 @@ int main(int argc,char**argv){
 				uint16_t d=OP(op)->d;
 				fropmark(&rt);
 				fropswep(rt);
-				for(int i=0;i<10240;i++)pg[i]=0;
 				memset(str,0,320);
+				for(int j=0;j<80;j++)
+					for(int i=0;i<100;i++)ps[i+j*128]=0;
 				if(d>>2==x)cknop(d);
 				opti(rt=op=comp(d));
 				continue;
