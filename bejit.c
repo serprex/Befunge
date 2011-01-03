@@ -6,15 +6,10 @@
 	#define __builtin_unreachable()
 #endif
 #define case(x) break;case x:;
-struct rn{
-	uint8_t o,c;
-	int32_t d;
-	void*n[4];
-};
 struct br{
 	uint8_t o,c;
 	int32_t d;
-	void*n[2];
+	void*n[];
 };
 struct op{
 	uint8_t o,c;
@@ -23,7 +18,6 @@ struct op{
 };
 #define OP(x) ((struct op*)(x))
 #define BR(x) ((struct br*)(x))
-#define RN(x) ((struct rn*)(x))
 const uint8_t at=29,loop=30;
 uint16_t*restrict np,ns;
 FILE*ran;
@@ -95,8 +89,7 @@ void*comp(int i){
 	case-1:ns=i2;return pg[i]=comp(i);
 	case 0 ... 9:
 		pg[i]=malloc(sizeof(struct op));
-		OP(pg[i])->o=0;
-		OP(pg[i])->c=0;
+		OP(pg[i])->o=OP(pg[i])->c=0;
 		OP(pg[i])->d=op;
 		OP(pg[i])->n=comp(i);
 		return pg[i];
@@ -129,15 +122,15 @@ void*comp(int i){
 		return pg[i];
 	}
 	case 28:
-		pg[i]=pg[i^1]=pg[i^2]=pg[i^3]=malloc(sizeof(struct rn));
-		RN(pg[i])->o=28;
+		pg[i]=pg[i^1]=pg[i^2]=pg[i^3]=malloc(sizeof(struct br)+2*sizeof(void*));
+		OP(pg[i])->o=28;
 		OP(pg[i])->c=0;
-		for(int j=0;j<4;j++)RN(pg[i])->n[j]=comp(i^j);
+		for(int j=0;j<4;j++)BR(pg[i])->n[j]=comp(i^j);
 		return pg[i];
 	case 29:return pg[i]=(void*)&at;
 	case 30:case 27:
-		pg[i]=pg[i^1]=pg[i^2]=pg[i^3]=malloc(sizeof(struct br));
-		BR(pg[i])->o=27;
+		pg[i]=pg[i^1]=pg[i^2]=pg[i^3]=malloc(sizeof(struct br)+4*sizeof(void*));
+		OP(pg[i])->o=27;
 		OP(pg[i])->c=0;
 		for(int j=0;j<2;j++)BR(pg[i])->n[j]=comp(i&~3|j*2^(op&1?3:0));
 		return pg[i];
@@ -152,6 +145,15 @@ void opti(void*op){
 	void*nx=next(op);
 	if(!nx)goto exit;
 	if(OP(nx)->o==29||OP(nx)->o==30)return;
+	if(OP(nx)->o==18){
+		void*o=next(nx);
+		if(o&&OP(o)->o==27){
+			BR(o)->o=3;
+			OP(op)->n=o;
+			free(nx);
+			if(!(nx=next(op)))goto exit;
+		}
+	}
 	if(OP(nx)->o==27){
 		switch(OP(op)->o){
 			case(0)
@@ -162,12 +164,6 @@ void opti(void*op){
 				BR(op)->o=27;
 				BR(op)->n[0]=BR(nx)->n[1];
 				BR(op)->n[1]=BR(nx)->n[0];
-				free(nx);
-				goto exit;
-			case(18)
-				BR(op)->o=3;
-				BR(op)->n[0]=BR(nx)->n[0];
-				BR(op)->n[1]=BR(nx)->n[1];
 				free(nx);
 				goto exit;
 		}
@@ -237,8 +233,8 @@ void opti(void*op){
 	}
 	exit:switch(OP(op)->o){
 	case(28)
-		opti(RN(op)->n[3]);
-		opti(RN(op)->n[2]);
+		opti(BR(op)->n[3]);
+		opti(BR(op)->n[2]);
 	case 27:opti(BR(op)->n[1]);
 	}
 	opti(OP(op)->n);
@@ -253,8 +249,8 @@ void fropmark(void**opp){
 	OP(op)->c=3;
 	switch(OP(op)->o){
 	case(28)
-		fropmark(RN(op)->n+3);
-		fropmark(RN(op)->n+2);
+		fropmark(BR(op)->n+3);
+		fropmark(BR(op)->n+2);
 	case 27:fropmark(BR(op)->n+1);
 	}
 	fropmark(&OP(op)->n);
@@ -263,8 +259,8 @@ void fropswep(void*op){
 	if(!op||op==&at||op==&loop)return;
 	switch(OP(op)->o){
 	case(28)
-		fropswep(RN(op)->n[3]);
-		fropswep(RN(op)->n[2]);
+		fropswep(BR(op)->n[3]);
+		fropswep(BR(op)->n[2]);
 	case 27:fropswep(BR(op)->n[1]);
 	}
 	fropswep(OP(op)->n);
@@ -362,7 +358,7 @@ int main(int argc,char**argv){
 				fropswep(rt);
 				memset(str,0,320);
 				for(int j=0;j<80;j++)
-					for(int i=0;i<100;i++)ps[i+j*128]=0;
+					for(int i=0;i<100;i++)pg[i+j*128]=0;
 				if(d>>2==x)cknop(d);
 				opti(rt=op=comp(d));
 				continue;
@@ -374,7 +370,7 @@ int main(int argc,char**argv){
 			op=BR(op)->n[sp>=st&&*sp--];
 			continue;
 		case(28)
-			op=RN(op)->n[getc(ran)&3];
+			op=BR(op)->n[getc(ran)&3];
 			continue;
 		case(29)exit(0);
 		case(30)for(;;);
