@@ -47,7 +47,7 @@
 #ifdef FLOAT
 	#include <math.h>
 #endif
-#ifdef STDRAND
+#ifndef FRAND
 	#include <stdlib.h>
 	#ifdef RDTSC
 		int rdtsc(){__asm__ __volatile__("rdtsc");}
@@ -59,7 +59,7 @@
 	#include <sys/resource.h>
 #endif
 int main(int argc,char**argv){
-#ifdef STDRAND
+#ifndef FRAND
 	srand(
 	#ifdef RDTSC
 		rdtsc()
