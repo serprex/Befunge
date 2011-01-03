@@ -81,10 +81,10 @@
 	}
 	}
 	OP(rnd)RND(
-#ifdef STDRAND
-	rand()
-#else
+#ifdef FRAND
 	getc(rand)
+#else
+	rand()
 #endif
 	&3);
 	OP(get)
