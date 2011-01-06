@@ -74,7 +74,7 @@ void*comp(int i){
 	}
 	int i2=i,op=opc(ps[i>>2]);
 	if(op>=31&&op<=35){
-		if(op&32)i2=i&~3|op-32;
+		if(op&32)i2=i&~3|op&3;
 		else hash:i2=mv(i);
 		for(int j=0;j<ns;j++)
 			if(np[j]==i)return pg[i]=(void*)&loop;
@@ -86,7 +86,9 @@ void*comp(int i){
 	ns=0;
 	switch(op){
 	default:__builtin_unreachable();
-	case-1:ns=i2;return pg[i]=comp(i);
+	case-1:
+		ns=i2;
+		return pg[i]=comp(i);
 	case 0 ... 9:
 		pg[i]=malloc(sizeof(struct op));
 		OP(pg[i])->o=OP(pg[i])->c=0;
@@ -106,11 +108,10 @@ void*comp(int i){
 			ns=i2;
 			goto hash;
 		}
-		pg[i]=malloc(sizeof(struct op));
-		OP(pg[i])->o=OP(pg[i])->c=0;
-		OP(pg[i])->d=ps[j>>2];
+		struct op*s=pg[i]=malloc(sizeof(struct op));
+		s->o=s->c=0;
+		s->d=ps[j>>2];
 		str[j>>5]|=1<<((j>>2)&7);
-		struct op*s=pg[i];
 		while(ps[(j=mv(j))>>2]!='"'){
 			str[j>>5]|=1<<((j>>2)&7);
 			s->n=malloc(sizeof(struct op));
@@ -122,14 +123,14 @@ void*comp(int i){
 		return pg[i];
 	}
 	case 28:
-		pg[i]=pg[i^1]=pg[i^2]=pg[i^3]=malloc(sizeof(struct br)+2*sizeof(void*));
+		pg[i]=pg[i^1]=pg[i^2]=pg[i^3]=malloc(sizeof(struct br)+4*sizeof(void*));
 		OP(pg[i])->o=28;
 		OP(pg[i])->c=0;
 		for(int j=0;j<4;j++)BR(pg[i])->n[j]=comp(i^j);
 		return pg[i];
 	case 29:return pg[i]=(void*)&at;
 	case 30:case 27:
-		pg[i]=pg[i^1]=pg[i^2]=pg[i^3]=malloc(sizeof(struct br)+4*sizeof(void*));
+		pg[i]=pg[i^1]=pg[i^2]=pg[i^3]=malloc(sizeof(struct br)+2*sizeof(void*));
 		OP(pg[i])->o=27;
 		OP(pg[i])->c=0;
 		for(int j=0;j<2;j++)BR(pg[i])->n[j]=comp(i&~3|j*2^(op&1?3:0));
@@ -140,11 +141,22 @@ void*next(void*op){
 	return OP(OP(op)->n)->c?0:OP(op)->n;
 }
 void opti(void*op){
-	if(OP(op)->c==2||OP(op)->o==29||OP(op)->o==30)return;
+	if(op==&at||op==&loop||OP(op)->c==2)return;
 	OP(op)->c=2;
 	void*nx=next(op);
 	if(!nx)goto exit;
 	if(OP(nx)->o==29||OP(nx)->o==30)return;
+	if(OP(nx)->o==16){
+		void*o=next(nx);
+		if(o&&OP(o)->o==27){
+			void*t=BR(o)->n[0];
+			BR(o)->n[0]=BR(o)->n[1];
+			BR(o)->n[1]=t;
+			OP(op)->n=o;
+			free(nx);
+			if(!(nx=next(op)))goto exit;
+		}
+	}
 	if(OP(nx)->o==18){
 		void*o=next(nx);
 		if(o&&OP(o)->o==27){
@@ -154,19 +166,10 @@ void opti(void*op){
 			if(!(nx=next(op)))goto exit;
 		}
 	}
-	if(OP(nx)->o==27){
-		switch(OP(op)->o){
-			case(0)
-				OP(op)->n=BR(nx)->n[!!OP(op)->d];
-				free(nx);
-				if(!(nx=next(op)))goto exit;
-			case(16)
-				BR(op)->o=27;
-				BR(op)->n[0]=BR(nx)->n[1];
-				BR(op)->n[1]=BR(nx)->n[0];
-				free(nx);
-				goto exit;
-		}
+	if(OP(nx)->o==27&&!OP(op)->o){
+		OP(op)->n=BR(nx)->n[!!OP(op)->d];
+		free(nx);
+		if(!(nx=next(op)))goto exit;
 	}
 	if(!OP(op)->o){
 		switch(OP(nx)->o){
@@ -239,31 +242,16 @@ void opti(void*op){
 	}
 	opti(OP(op)->n);
 }
-void fropmark(void**opp){
-	void*op=*opp;
-	if(op==&at||op==&loop)return;
-	if(OP(op)->c==3){
-		*opp=0;
-		return;
-	}
+void frop(void*op){
+	if(op==&at||op==&loop||OP(op)->c==3)return;
 	OP(op)->c=3;
 	switch(OP(op)->o){
-	case(28)
-		fropmark(BR(op)->n+3);
-		fropmark(BR(op)->n+2);
-	case 27:fropmark(BR(op)->n+1);
+	case 28:
+		frop(BR(op)->n[3]);
+		frop(BR(op)->n[2]);
+	case 27:frop(BR(op)->n[1]);
 	}
-	fropmark(&OP(op)->n);
-}
-void fropswep(void*op){
-	if(!op||op==&at||op==&loop)return;
-	switch(OP(op)->o){
-	case(28)
-		fropswep(BR(op)->n[3]);
-		fropswep(BR(op)->n[2]);
-	case 27:fropswep(BR(op)->n[1]);
-	}
-	fropswep(OP(op)->n);
+	frop(OP(op)->n);
 	free(op);
 }
 int main(int argc,char**argv){
@@ -354,8 +342,7 @@ int main(int argc,char**argv){
 			}
 			if(!(y==ps[x]||!(str[x>>3]&1<<(x&7))&&(opc(y)==opc(ps[x])||!(pg[x*4]||pg[x*4+1]||pg[x*4+2]||pg[x*4+3])))){
 				uint16_t d=OP(op)->d;
-				fropmark(&rt);
-				fropswep(rt);
+				frop(rt);
 				memset(str,0,320);
 				for(int j=0;j<80;j++)
 					for(int i=0;i<100;i++)pg[i+j*128]=0;
@@ -372,7 +359,7 @@ int main(int argc,char**argv){
 		case(28)
 			op=BR(op)->n[getc(ran)&3];
 			continue;
-		case(29)exit(0);
+		case(29)return 0;
 		case(30)for(;;);
 		}
 		}
