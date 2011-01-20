@@ -6,30 +6,29 @@
 	#define __builtin_unreachable()
 #endif
 #define case(x) break;case x:;
-struct br{
-	uint8_t o,c;
-	int32_t d;
-	void*n[];
-};
 struct op{
 	uint8_t o,c;
 	int32_t d;
 	void*n;
 };
+struct br{
+	uint8_t o,c;
+	int32_t d;
+	void*n[];
+};
 #define OP(x) ((struct op*)(x))
 #define BR(x) ((struct br*)(x))
 const uint8_t at=29,loop=30;
-uint16_t*restrict np,ns;
 FILE*ran;
 int32_t st[65536],*sp=st,ps[2560];
 uint8_t str[320];
 void*pg[10240];
 int mv(int i){
 	switch(i&3){
-	case(0)return i>=10112?i-10112:i+128;
-	case(1)return i&124?i-4:i+96;
-	case(2)return i<128?i+10112:i-128;
-	case(3)return (i+=4)&124?i:i-128;
+	case 0:return i>=10112?i-10112:i+128;
+	case 1:return i&124?i-4:i+96;
+	case 2:return i<128?i+10112:i-128;
+	case 3:return i+4&124?i+4:i-124;
 	}
 }
 int opc(int i){
@@ -76,19 +75,12 @@ void*comp(int i){
 	if(op>=31&&op<=35){
 		if(op&32)i2=i&~3|op&3;
 		else hash:i2=mv(i);
-		for(int j=0;j<ns;j++)
-			if(np[j]==i)return pg[i]=(void*)&loop;
-		np=realloc(np,2*++ns);
-		np[ns-1]=i;
+		pg[i]=(void*)&loop;
 		return pg[i]=comp(i2);
 	}
-	i2=ns;
-	ns=0;
 	switch(op){
 	default:__builtin_unreachable();
-	case-1:
-		ns=i2;
-		return pg[i]=comp(i);
+	case-1:return pg[i]=comp(i);
 	case 0 ... 9:
 		pg[i]=malloc(sizeof(struct op));
 		OP(pg[i])->o=OP(pg[i])->c=0;
@@ -104,16 +96,13 @@ void*comp(int i){
 		return pg[i];
 	case 26:{
 		int j=mv(i);
-		if(ps[j>>2]=='"'){
-			ns=i2;
-			goto hash;
-		}
+		if(ps[j>>2]=='"')goto hash;
 		struct op*s=pg[i]=malloc(sizeof(struct op));
 		s->o=s->c=0;
 		s->d=ps[j>>2];
-		str[j>>5]|=1<<((j>>2)&7);
+		str[j>>5]|=1<<(j>>2&7);
 		while(ps[(j=mv(j))>>2]!='"'){
-			str[j>>5]|=1<<((j>>2)&7);
+			str[j>>5]|=1<<(j>>2&7);
 			s->n=malloc(sizeof(struct op));
 			s=s->n;
 			s->o=s->c=0;
@@ -235,7 +224,7 @@ void opti(void*op){
 		}
 	}
 	exit:switch(OP(op)->o){
-	case(28)
+	case 28:
 		opti(BR(op)->n[3]);
 		opti(BR(op)->n[2]);
 	case 27:opti(BR(op)->n[1]);
@@ -280,6 +269,7 @@ int main(int argc,char**argv){
 	void*op=comp(-128),*rt=op;
 	opti(op);
 	for(;;){
+		fprintf(stderr,"%d\n",OP(op)->o);
 		switch(OP(op)->o){
 		default:__builtin_unreachable();
 		case(0)*++sp=OP(op)->d;
