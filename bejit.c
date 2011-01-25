@@ -242,16 +242,25 @@ void opti(void*op){
 	}
 	opti(OP(op)->n);
 }
-void frop(void*op){
-	if(op==&at||op==&loop||OP(op)->c==3)return;
+void frop(void**opp){
+	void*op=*opp;
+	if(!op||op==&at||op==&loop)return;
+	if(OP(op)->c==3){
+		*opp=0;
+		return;
+	}
 	OP(op)->c=3;
 	switch(OP(op)->o){
 	case 28:
-		frop(BR(op)->n[3]);
-		frop(BR(op)->n[2]);
-	case 27:frop(BR(op)->n[1]);
+		frop(BR(op)->n+3);
+		frop(BR(op)->n+2);
+	case 27:frop(BR(op)->n+1);
 	}
-	frop(OP(op)->n);
+	frop(&OP(op)->n);
+}
+void fropswep(void*op){
+	if(op==&at||op==&loop)return;
+	fropswep(OP(op)->n);
 	free(op);
 }
 int main(int argc,char**argv){
@@ -277,7 +286,7 @@ int main(int argc,char**argv){
 	}
 	RunProg:fclose(prog);
 	cknop(0);
-	void*op=comp(-128),*rt=op;
+	void*op=comp(-128),**rt=&op;
 	opti(op);
 	for(;;){
 		switch(OP(op)->o){
@@ -347,7 +356,8 @@ int main(int argc,char**argv){
 				for(int j=0;j<80;j++)
 					for(int i=0;i<100;i++)pg[i+j*128]=0;
 				if(d>>2==x)cknop(d);
-				opti(rt=op=comp(d));
+				opti(op=comp(d));
+				rt=&op;
 				continue;
 			}
 		case(25)
