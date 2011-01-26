@@ -140,7 +140,7 @@ void*comp(int i){
 void*next(void*op){
 	return OP(OP(op)->n)->c?0:OP(op)->n;
 }
-void opti(void*op){
+void opti(void*op){return;
 	if(op==&at||op==&loop||OP(op)->c==2)return;
 	OP(op)->c=2;
 	void*nx=next(op);
@@ -259,7 +259,7 @@ void frop(void**opp){
 	frop(&OP(op)->n);
 }
 void fropswep(void*op){
-	if(op==&at||op==&loop)return;
+	if(!op||op==&at||op==&loop)return;
 	fropswep(OP(op)->n);
 	free(op);
 }
@@ -352,6 +352,7 @@ int main(int argc,char**argv){
 			if(!(y==ps[x]||!(str[x>>3]&1<<(x&7))&&(opc(y)==opc(ps[x])||!(pg[x*4]||pg[x*4+1]||pg[x*4+2]||pg[x*4+3])))){
 				uint16_t d=OP(op)->d;
 				frop(rt);
+				fropswep(*rt);
 				memset(str,0,320);
 				for(int j=0;j<80;j++)
 					for(int i=0;i<100;i++)pg[i+j*128]=0;
