@@ -1,7 +1,7 @@
 ifneq ($(FLT),)
 LF=-DW$(FLT) -lm
 endif
-all:marsh bejit bejit2
+all:marsh bejit
 marsh:marsh.c marsh.h
 	gcc -std=gnu99 marsh.c -o marsh -O3 -s -march=native -fwhole-program ${LF} -DWBIT=32
 bejit:bejit.c

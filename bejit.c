@@ -6,10 +6,11 @@
 	#define __builtin_unreachable()
 #endif
 #define case(x) break;case x:;
+#define fprintf(...)
 FILE*ran;
 int32_t ps[2560],st[65536],*sp=st-1;
-uint16_t pg[10240],rl;
-uint8_t pro[2560],r[65536];
+uint16_t pg[10240],rl,*ct;
+uint8_t pro[640],r[65536];
 int mv(int i){
 	switch(i&3){
 	case 0:return i>=10112?i-10112:i+128;
@@ -18,31 +19,40 @@ int mv(int i){
 	case 3:return i+4&124?i+4:i-124;
 	}
 }
-uint8_t opc(int i){
-	static const uint8_t loc[]={16,28,31,17,14,23,36,36,36,12,10,21,11,20,13,0,1,2,3,4,5,6,7,8,9,18,36,34,36,32,27,29,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,19,36,33,30,15,36,36,36,36,36,36,25,36,36,36,36,36,36,36,36,24,36,36,36,36,36,35,36,36,36,36,36,26,36,22};
-	return __builtin_expect(i<33||i>126,0)?36:loc[i-33];
+int opc(int i){
+	static const uint8_t loc[]={16,28,31,17,14,23,36,36,36,12,10,21,11,20,13,0,1,2,3,4,5,6,7,8,9,18,36,34,36,32,27,30,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,19,36,33,29,15,36,36,36,36,36,36,24,36,36,36,36,36,36,36,36,25,36,36,36,36,36,35,36,36,36,36,36,26,36,22};
+	return i<33||i>126?36:loc[i-33];
 }
 uint16_t comp(int i){
-	int32_t op=opc(ps[i>>2]);
+	int op=opc(ps[i>>2]);
+	uint32_t cl=0;
 	for(;;){
+		fprintf(stderr,"%d ",op);
+		for(int i=0;i<cl;i+=2)fprintf(stderr,"%d,%d ",ct[i],ct[i+1]);
+		fprintf(stderr,"\n");
 		if(pg[i]!=(uint16_t)-1){
 			rl+=3;
 			r[rl-3]=28;
-			*(uint16_t*)(r+rl-2)=pg[i];
-			return pg[i];
+			return*(uint16_t*)(r+rl-2)=pg[i];
+		}
+		if(op<28||op==30){
+			ct=realloc(ct,(cl+=2)*2);
+			ct[cl-2]=rl;
+			ct[cl-1]=i;
 		}
 		pg[i]=rl;
-		if(pro[i>>2]!=2)pro[i>>2]=1;
+		pro[i>>4]|=1<<(i>>1&6);
 		switch(op){
 		default:__builtin_unreachable();
 		case(0 ... 9)
 			rl+=5;
 			r[rl-5]=0;
 			*++sp=*(int32_t*)(r+rl-4)=op;
-		case(10 ... 23)case 25:
+		case(10 ... 24)
 			rl++;
 			r[rl-1]=op;
 			switch(op){
+			default:__builtin_unreachable();
 			case(10)if(sp>st){sp--;*sp+=sp[1];}else if(sp<st)*++sp=0;
 			case(11)if(sp>st){sp--;*sp-=sp[1];}else if(sp==st)*sp*=-1;else*++sp=0;
 			case(12)if(sp>st){sp--;*sp*=sp[1];}else*(sp=st)=0;
@@ -62,19 +72,62 @@ uint16_t comp(int i){
 			case(21)putchar(sp>=st?*sp--:0);
 			case(22)*++sp=getchar();
 			case(23)scanf("%d",++sp);
-			case(25)
-				if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[*sp*32|sp[1]]:0;}
-				else if(sp==st)*sp=*sp<25&&*sp>=0?ps[*sp]:0;else*++sp=ps[0];
+			case(24)
+				if(sp>st){
+					sp--;
+					if(cl>5&&!r[ct[cl-4]]&&!r[ct[cl-6]]&&*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0){
+						pg[i]=pg[ct[cl-3]]=-1;
+						ct=realloc(ct,(cl-=4)*2);
+						rl-=8;
+						r[rl-3]=1;
+						*(uint16_t*)(r+rl-2)=*sp*32|sp[1];
+					}
+					*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[*sp*32|sp[1]]:0;
+
+				}else if(sp==st)*sp=*sp<25&&*sp>=0?ps[*sp]:0;else*++sp=ps[0];
 			}
-		case(24){
+			if(cl>3&&!r[ct[cl-4]]){
+				switch(op){
+				case(10 ... 15)
+				if(cl>5&&!r[ct[cl-6]]){
+					pg[i]=pg[ct[cl-3]]=-1;
+					ct=realloc(ct,(cl-=4)*2);
+					rl-=6;
+					*(uint32_t*)(r+rl-4)=*sp;
+				}else{
+					pg[i]=-1;
+					ct=realloc(ct,(cl-=2)*2);
+					rl-=1;
+					r[rl-5]=19-op;
+				}
+				case(16)
+					pg[i]=-1;
+					ct=realloc(ct,(cl-=2)*2);
+					rl-=1;
+					*(uint32_t*)(r+rl-4)=!*sp;
+				case(17)
+					pg[i]=pg[ct[cl-3]]=-1;
+					ct=realloc(ct,(cl-=4)*2);
+					rl-=6;
+				}
+			}
+		case(25){
 			rl+=3;
-			r[rl-3]=24;
+			r[rl-3]=25;
 			*(uint16_t*)(r+rl-2)=i;
 			int x,y;
 			switch(sp-st){
 			default:
 				sp-=3;
 				x=(sp[2]>=0&&sp[2]<80?sp[2]*32:0)|(sp[3]>=0&&sp[3]<25?sp[3]:0);
+				if(cl>5&&!r[ct[cl-4]]&&!r[ct[cl-6]]){
+					pg[i]=pg[ct[cl-3]]=-1;
+					ct=realloc(ct,(cl-=4)*2);
+					rl-=8;
+					r[rl-5]=2;
+					*(uint16_t*)(r+rl-4)=x;
+					*(uint16_t*)(r+rl-2)=i;
+				}
 				y=ps[x];
 				ps[x]=sp[1];
 			case(-1)
@@ -92,8 +145,8 @@ uint16_t comp(int i){
 				y=ps[x];
 				ps[x]=0;
 			}
-			if(y!=ps[x]&&pro[x]&&(pro[x]==2||opc(y)!=opc(ps[x]))){
-				memset(pro,0,2560);
+			if(y!=ps[x]&&(pro[x>>2]&3<<(x&3)*2)&&((pro[x>>2]&2<<(x&3)*2)||opc(y)!=opc(ps[x]))){
+				memset(pro,0,640);
 				memset(pg,-1,20480);
 				rl=0;
 			}
@@ -110,14 +163,16 @@ uint16_t comp(int i){
 		}
 		case(28)
 			while(ps[(i=mv(i))>>2]!='"'){
-				pro[i>>2]=2;
+				ct=realloc(ct,(cl+=2)*2);
+				ct[cl-2]=rl;
+				ct[cl-1]=i;
+				pro[i>>4]|=2<<(i>>1&6);
 				rl+=5;
 				r[rl-5]=0;
 				*++sp=*(int32_t*)(r+rl-4)=ps[i>>2];
 			}
-			pro[i>>2]=2;
-		case(29)exit(0);
-		case(30)case 26:
+			pro[i>>4]|=2<<(i>>1&6);
+		case(29)case 26:
 			pg[i^1]=pg[i^2]=pg[i^3]=rl;
 			rl+=7;
 			r[rl-7]=26;
@@ -126,6 +181,9 @@ uint16_t comp(int i){
 			*(uint16_t*)(r+rl-2)=mv(i^2);
 			*(uint16_t*)(r+rl-6+2*j)=rl;
 			*(uint16_t*)(r+rl-6+2*!j)=-1;
+		case(30)
+			for(int i=0;i<rl;i++)fprintf(stderr,"%d ",r[i]);
+			exit(0);
 		case(31)i=mv(i);
 		case(32 ... 35)
 			pg[i^1]=pg[i^2]=pg[i^3]=rl;
@@ -157,7 +215,7 @@ int main(int argc,char**argv){
 		FoundNew:;
 	}
 	RunProg:fclose(prog);
-	memset(pro,0,2560);
+	memset(pro,0,640);
 	memset(pg,-1,20480);
 	uint8_t*op=r+comp(0);
 	for(;;){
@@ -165,6 +223,30 @@ int main(int argc,char**argv){
 		default:__builtin_unreachable();
 		case(0)
 			*++sp=*(int32_t*)(op+1);
+			op+=4;
+		case(1)
+			*++sp=ps[*(uint16_t*)(op+1)];
+			op+=2;
+		case(2)
+			op+=2;
+			goto from2;
+		case(4)
+			if(sp>=st){*sp=*sp>*(int32_t*)(op+1);}else{st[0]=sp==st&&0>*(int32_t*)(op+1);sp=st;}
+			op+=4;
+		case(5)
+			if(sp>=st){if(*(int32_t*)(op+1))*sp%=*(int32_t*)(op+1);}else*(sp=st)=0;
+			op+=4;
+		case(6)
+			if(sp>=st){if(*(int32_t*)(op+1))*sp/=*(int32_t*)(op+1);}else*(sp=st)=0;
+			op+=4;
+		case(7)
+			if(sp>=st){*sp*=*(int32_t*)(op+1);}else*(sp=st)=0;
+			op+=4;
+		case(8)
+			if(sp>=st){*sp-=*(int32_t*)(op+1);}else*(sp=st)=-*(int32_t*)(op+1);
+			op+=4;
+		case(9)
+			if(sp>=st){*sp+=*(int32_t*)(op+1);}else*(sp=st)=*(int32_t*)(op+1);
 			op+=4;
 		case(10)if(sp>st){sp--;*sp+=sp[1];}else if(sp<st)*++sp=0;
 		case(11)if(sp>st){sp--;*sp-=sp[1];}else if(sp==st)*sp*=-1;else*++sp=0;
@@ -185,7 +267,10 @@ int main(int argc,char**argv){
 		case(21)putchar(sp>=st?*sp--:0);
 		case(22)*++sp=getchar();
 		case(23)scanf("%d",++sp);
-		case(24){
+		case(24)
+			if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[*sp*32+sp[1]]:0;}
+			else if(sp==st)*sp=*sp<25&&*sp>=0?ps[*sp]:0;else*++sp=ps[0];
+		case(25){
 			int x,y;
 			switch(sp-st){
 			default:
@@ -208,17 +293,19 @@ int main(int argc,char**argv){
 				y=ps[x];
 				ps[x]=0;
 			}
-			if(y!=ps[x]&&pro[x]&&(pro[x]==2||opc(y)!=opc(ps[x]))){
-				memset(pro,0,2560);
+			if(0){from2:
+				x=*(uint16_t*)(op-1);
+				y=ps[x];
+				ps[x]=sp>=st?*sp--:0;
+			}
+			if(y!=ps[x]&&(pro[x>>2]&3<<(x&3)*2)&&((pro[x>>2]&2<<(x&3)*2)||opc(y)!=opc(ps[x]))){
+				memset(pro,0,640);
 				memset(pg,-1,20480);
 				rl=0;
 				op=r+comp(mv(*(uint16_t*)(op+1)));
 				continue;
 			}else op+=2;
 		}
-		case(25)
-			if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[*sp*32+sp[1]]:0;}
-			else if(sp==st)*sp=*sp<25&&*sp>=0?ps[*sp]:0;else*++sp=ps[0];
 		case(26){
 			int j=sp>=st&&*sp--;
 			uint16_t*i=(uint16_t*)(op+1+j*2);
