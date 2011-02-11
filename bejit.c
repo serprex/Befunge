@@ -23,17 +23,12 @@ uint8_t opc(int i){
 	return __builtin_expect(i<33||i>126,0)?36:loc[i-33];
 }
 uint16_t comp(int i){
-	fprintf(stdout,"\n#\n");
 	int32_t op=opc(ps[i>>2]);
 	for(;;){
-		fprintf(stdout,"\n%d %d %d %d!",op,i,sp-st,rl);
 		if(pg[i]!=(uint16_t)-1){
 			rl+=3;
 			r[rl-3]=28;
 			*(uint16_t*)(r+rl-2)=pg[i];
-			fprintf(stdout,"\n%d:",rl);
-			for(int i=0;i<rl;i++)fprintf(stdout,"%d ",r[i]);
-			fprintf(stdout,"\n");
 			return pg[i];
 		}
 		pg[i]=rl;
@@ -166,7 +161,6 @@ int main(int argc,char**argv){
 	memset(pg,-1,20480);
 	uint8_t*op=r+comp(0);
 	for(;;){
-		fprintf(stdout,"\n%d %d$",*op,sp-st);
 		switch(*op){
 		default:__builtin_unreachable();
 		case(0)
@@ -218,7 +212,7 @@ int main(int argc,char**argv){
 				memset(pro,0,2560);
 				memset(pg,-1,20480);
 				rl=0;
-				op=r+comp(*(uint16_t*)(op+1));
+				op=r+comp(mv(*(uint16_t*)(op+1)));
 				continue;
 			}else op+=2;
 		}
