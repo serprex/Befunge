@@ -88,7 +88,7 @@
 #endif
 	&3);
 	OP(get)
-		if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[(int)*sp*32+(int)sp[1]]:0;}
+		if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[(int)*sp*32|(int)sp[1]]:0;}
 		else if(sp==st)*sp=*sp<25&&*sp>=0?ps[(int)*sp]:0;else*++sp=ps[0];
 	LOOP;
 	OP(put)switch(sp-st){
@@ -103,12 +103,12 @@
 			pg[x]=FT(7);
 		break;case 1:
 			sp=st-1;
-			x=(sp[1]>=0&&sp[1]<80?sp[1]*32:0)+(sp[2]>=0&&sp[2]<25?sp[2]:0);
+			x=(sp[1]>=0&&sp[1]<80?sp[1]*32:0)|(sp[2]>=0&&sp[2]<25?sp[2]:0);
 			ps[x]=0;
 			pg[x]=FT(7);
 		break;default:
 			sp-=3;
-			x=(sp[2]>=0&&sp[2]<80?sp[2]*32:0)+(sp[3]>=0&&sp[3]<25?sp[3]:0);
+			x=(sp[2]>=0&&sp[2]<80?sp[2]*32:0)|(sp[3]>=0&&sp[3]<25?sp[3]:0);
 			ps[x]=sp[1];
 			pg[x]=sp[1]>32&&sp[1]<127?FT(sp[1]-33):FT(7);
 	}
