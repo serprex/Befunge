@@ -6,17 +6,16 @@
 	#define __builtin_unreachable()
 #endif
 #define case(x) break;case x:;
-#define fprintf(...)
 FILE*ran;
 int32_t ps[2560],st[65536],*sp=st-1;
-uint16_t pg[10240],rl,*ct;
+uint16_t pg[10240],rl;
 uint8_t pro[640],r[65536];
 int mv(int i){
 	switch(i&3){
 	case 0:return i>=10112?i-10112:i+128;
 	case 1:return i&124?i-4:i+96;
 	case 2:return i<128?i+10112:i-128;
-	case 3:return i+4&124?i+4:i-124;
+	case 3:return (i+4&124)<100?i+4:i-96;
 	}
 }
 int opc(int i){
@@ -27,18 +26,10 @@ uint16_t comp(int i){
 	int op=opc(ps[i>>2]);
 	uint32_t cl=0;
 	for(;;){
-		fprintf(stderr,"%d ",op);
-		for(int i=0;i<cl;i+=2)fprintf(stderr,"%d,%d ",ct[i],ct[i+1]);
-		fprintf(stderr,"\n");
 		if(pg[i]!=(uint16_t)-1){
 			rl+=3;
 			r[rl-3]=28;
 			return*(uint16_t*)(r+rl-2)=pg[i];
-		}
-		if(op<28||op==30){
-			ct=realloc(ct,(cl+=2)*2);
-			ct[cl-2]=rl;
-			ct[cl-1]=i;
 		}
 		pg[i]=rl;
 		pro[i>>4]|=1<<(i>>1&6);
@@ -73,43 +64,7 @@ uint16_t comp(int i){
 			case(22)*++sp=getchar();
 			case(23)scanf("%d",++sp);
 			case(24)
-				if(sp>st){
-					sp--;
-					if(cl>5&&!r[ct[cl-4]]&&!r[ct[cl-6]]&&*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0){
-						pg[i]=pg[ct[cl-3]]=-1;
-						ct=realloc(ct,(cl-=4)*2);
-						rl-=8;
-						r[rl-3]=1;
-						*(uint16_t*)(r+rl-2)=*sp*32|sp[1];
-					}
-					*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[*sp*32|sp[1]]:0;
-
-				}else if(sp==st)*sp=*sp<25&&*sp>=0?ps[*sp]:0;else*++sp=ps[0];
-			}
-			if(cl>3&&!r[ct[cl-4]]){
-				switch(op){
-				case(10 ... 15)
-				if(cl>5&&!r[ct[cl-6]]){
-					pg[i]=pg[ct[cl-3]]=-1;
-					ct=realloc(ct,(cl-=4)*2);
-					rl-=6;
-					*(uint32_t*)(r+rl-4)=*sp;
-				}else{
-					pg[i]=-1;
-					ct=realloc(ct,(cl-=2)*2);
-					rl-=1;
-					r[rl-5]=19-op;
-				}
-				case(16)
-					pg[i]=-1;
-					ct=realloc(ct,(cl-=2)*2);
-					rl-=1;
-					*(uint32_t*)(r+rl-4)=!*sp;
-				case(17)
-					pg[i]=pg[ct[cl-3]]=-1;
-					ct=realloc(ct,(cl-=4)*2);
-					rl-=6;
-				}
+				if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[*sp*32|sp[1]]:0;}else if(sp==st)*sp=*sp<25&&*sp>=0?ps[*sp]:0;else*++sp=ps[0];
 			}
 		case(25){
 			rl+=3;
@@ -120,14 +75,6 @@ uint16_t comp(int i){
 			default:
 				sp-=3;
 				x=(sp[2]>=0&&sp[2]<80?sp[2]*32:0)|(sp[3]>=0&&sp[3]<25?sp[3]:0);
-				if(cl>5&&!r[ct[cl-4]]&&!r[ct[cl-6]]){
-					pg[i]=pg[ct[cl-3]]=-1;
-					ct=realloc(ct,(cl-=4)*2);
-					rl-=8;
-					r[rl-5]=2;
-					*(uint16_t*)(r+rl-4)=x;
-					*(uint16_t*)(r+rl-2)=i;
-				}
 				y=ps[x];
 				ps[x]=sp[1];
 			case(-1)
@@ -163,9 +110,6 @@ uint16_t comp(int i){
 		}
 		case(28)
 			while(ps[(i=mv(i))>>2]!='"'){
-				ct=realloc(ct,(cl+=2)*2);
-				ct[cl-2]=rl;
-				ct[cl-1]=i;
 				pro[i>>4]|=2<<(i>>1&6);
 				rl+=5;
 				r[rl-5]=0;
@@ -181,9 +125,7 @@ uint16_t comp(int i){
 			*(uint16_t*)(r+rl-2)=mv(i^2);
 			*(uint16_t*)(r+rl-6+2*j)=rl;
 			*(uint16_t*)(r+rl-6+2*!j)=-1;
-		case(30)
-			for(int i=0;i<rl;i++)fprintf(stderr,"%d ",r[i]);
-			exit(0);
+		case(30)exit(0);
 		case(31)i=mv(i);
 		case(32 ... 35)
 			pg[i^1]=pg[i^2]=pg[i^3]=rl;
