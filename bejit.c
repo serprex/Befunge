@@ -8,7 +8,7 @@
 #define case(x) break;case x:;
 FILE*ran;
 int32_t ps[2560],st[65536],*sp=st-1;
-uint16_t pg[10240],rl;
+uint16_t pg[10240],rl,*ct;
 uint8_t pro[640],r[65536];
 int mv(int i){
 	switch(i&3){
@@ -19,14 +19,20 @@ int mv(int i){
 	}
 }
 int opc(int i){
-	static const uint8_t loc[]={16,28,31,17,14,23,36,36,36,12,10,21,11,20,13,0,1,2,3,4,5,6,7,8,9,18,36,34,36,32,27,30,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,19,36,33,29,15,36,36,36,36,36,36,24,36,36,36,36,36,36,36,36,25,36,36,36,36,36,35,36,36,36,36,36,26,36,22};
+	static const uint8_t loc[]={16,29,31,17,14,23,36,36,36,12,10,21,11,20,13,0,1,2,3,4,5,6,7,8,9,18,36,34,36,32,27,30,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,19,36,33,28,15,36,36,36,36,36,36,24,36,36,36,36,36,36,36,36,25,36,36,36,36,36,35,36,36,36,36,36,26,36,22};
 	return i<33||i>126?36:loc[i-33];
 }
 int comp(int i){
+	int cl=0;
 	while(pg[i=mv(i)]==(uint16_t)-1){
-		pg[i]=rl;
-		pro[i>>4]|=1<<(i>>1&6);
 		int op=opc(ps[i>>2]);
+		pro[i>>4]|=1<<(i>>1&6);
+		if(op<30){
+			pg[i]=rl;
+			ct=realloc(ct,(cl+=2)*2);
+			ct[cl-1]=i;
+			ct[cl-2]=rl;
+		}
 		switch(op){
 		default:__builtin_unreachable();
 		case(0 ... 9)
@@ -61,6 +67,24 @@ int comp(int i){
 				if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[*sp*32|sp[1]]:0;}
 				else if(sp==st)*sp=*sp<25&&*sp>=0?ps[*sp]:0;else*++sp=ps[0];
 			}
+			if(op<16&&cl>5&&!r[ct[cl-6]]&&!r[ct[cl-4]]){
+				pg[i]=-1;
+				if(ct[cl-3]!=(uint16_t)-1)pg[ct[cl-3]]=-1;
+				cl-=4;
+				rl-=6;
+				*(uint32_t*)(r+rl-4)=*sp;
+			}else if(op<16&&cl>3&&!r[ct[cl-4]]){
+				pg[i]=-1;
+				cl-=2;
+				rl--;
+				r[rl-5]=19-op;
+				*(uint32_t*)(r+rl-4)=sp[1];
+			}else if(op==16&&cl>3&&!r[ct[cl-4]]){
+				pg[i]=-1;
+				cl-=2;
+				rl--;
+				*(uint32_t*)(r+rl-4)=*sp;
+			}
 		case(25){
 			rl+=3;
 			r[rl-3]=25;
@@ -90,7 +114,15 @@ int comp(int i){
 			if(y!=ps[x]&&(pro[x>>2]&3<<(x&3)*2)&&((pro[x>>2]&2<<(x&3)*2)||opc(y)!=opc(ps[x]))){
 				memset(pro,0,640);
 				memset(pg,-1,20480);
-				rl=0;
+				cl=rl=0;
+			}else if(cl>5&&!r[ct[cl-6]]&&!r[ct[cl-4]]){
+				pg[i]=-1;
+				if(ct[cl-3]!=(uint16_t)-1)pg[ct[cl-3]]=-1;
+				cl-=4;
+				rl-=8;
+				r[rl-5]=2;
+				*(uint16_t*)(r+rl-4)=x;
+				*(uint16_t*)(r+rl-2)=i;
 			}
 		}
 		case(27){
@@ -103,15 +135,7 @@ int comp(int i){
 			i=i&~3|j;
 			*(uint16_t*)(r+rl-10+2*j)=rl;
 		}
-		case(28)
-			while(ps[(i=mv(i))>>2]!='"'){
-				pro[i>>4]|=2<<(i>>1&6);
-				rl+=5;
-				r[rl-5]=0;
-				*++sp=*(int32_t*)(r+rl-4)=ps[i>>2];
-			}
-			pro[i>>4]|=2<<(i>>1&6);
-		case(29)case 26:
+		case(28)case 26:{
 			pg[i^1]=pg[i^2]=pg[i^3]=rl;
 			rl+=7;
 			r[rl-7]=26;
@@ -120,11 +144,26 @@ int comp(int i){
 			*(uint16_t*)(r+rl-2)=i^2;
 			*(uint16_t*)(r+rl-6+2*j)=rl;
 			*(uint16_t*)(r+rl-6+2*!j)=-1;
+		}
+		case(29){
+			int j=1;
+			while(ps[(i=mv(i))>>2]!='"'){
+				j=0;
+				pro[i>>4]|=2<<(i>>1&6);
+				rl+=5;
+				r[rl-5]=0;
+				*++sp=*(int32_t*)(r+rl-4)=ps[i>>2];
+				ct=realloc(ct,(cl+=2)*2);
+				ct[cl-1]=-1;
+				ct[cl-2]=rl;
+			}
+			cl-=2;
+			pro[i>>4]|=2<<(i>>1&6);
+			if(j)pg[mv(i^2)^2]=(uint16_t)-1;
+		}
 		case(30)exit(0);
 		case(31)i=mv(i);
-		case(32 ... 35)
-			pg[i^1]=pg[i^2]=pg[i^3]=rl;
-			i=i&~3|op&3;
+		case(32 ... 35)i=i&~3|op&3;
 		case(36);
 		}
 	}
@@ -233,7 +272,7 @@ int main(int argc,char**argv){
 				ps[x]=0;
 			}
 			if(0){from2:
-				x=*(uint16_t*)op;
+				x=*(uint16_t*)(op-2);
 				y=ps[x];
 				ps[x]=sp>=st?*sp--:0;
 			}
