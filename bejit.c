@@ -50,7 +50,15 @@ int comp(int i){
 			case(13)if(sp>st){sp--;if(sp[1])*sp/=sp[1];}else*(sp=st)=0;
 			case(14)if(sp>st){sp--;if(sp[1])*sp%=sp[1];}else*(sp=st)=0;
 			case(15)if(sp>st){sp--;*sp=*sp>sp[1];}else{st[0]=sp==st&&0>*sp;sp=st;}
-			case(16)if(sp>=st)*sp=!*sp;else*(sp=st)=1;
+			case(16)
+			if(sp>=st){
+				if(cl>3&&!r[ct[cl-4]]){
+					pg[i]=-1;
+					cl-=2;
+					rl--;
+					*(int32_t*)(r+rl-4)=*sp=!*sp;
+				}else*sp=!*sp;
+			}else*(sp=st)=1;
 			case(17)sp-=sp>=st;
 			case(18)if(sp>=st){sp[1]=*sp;sp++;}else{sp=st+1;st[0]=st[1]=0;}
 			case(19)
@@ -64,26 +72,44 @@ int comp(int i){
 			case(22)*++sp=getchar();
 			case(23)scanf("%d",++sp);
 			case(24)
-				if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[*sp*32|sp[1]]:0;}
-				else if(sp==st)*sp=*sp<25&&*sp>=0?ps[*sp]:0;else*++sp=ps[0];
+				if(sp>st){
+					sp--;
+					if(*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0){
+						if(cl>5&&!r[ct[cl-6]]&&!r[ct[cl-4]]){
+							pg[i]=-1;
+							if(ct[cl-3]!=(uint16_t)-1)pg[ct[cl-3]]=-1;
+							cl-=4;
+							rl-=8;
+							r[rl-3]=1;
+							*sp=ps[*(uint16_t*)(r+rl-2)=*sp<<5|sp[1]];
+						}else*sp=ps[*sp<<5|sp[1]];
+					}else*sp=0;
+				}else if(sp==st)*sp=*sp<25&&*sp>=0?ps[*sp]:0;else*++sp=ps[0];
 			}
-			if(op<16&&cl>5&&!r[ct[cl-6]]&&!r[ct[cl-4]]){
-				pg[i]=-1;
-				if(ct[cl-3]!=(uint16_t)-1)pg[ct[cl-3]]=-1;
-				cl-=4;
-				rl-=6;
-				*(uint32_t*)(r+rl-4)=*sp;
-			}else if(op<16&&cl>3&&!r[ct[cl-4]]){
-				pg[i]=-1;
-				cl-=2;
-				rl--;
-				r[rl-5]=19-op;
-				*(uint32_t*)(r+rl-4)=sp[1];
-			}else if(op==16&&cl>3&&!r[ct[cl-4]]){
-				pg[i]=-1;
-				cl-=2;
-				rl--;
-				*(uint32_t*)(r+rl-4)=*sp;
+			if(op<16&&cl>3){
+				switch(r[ct[cl-4]]){
+				case(0)
+					pg[i]=-1;
+					if(cl>5&&!r[ct[cl-6]]){
+						if(ct[cl-3]!=(uint16_t)-1)pg[ct[cl-3]]=-1;
+						cl-=4;
+						rl-=6;
+						*(int32_t*)(r+rl-4)=*sp;
+					}else{
+						cl-=2;
+						rl--;
+						r[rl-5]=19-op;
+						*(int32_t*)(r+rl-4)=sp[1];
+					}
+				case(18)
+					if(cl>5&&!r[ct[cl-6]]){
+						pg[i]=-1;
+						if(ct[cl-3]!=(uint16_t)-1)pg[ct[cl-3]]=-1;
+						cl-=4;
+						rl-=2;
+						*(int32_t*)(r+rl-4)=*sp;
+					}
+				}
 			}
 		case(25){
 			rl+=3;
@@ -93,7 +119,7 @@ int comp(int i){
 			switch(sp-st){
 			default:
 				sp-=3;
-				x=(sp[2]>=0&&sp[2]<80?sp[2]*32:0)|(sp[3]>=0&&sp[3]<25?sp[3]:0);
+				x=(sp[2]>=0&&sp[2]<80?sp[2]<<5:0)|(sp[3]>=0&&sp[3]<25?sp[3]:0);
 				y=ps[x];
 				ps[x]=sp[1];
 			case(-1)
@@ -102,12 +128,12 @@ int comp(int i){
 				ps[0]=0;
 			case(0)
 				sp=st-1;
-				x=sp[1]<25&&sp[1]>=0?sp[1]*32:0;
+				x=sp[1]<25&&sp[1]>=0?sp[1]<<5:0;
 				y=ps[x];
 				ps[x]=0;
 			case(1)
 				sp=st-1;
-				x=(sp[1]>=0&&sp[1]<80?sp[1]*32:0)|(sp[2]>=0&&sp[2]<25?sp[2]:0);
+				x=(sp[1]>=0&&sp[1]<80?sp[1]<<5:0)|(sp[2]>=0&&sp[2]<25?sp[2]:0);
 				y=ps[x];
 				ps[x]=0;
 			}
@@ -176,14 +202,14 @@ int main(int argc,char**argv){
 	FILE*prog=fopen(argv[1],"r");
 #ifdef SPACE
 	for(int j=0;j<80;j++)
-		for(int i=0;i<25;i++)ps[i+j*32]=SPACE;
+		for(int i=0;i<25;i++)ps[i|j<<5]=SPACE;
 #endif
 	for(int i=0;i<25;i++){
 		for(int j=0;j<80;j++){
 			int c=getc(prog);
 			if(c=='\n')goto FoundNew;
 			if(c==-1)goto RunProg;
-			ps[i+j*32]=c;
+			ps[i|j<<5]=c;
 		}
 		for(;;){
 			int c=getc(prog);
@@ -246,14 +272,14 @@ int main(int argc,char**argv){
 		case(22)*++sp=getchar();
 		case(23)scanf("%d",++sp);
 		case(24)
-			if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[*sp*32+sp[1]]:0;}
+			if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[*sp<<5|sp[1]]:0;}
 			else if(sp==st)*sp=*sp<25&&*sp>=0?ps[*sp]:0;else*++sp=ps[0];
 		case(25){
 			int x,y;
 			switch(sp-st){
 			default:
 				sp-=3;
-				x=(sp[2]>=0&&sp[2]<80?sp[2]*32:0)+(sp[3]>=0&&sp[3]<25?sp[3]:0);
+				x=(sp[2]>=0&&sp[2]<80?sp[2]<<5:0)+(sp[3]>=0&&sp[3]<25?sp[3]:0);
 				y=ps[x];
 				ps[x]=sp[1];
 			case(-1)
@@ -262,12 +288,12 @@ int main(int argc,char**argv){
 				ps[0]=0;
 			case(0)
 				sp=st-1;
-				x=sp[1]<25&&sp[1]>=0?sp[1]*32:0;
+				x=sp[1]<25&&sp[1]>=0?sp[1]<<5:0;
 				y=ps[x];
 				ps[x]=0;
 			case(1)
 				sp=st-1;
-				x=(sp[1]>=0&&sp[1]<80?sp[1]*32:0)+(sp[2]>=0&&sp[2]<25?sp[2]:0);
+				x=(sp[1]>=0&&sp[1]<80?sp[1]<<5:0)+(sp[2]>=0&&sp[2]<25?sp[2]:0);
 				y=ps[x];
 				ps[x]=0;
 			}
