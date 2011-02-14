@@ -66,6 +66,14 @@ int comp(int i){
 				int32_t t=*sp;
 				*sp=sp[-1];
 				sp[-1]=t;
+				if(cl>5&&!r[ct[cl-4]]&&!r[ct[cl-6]]){
+					pg[i]=-1;
+					if(ct[cl-3]!=(uint16_t)-1)pg[ct[cl-3]]=-1;
+					cl-=2;
+					rl--;
+					*(int32_t*)(r+rl-4)=*sp;
+					*(int32_t*)(r+rl-9)=sp[-1];
+				}
 			}else if(sp==st){sp[1]=*sp;*sp++=0;}else{sp=st+1;st[0]=st[1]=0;}
 			case(20)printf("%d ",sp>=st?*sp--:0);
 			case(21)putchar(sp>=st?*sp--:0);
