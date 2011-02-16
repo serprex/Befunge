@@ -19,7 +19,7 @@ int mv(int i){
 	}
 }
 int opc(int i){
-	static const uint8_t loc[]={16,29,31,17,14,23,36,36,36,12,10,21,11,20,13,0,1,2,3,4,5,6,7,8,9,18,36,34,36,32,27,30,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,19,36,33,28,15,36,36,36,36,36,36,24,36,36,36,36,36,36,36,36,25,36,36,36,36,36,35,36,36,36,36,36,26,36,22};
+	static const uint8_t loc[]={16,29,31,17,14,23,36,36,36,12,10,21,11,20,13,0,1,2,3,4,5,6,7,8,9,18,36,34,36,32,26,30,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,19,36,33,28,15,36,36,36,36,36,36,24,36,36,36,36,36,36,36,36,25,36,36,36,36,36,35,36,36,36,36,36,27,36,22};
 	return i<33||i>126?36:loc[i-33];
 }
 int comp(int i){
@@ -36,12 +36,12 @@ int comp(int i){
 		switch(op){
 		default:__builtin_unreachable();
 		case(0 ... 9)
+			r[rl]=0;
 			rl+=5;
-			r[rl-5]=0;
 			*++sp=*(int32_t*)(r+rl-4)=op;
 		case(10 ... 24)
+			r[rl]=op;
 			rl++;
-			r[rl-1]=op;
 			switch(op){
 			default:__builtin_unreachable();
 			case(10)if(sp>st){sp--;*sp+=sp[1];}else if(sp<st)*++sp=0;
@@ -59,7 +59,14 @@ int comp(int i){
 					*(int32_t*)(r+rl-4)=*sp=!*sp;
 				}else*sp=!*sp;
 			}else*(sp=st)=1;
-			case(17)sp-=sp>=st;
+			case(17)
+			if(cl>3&&!r[ct[cl-4]]){
+				pg[i]=-1;
+				if(ct[cl-3]!=(uint16_t)-1)pg[ct[cl-3]]=-1;
+				rl-=6;
+				cl-=4;
+				sp--;
+			}else sp-=sp>=st;
 			case(18)if(sp>=st){sp[1]=*sp;sp++;}else{sp=st+1;st[0]=st[1]=0;}
 			case(19)
 			if(sp>st){
@@ -107,7 +114,6 @@ int comp(int i){
 						cl-=2;
 						rl--;
 						r[rl-5]=19-op;
-						*(int32_t*)(r+rl-4)=sp[1];
 					}
 				case(18)
 					if(cl>5&&!r[ct[cl-6]]){
@@ -120,8 +126,8 @@ int comp(int i){
 				}
 			}
 		case(25){
+			r[rl]=25;
 			rl+=3;
-			r[rl-3]=25;
 			*(uint16_t*)(r+rl-2)=i;
 			int x,y;
 			switch(sp-st){
@@ -159,22 +165,20 @@ int comp(int i){
 				*(uint16_t*)(r+rl-2)=i;
 			}
 		}
-		case(27){
-			pg[i^1]=pg[i^2]=pg[i^3]=rl;
+		case(26){
+			r[rl]=26;
 			rl+=11;
-			r[rl-11]=27;
 			*(uint16_t*)(r+rl-2)=i&~3;
 			memset(r+rl-10,-1,8);
 			int j=getc(ran)&3;
 			i=i&~3|j;
 			*(uint16_t*)(r+rl-10+2*j)=rl;
 		}
-		case(28)case 26:{
-			pg[i^1]=pg[i^2]=pg[i^3]=rl;
-			rl+=7;
-			r[rl-7]=26;
+		case(27 ... 28){
 			int j=sp>=st&&*sp--;
-			i=i&~3|(op==26?3-j*2:j*2);
+			i=i&~3|(op==27?3-j*2:j*2);
+			r[rl]=27;
+			rl+=7;
 			*(uint16_t*)(r+rl-2)=i^2;
 			*(uint16_t*)(r+rl-6+2*j)=rl;
 			*(uint16_t*)(r+rl-6+2*!j)=-1;
@@ -184,8 +188,8 @@ int comp(int i){
 			while(ps[(i=mv(i))>>2]!='"'){
 				j=0;
 				pro[i>>4]|=2<<(i>>1&6);
+				r[rl]=0;
 				rl+=5;
-				r[rl-5]=0;
 				*++sp=*(int32_t*)(r+rl-4)=ps[i>>2];
 				ct=realloc(ct,(cl+=2)*2);
 				ct[cl-1]=-1;
@@ -193,7 +197,7 @@ int comp(int i){
 			}
 			cl-=2;
 			pro[i>>4]|=2<<(i>>1&6);
-			if(j)pg[mv(i^2)^2]=(uint16_t)-1;
+			if(j)pg[ct[cl+1]]=(uint16_t)-1;
 		}
 		case(30)exit(0);
 		case(31)i=mv(i);
@@ -201,8 +205,8 @@ int comp(int i){
 		case(36);
 		}
 	}
+	r[rl]=28;
 	rl+=3;
-	r[rl-3]=28;
 	return*(uint16_t*)(r+rl-2)=pg[i];
 }
 int main(int argc,char**argv){
@@ -318,19 +322,19 @@ int main(int argc,char**argv){
 			}else op+=2;
 		}
 		case(26){
-			int j=sp>=st&&*sp--;
-			uint16_t*i=(uint16_t*)(op+j*2);
-			if(*i==(uint16_t)-1){
-				*i=rl;
-				op=r+comp(*(uint16_t*)(op+4));
-			}else op=r+*i;
-		}
-		case(27){
 			int j=getc(ran)&3;
 			uint16_t*i=(uint16_t*)(op+j*2);
 			if(*i==(uint16_t)-1){
 				*i=rl;
 				op=r+comp(*(uint16_t*)(op+8)|j);
+			}else op=r+*i;
+		}
+		case(27){
+			int j=sp>=st&&*sp--;
+			uint16_t*i=(uint16_t*)(op+j*2);
+			if(*i==(uint16_t)-1){
+				*i=rl;
+				op=r+comp(*(uint16_t*)(op+4));
 			}else op=r+*i;
 		}
 		case(28)op=r+*(uint16_t*)op;
