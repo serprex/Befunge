@@ -8,7 +8,7 @@
 #define case(x) break;case x:;
 FILE*ran;
 int32_t ps[2560],st[65536],*sp=st-1;
-uint16_t pg[10240],rl,*ct;
+uint16_t pg[10240],rl,ct[65536];
 uint8_t pro[640],r[65536];
 int mv(int i){
 	switch(i&3){
@@ -29,7 +29,7 @@ int comp(int i){
 		pro[i>>4]|=1<<(i>>1&6);
 		if(op<30){
 			pg[i]=rl;
-			ct=realloc(ct,(cl+=2)*2);
+			cl+=2;
 			ct[cl-1]=i;
 			ct[cl-2]=rl;
 		}
@@ -191,7 +191,7 @@ int comp(int i){
 				r[rl]=0;
 				rl+=5;
 				*++sp=*(int32_t*)(r+rl-4)=ps[i>>2];
-				ct=realloc(ct,(cl+=2)*2);
+				cl+=2;
 				ct[cl-1]=-1;
 				ct[cl-2]=rl;
 			}
