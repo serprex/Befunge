@@ -60,10 +60,10 @@ int comp(int i){
 				}else*sp=!*sp;
 			}else*(sp=st)=1;
 			case(17)
-			if(cl>3&&!r[ct[cl-4]]){
+			if(cl>3&&(!r[ct[cl-4]]||r[ct[cl-4]]==18)){
 				pg[i]=-1;
 				if(ct[cl-3]!=(uint16_t)-1)pg[ct[cl-3]]=-1;
-				rl-=6;
+				rl=ct[cl-4];
 				cl-=4;
 				sp--;
 			}else sp-=sp>=st;
