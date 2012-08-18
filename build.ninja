@@ -1,0 +1,4 @@
+rule cc
+ command = gcc -std=gnu99 $in -o $out -O3 -s -march=native -fwhole-program -DWBIT=32 -DSPACE=0 -DSTACK=65536
+build marsh:cc marsh.c | marsh.h
+build bejit:cc bejit.c

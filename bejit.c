@@ -212,7 +212,7 @@ int comp(int i){
 int main(int argc,char**argv){
 	ran=fopen("/dev/urandom","r");
 	FILE*prog=fopen(argv[1],"r");
-#ifdef SPACE
+#if SPACE
 	for(int j=0;j<80;j++)
 		for(int i=0;i<25;i++)ps[i|j<<5]=SPACE;
 #endif
