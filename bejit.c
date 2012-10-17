@@ -234,110 +234,122 @@ int main(int argc,char**argv){
 	memset(pro,0,640);
 	memset(pg,-1,20480);
 	uint8_t*op=r+comp(10112);
-	for(;;){
-		switch(*op++){
-		default:__builtin_unreachable();
+	static void*ft[]={
+		&&OP0,&&OP1,&&OP2,0,&&OP4,&&OP5,&&OP6,&&OP7,&&OP8,&&OP9,
+		&&OP10,&&OP11,&&OP12,&&OP13,&&OP14,&&OP15,&&OP16,&&OP17,&&OP18,&&OP19,
+		&&OP20,&&OP21,&&OP22,&&OP23,&&OP24,&&OP25,&&OP26,&&OP27,&&OP28,
+	};
+	#define LOOP goto*ft[*op++]
+	LOOP;
+	OP0:
+		*++sp=*(int32_t*)op;
+		op+=4;
+		LOOP;
+	OP1:
+		*++sp=ps[*(uint16_t*)op];
+		op+=2;
+		LOOP;
+	OP2:
+		op+=2;
+		goto from2;
+	OP4:
+		if(sp>=st)*sp=*sp>*(int32_t*)op;else{st[0]=sp==st&&0>*(int32_t*)op;sp=st;}
+		op+=4;
+		LOOP;
+	OP5:
+		if(sp>=st){if(*(int32_t*)op)*sp%=*(int32_t*)op;}else*(sp=st)=0;
+		op+=4;
+		LOOP;
+	OP6:
+		if(sp>=st){if(*(int32_t*)op)*sp/=*(int32_t*)op;}else*(sp=st)=0;
+		op+=4;
+		LOOP;
+	OP7:
+		if(sp>=st)*sp*=*(int32_t*)op;else*(sp=st)=0;
+		op+=4;
+		LOOP;
+	OP8:
+		if(sp>=st)*sp-=*(int32_t*)op;else*(sp=st)=-*(int32_t*)op;
+		op+=4;
+		LOOP;
+	OP9:
+		if(sp>=st)*sp+=*(int32_t*)op;else*(sp=st)=*(int32_t*)op;
+		op+=4;
+		LOOP;
+	OP10:if(sp>st){sp--;*sp+=sp[1];}else if(sp<st)*++sp=0;LOOP;
+	OP11:if(sp>st){sp--;*sp-=sp[1];}else if(sp==st)*sp*=-1;else*++sp=0;LOOP;
+	OP12:if(sp>st){sp--;*sp*=sp[1];}else*(sp=st)=0;LOOP;
+	OP13:if(sp>st){sp--;if(sp[1])*sp/=sp[1];}else*(sp=st)=0;LOOP;
+	OP14:if(sp>st){sp--;if(sp[1])*sp%=sp[1];}else*(sp=st)=0;LOOP;
+	OP15:if(sp>st){sp--;*sp=*sp>sp[1];}else{st[0]=sp==st&&0>*sp;sp=st;}LOOP;
+	OP16:if(sp>=st)*sp=!*sp;else*(sp=st)=1;LOOP;
+	OP17:sp-=sp>=st;LOOP;
+	OP18:if(sp>=st){sp[1]=*sp;sp++;}else{sp=st+1;st[0]=st[1]=0;}LOOP;
+	OP19:
+	if(sp>st){
+		int32_t t=*sp;
+		*sp=sp[-1];
+		sp[-1]=t;
+	}else if(sp==st){sp[1]=*sp;*sp++=0;}else{sp=st+1;st[0]=st[1]=0;}
+	LOOP;
+	OP20:printf("%d ",sp>=st?*sp--:0);LOOP;
+	OP21:putchar(sp>=st?*sp--:0);LOOP;
+	OP22:*++sp=getchar();LOOP;
+	OP23:scanf("%d",++sp);LOOP;
+	OP24:
+		if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[*sp<<5|sp[1]]:0;}
+		else if(sp==st)*sp=*sp<25&&*sp>=0?ps[*sp]:0;else*++sp=ps[0];
+		LOOP;
+	OP25:{
+		int x,y;
+		switch(sp-st){
+		default:
+			sp-=3;
+			x=(sp[2]>=0&&sp[2]<80?sp[2]<<5:0)+(sp[3]>=0&&sp[3]<25?sp[3]:0);
+			y=ps[x];
+			ps[x]=sp[1];
+		case(-1)
+			x=0;
+			y=ps[0];
+			ps[0]=0;
 		case(0)
-			*++sp=*(int32_t*)op;
-			op+=4;
+			sp=st-1;
+			x=sp[1]<25&&sp[1]>=0?sp[1]<<5:0;
+			y=ps[x];
+			ps[x]=0;
 		case(1)
-			*++sp=ps[*(uint16_t*)op];
-			op+=2;
-		case(2)
-			op+=2;
-			goto from2;
-		case(4)
-			if(sp>=st)*sp=*sp>*(int32_t*)op;else{st[0]=sp==st&&0>*(int32_t*)op;sp=st;}
-			op+=4;
-		case(5)
-			if(sp>=st){if(*(int32_t*)op)*sp%=*(int32_t*)op;}else*(sp=st)=0;
-			op+=4;
-		case(6)
-			if(sp>=st){if(*(int32_t*)op)*sp/=*(int32_t*)op;}else*(sp=st)=0;
-			op+=4;
-		case(7)
-			if(sp>=st)*sp*=*(int32_t*)op;else*(sp=st)=0;
-			op+=4;
-		case(8)
-			if(sp>=st)*sp-=*(int32_t*)op;else*(sp=st)=-*(int32_t*)op;
-			op+=4;
-		case(9)
-			if(sp>=st)*sp+=*(int32_t*)op;else*(sp=st)=*(int32_t*)op;
-			op+=4;
-		case(10)if(sp>st){sp--;*sp+=sp[1];}else if(sp<st)*++sp=0;
-		case(11)if(sp>st){sp--;*sp-=sp[1];}else if(sp==st)*sp*=-1;else*++sp=0;
-		case(12)if(sp>st){sp--;*sp*=sp[1];}else*(sp=st)=0;
-		case(13)if(sp>st){sp--;if(sp[1])*sp/=sp[1];}else*(sp=st)=0;
-		case(14)if(sp>st){sp--;if(sp[1])*sp%=sp[1];}else*(sp=st)=0;
-		case(15)if(sp>st){sp--;*sp=*sp>sp[1];}else{st[0]=sp==st&&0>*sp;sp=st;}
-		case(16)if(sp>=st)*sp=!*sp;else*(sp=st)=1;
-		case(17)sp-=sp>=st;
-		case(18)if(sp>=st){sp[1]=*sp;sp++;}else{sp=st+1;st[0]=st[1]=0;}
-		case(19)
-		if(sp>st){
-			int32_t t=*sp;
-			*sp=sp[-1];
-			sp[-1]=t;
-		}else if(sp==st){sp[1]=*sp;*sp++=0;}else{sp=st+1;st[0]=st[1]=0;}
-		case(20)printf("%d ",sp>=st?*sp--:0);
-		case(21)putchar(sp>=st?*sp--:0);
-		case(22)*++sp=getchar();
-		case(23)scanf("%d",++sp);
-		case(24)
-			if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[*sp<<5|sp[1]]:0;}
-			else if(sp==st)*sp=*sp<25&&*sp>=0?ps[*sp]:0;else*++sp=ps[0];
-		case(25){
-			int x,y;
-			switch(sp-st){
-			default:
-				sp-=3;
-				x=(sp[2]>=0&&sp[2]<80?sp[2]<<5:0)+(sp[3]>=0&&sp[3]<25?sp[3]:0);
-				y=ps[x];
-				ps[x]=sp[1];
-			case(-1)
-				x=0;
-				y=ps[0];
-				ps[0]=0;
-			case(0)
-				sp=st-1;
-				x=sp[1]<25&&sp[1]>=0?sp[1]<<5:0;
-				y=ps[x];
-				ps[x]=0;
-			case(1)
-				sp=st-1;
-				x=(sp[1]>=0&&sp[1]<80?sp[1]<<5:0)+(sp[2]>=0&&sp[2]<25?sp[2]:0);
-				y=ps[x];
-				ps[x]=0;
-			}
-			if(0){from2:
-				x=*(uint16_t*)(op-2);
-				y=ps[x];
-				ps[x]=sp>=st?*sp--:0;
-			}
-			if(y!=ps[x]&&pro[x>>2]&3<<(x&3)*2&&(pro[x>>2]&2<<(x&3)*2||opc(y)!=opc(ps[x]))){
-				memset(pro,0,640);
-				memset(pg,-1,20480);
-				rl=0;
-				op=r+comp(*(uint16_t*)op);
-			}else op+=2;
+			sp=st-1;
+			x=(sp[1]>=0&&sp[1]<80?sp[1]<<5:0)+(sp[2]>=0&&sp[2]<25?sp[2]:0);
+			y=ps[x];
+			ps[x]=0;
 		}
-		case(26){
-			int j=getc(ran)&3;
-			uint16_t*i=(uint16_t*)(op+j*2);
-			if(*i==(uint16_t)-1){
-				*i=rl;
-				op=r+comp(*(uint16_t*)(op+8)|j);
-			}else op=r+*i;
+		if(0){from2:
+			x=*(uint16_t*)(op-2);
+			y=ps[x];
+			ps[x]=sp>=st?*sp--:0;
 		}
-		case(27){
-			int j=sp>=st&&*sp--;
-			uint16_t*i=(uint16_t*)(op+j*2);
-			if(*i==(uint16_t)-1){
-				*i=rl;
-				op=r+comp(*(uint16_t*)(op+4));
-			}else op=r+*i;
-		}
-		case(28)op=r+*(uint16_t*)op;
-		}
-	}
+		if(y!=ps[x]&&pro[x>>2]&3<<(x&3)*2&&(pro[x>>2]&2<<(x&3)*2||opc(y)!=opc(ps[x]))){
+			memset(pro,0,640);
+			memset(pg,-1,20480);
+			rl=0;
+			op=r+comp(*(uint16_t*)op);
+		}else op+=2;
+	}LOOP;
+	OP26:{
+		int j=getc(ran)&3;
+		uint16_t*i=(uint16_t*)(op+j*2);
+		if(*i==(uint16_t)-1){
+			*i=rl;
+			op=r+comp(*(uint16_t*)(op+8)|j);
+		}else op=r+*i;
+	}LOOP;
+	OP27:{
+		int j=sp>=st&&*sp--;
+		uint16_t*i=(uint16_t*)(op+j*2);
+		if(*i==(uint16_t)-1){
+			*i=rl;
+			op=r+comp(*(uint16_t*)(op+4));
+		}else op=r+*i;
+	}LOOP;
+	OP28:op=r+*(uint16_t*)op;LOOP;
 }
