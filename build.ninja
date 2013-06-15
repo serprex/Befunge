@@ -1,4 +1,8 @@
 rule cc
  command = gcc -std=gnu99 $in -o $out -O3 -s -march=native -fwhole-program -DWBIT=32 -DSPACE=0 -DSTACK=65536
+rule dynasm
+ command = lua ./dynasm/dynasm.lua -o $out $in
 build marsh:cc marsh.c | marsh.h
 build bejit:cc bejit.c
+build bejitx64:cc bejitx64.c | bejitx64.h
+build bejitx64.h:dynasm bejitx64.dasc

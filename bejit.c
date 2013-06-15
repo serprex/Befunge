@@ -29,9 +29,9 @@ int comp(int i){
 		pro[i>>4]|=1<<(i>>1&6);
 		if(op<30){
 			pg[i]=rl;
+			ct[cl]=rl;
+			ct[cl+1]=i;
 			cl+=2;
-			ct[cl-1]=i;
-			ct[cl-2]=rl;
 		}
 		switch(op){
 		default:__builtin_unreachable();
