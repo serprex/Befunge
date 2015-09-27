@@ -98,11 +98,16 @@ def main(pstring, pop=0):
 			loadconst(n)
 			emit("BINARY_ADD")
 			storefast(0)
-	def prbug(x):
+	def prbug(x, oneline=False):
 		if not debug:return
 		loadconst(print)
 		loadconst(x)
-		call(1)
+		if oneline:
+			loadconst("end")
+			loadconst(" ")
+			loadconst("flush")
+			loadconst(True)
+		call(513 if oneline else 1)
 		pop()
 	def debugtop(x=""):
 		if not debug:return
@@ -155,10 +160,10 @@ def main(pstring, pop=0):
 		loadconst(op)
 	def binOp(name):
 		def g(op,i):
-			prbug("\t1"+name)
+			prbug("\t"+name,True)
 			spguard(2,-1)
 			emit(name)
-			prbug("\t2"+name)
+			prbug("done")
 		return g
 	op10=binOp("BINARY_ADD")
 	op11=binOp("BINARY_SUBTRACT")
@@ -222,16 +227,17 @@ def main(pstring, pop=0):
 	def op26(op,i):
 		loadconst(rng)
 		call(0)
-		offsets = []
-		for a in range(3):
+		dup()
+		offsets = [len(r)]
+		emit("POP_JUMP_IF_FALSE",0)
+		for a in 1,2:
 			dup()
 			loadconst(a)
 			emit("COMPARE_OP",2)
 			offsets.append(len(r))
 			emit("POP_JUMP_IF_TRUE",0)
-		offsets.append(len(r))
-		jump(0)
-		patch(offsets,(compile(i&~3|a,1) for a in range(4)))
+		compile(i&~3)
+		patch(offsets,(compile(i&~3|a,1) for a in range(1,4)))
 		return -1
 	def opIF(op,i):
 		spguard(1,-1)
@@ -259,13 +265,12 @@ def main(pstring, pop=0):
 	opfs = (opC,opC,opC,opC,opC,opC,opC,opC,opC,opC,op10,op11,op12,
 		op13,op14,op15,op16,op17,op18,op19,op20,op21,op22,op23,op24,
 		op25,op26,opIF,opIF,op29,op30,op31,opDIR,opDIR,opDIR,opDIR,op36)
-	def compile(i,pop=0):
+	def compile(i, popflag=False):
 		ret = len(r)
-		if pop is None:
+		if popflag is None:
 			loadconst(0)
 			storefast(0)
-		else:
-			for op in range(pop):pop()
+		elif popflag:pop()
 		i=mv(i)
 		while True:
 			if pg[i] is not None:
