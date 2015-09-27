@@ -177,8 +177,12 @@ def main(pstring, pop=0):
 		spguard(1)
 		emit("UNARY_NOT")
 	def op17(op,i):
-		spguard(1,-1)
+		loadfast(0)
+		i=len(r)
+		emit("POP_JUMP_IF_FALSE",0)
+		incrsp(-1)
 		pop()
+		patch((i,),(len(r),))
 	def op18(op,i):
 		spguard(1,1)
 		dup()
