@@ -4,7 +4,7 @@ def getch():
 	try:import termios
 	except ImportError:
 		from msvcrt import getch
-		return getch
+		return lambda:ord(getch())
 	from sys import stdin
 	from tty import setraw
 	def getch():
@@ -12,7 +12,7 @@ def getch():
 		retset=termios.tcgetattr(fd)
 		try:
 			setraw(fd)
-			return stdin.read(1)
+			return ord(stdin.read(1))
 		finally:termios.tcsetattr(fd, termios.TCSADRAIN, retset)
 	return getch
 getch = getch()
@@ -21,7 +21,6 @@ def main(pstring, pop=0):
 	from opcode import opmap
 	from types import CodeType,FunctionType
 	from random import randint
-	loc = bytes((16,29,31,17,14,23,36,36,36,12,10,21,11,20,13,0,1,2,3,4,5,6,7,8,9,18,36,34,36,32,26,30,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,36,19,36,33,28,15,36,36,36,36,36,36,24,36,36,36,36,36,36,36,36,25,36,36,36,36,36,35,36,36,36,36,36,27,36,22));
 	ps = [0]*2560
 	print(pstring)
 	pstring = pstring.split("\n")
@@ -33,11 +32,19 @@ def main(pstring, pop=0):
 	pg = [-1]*10240
 	def rmem(x,y):return ps[x<<5|y] if 0<=x<=80 and 0<=y<=25 else 0
 	def wmem(x,y,v):
-		if 0<=x<=80 and 0<=25<=y:ps[x<<5|y] = v
+		nonlocal r
+		if 0<=x<=80 and 0<=25<=y:
+			y|=x<<5
+			ps[y]=v
+			if getpro(y):
+				r=bytearray()
+				compile(i)
+				return True
+		return False
 	def rng():return randint(0,3)
 	pro = bytearray((0,))*640
 	r = bytearray()
-	def getop(i):return loc[i-33] if 33<=i<=126 else 36
+	def getop(i):return b'\x10\x1d\x1f\x11\x0e\x17$$$\x0c\n\x15\x0b\x14\r\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\x12$"$ \x1a\x1e$$$$$$$$$$$$$$$$$$$$$$$$$$$\x13$!\x1c\x0f$$$$$$\x18$$$$$$$$\x19$$$$$#$$$$$\x1b$\x16'[i-33] if 33<=i<=126 else 36
 	def emit(op):r.append(opmap[op])
 	def patch(offsets):
 		for x,a in offsets:
@@ -117,6 +124,9 @@ def main(pstring, pop=0):
 		emit("ROT_THREE")
 		loadfast(0)
 		emitoparg("CALL_FUNCTION",3)
+		emit("DUP_TOP")
+		emitoparg("POP_JUMP_IF_FALSE", len(r)+4)
+		emit("RETURN_VALUE")
 		emit("POP_TOP")
 	def op26(op,i):
 		loadconst(rng)
@@ -148,6 +158,7 @@ def main(pstring, pop=0):
 			i=mv(i)
 		return i
 	def op30(op,i):
+		loadconst(0)
 		emit("RETURN_VALUE")
 		return -1
 	def op31(op,i):return mv(i)
@@ -176,12 +187,16 @@ def main(pstring, pop=0):
 				else:i=ni
 			i=mv(i)
 	compile(10112,pop)
-	return FunctionType(CodeType(0,0,1,65536,0,bytes(r),tuple(consts),(),(),"","",0,b""),{})
+	def prog(debug):
+		do=True
+		while do:
+			f=FunctionType(CodeType(0,0,1,65536,0,bytes(r),tuple(consts),(),(),"","",0,b""),{})
+			if debug:
+				from dis import dis
+				dis(f)
+			do=f()
+	return prog
 if __name__ == "__main__":
 	from sys import argv
 	pre0 = -int(argv[2]) if len(argv) > 2 and argv[2].isdigit() else 0
-	f=main(open(argv[1]).read(),pre0)
-	if "d" in argv:
-		from dis import dis
-		dis(f)
-	f()
+	main(open(argv[1]).read(),pre0)("d" in argv)
