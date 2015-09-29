@@ -39,13 +39,14 @@ def main(pstring, argv=()):
 		pg=[None]*10240
 	initstate()
 	def rmem(x,y):return ps[x<<5|y] if 0<=x<=80 and 0<=y<=25 else 0
-	def wmem(x,y,v,i):
+	def wmem(x,y,v,i,s):
 		if 0<=x<=80 and 0<=y<=25:
 			y|=x<<5
 			ps[y]=v
 			if getpro(y):
 				initstate()
-				compile(i,None)
+				r.extend(b"d"*(s*3))
+				compile(i,s)
 				return True
 			return False
 	def rng():return randint(0,3)
@@ -69,10 +70,9 @@ def main(pstring, argv=()):
 	def popcall(arg):
 		call(arg)
 		pop()
-	def patch(locs,offs):
-		for x,a in zip(locs,offs):
-			r[x+1]=a&255
-			r[x+2]=a>>8
+	def patch(loc,off):
+		r[loc+1]=off&255
+		r[loc+2]=off>>8
 	consts = []
 	def emitidx(a,c):
 		if c in a:
@@ -144,7 +144,7 @@ def main(pstring, argv=()):
 			loadconst(0)
 			loadconst(2)
 			storefast(0)
-			patch((f,),(len(r),))
+			patch(f,len(r))
 			pop()
 			pop()
 		elif f:
@@ -157,7 +157,7 @@ def main(pstring, argv=()):
 			emit("BINARY_ADD")
 			dup()
 			storefast(0)
-			patch((i,),(len(r),))
+			patch(i,len(r))
 			loadconst(f-1)
 			emit("COMPARE_OP",4)
 			emit("POP_JUMP_IF_FALSE",i+3)
@@ -198,7 +198,7 @@ def main(pstring, argv=()):
 		emit("POP_JUMP_IF_FALSE",0)
 		incrsp(-1)
 		pop()
-		patch((i,),(len(r),))
+		patch(i,len(r))
 	def op18(op,i):
 		spguard(1,1)
 		dup()
@@ -212,9 +212,9 @@ def main(pstring, argv=()):
 		popcall(1)
 	def op21(op,i):
 		spguard(1,-1)
-		loadconst(chr)
+		loadconst("%c")
 		swap()
-		call(1)
+		emit("BINARY_MODULO")
 		loadconst(putch)
 		swap()
 		popcall(1)
@@ -240,7 +240,8 @@ def main(pstring, argv=()):
 		rot3()
 		loadfast(1)
 		loadconst(i)
-		call(4)
+		loadfast(0)
+		call(5)
 		j=len(r)
 		emit("POP_JUMP_IF_FALSE", 0)
 		emit("BUILD_LIST",0)
@@ -259,7 +260,8 @@ def main(pstring, argv=()):
 		pop()
 		emit("RETURN_VALUE")
 		i=len(r)
-		patch((j,j2),(i,i-2))
+		patch(j,i)
+		patch(j2,i-2)
 	def op26(op,i):
 		loadconst(rng)
 		call(0)
@@ -272,15 +274,17 @@ def main(pstring, argv=()):
 			emit("COMPARE_OP",2)
 			offsets.append(len(r))
 			emit("POP_JUMP_IF_TRUE",0)
-		compile(i&~3)
-		patch(offsets,(compile(i&~3|a,1) for a in range(1,4)))
+		for a in range(4):
+			if a:patch(offsets[a-1],len(r))
+			compile(i&~3|a,True)
 		return -1
 	def opIF(op,i):
 		spguard(1,-1)
-		base = len(r)
+		j = len(r)
 		emit("POP_JUMP_IF_TRUE",0)
-		for a in range(2):a=compile(i&~3|(3-a*2 if op==27 else a*2))
-		patch((base,),(a,))
+		for a in range(2):
+			if a==1:patch(j,len(r))
+			compile(i&~3|(3-a*2 if op==27 else a*2))
 		return -1
 	def op29(op,i):
 		i=mv(i)
@@ -302,17 +306,16 @@ def main(pstring, argv=()):
 		op13,op14,op15,op16,op17,op18,op19,op20,op21,op22,op23,op24,
 		op25,op26,opIF,opIF,op29,op30,op31,opDIR,opDIR,opDIR,opDIR,op36)
 	def compile(i, popflag=False):
-		ret = len(r)
-		if popflag is None:
-			loadconst(0)
+		if popflag is True:pop()
+		elif popflag is not False:
+			loadconst(popflag)
 			storefast(0)
-		elif popflag:pop()
 		i=mv(i)
 		while True:
 			if pg[i] is not None:
 				prbug("JUMP"+str(pg[i]))
 				jump(pg[i])
-				return ret
+				return
 			pg[i]=len(r)
 			op = getop(ps[i>>2])
 			setpro(i)
@@ -323,7 +326,7 @@ def main(pstring, argv=()):
 				popcall(2)
 			ni=opfs[op](op,i)
 			if ni is not None:
-				if ni == -1:return ret
+				if ni == -1:return
 				else:i=ni
 			i=mv(i)
 	def filterempty(r):
@@ -346,16 +349,15 @@ def main(pstring, argv=()):
 				jtbl[op].append(i)
 			i+=1 if op<HAVE_ARGUMENT else 3
 		return filterempty(r)
-	compile(10112,None)
+	compile(10112,0)
 	def stackfix(st):
-		for a in reversed(st):
-			yield 100
-			yield a&255
-			yield a>>8
+		for i,a in zip(range(len(st)*3-2,0,-3),st):
+			r[i]=a&255
+			r[i+1]=a>>8
 	def prog():
 		do=True
 		while do != 0:
-			if do is not True:r[:0]=stackfix(do)
+			if do is not True:stackfix(do)
 			f=FunctionType(CodeType(0,0,2,65536,0,bytes(optimize(r)),tuple(consts),(),("s","t"),"","",0,b""),{})
 			if debug>1 or "dis" in argv:
 				from dis import dis
