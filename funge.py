@@ -1,20 +1,19 @@
 #!/bin/python
-from sys import stdout
 def getch():
-	try:import termios
+	try:from termios import tcgetattr,tcsetattr,TCSANOW
 	except ImportError:
 		from msvcrt import getch
 		return lambda:ord(getch())
 	from sys import stdin
 	def getch():
 		fd=stdin.fileno()
-		oldset=termios.tcgetattr(fd)
+		oldset=tcgetattr(fd)
 		newset=oldset[:]
 		try:
 			newset[3]&=-11
-			termios.tcsetattr(fd, termios.TCSANOW, newset)
+			tcsetattr(fd, TCSANOW, newset)
 			return ord(stdin.read(1))
-		finally:termios.tcsetattr(fd, termios.TCSANOW, oldset)
+		finally:tcsetattr(fd, TCSANOW, oldset)
 	return getch
 getch = getch()
 
@@ -22,6 +21,7 @@ def main(pstring, argv=()):
 	from opcode import opmap,HAVE_ARGUMENT,hasjabs
 	from types import CodeType,FunctionType
 	from random import randint
+	from sys import stdout
 	hasjabs = frozenset(hasjabs)
 	ps = [0]*2560
 	if debug:print(pstring)
@@ -108,8 +108,7 @@ def main(pstring, argv=()):
 			loadconst(" ")
 			loadconst("flush")
 			loadconst(True)
-		call(513 if oneline else 1)
-		pop()
+		popcall(513 if oneline else 1)
 	def debugtop(x=""):
 		if not debug:return
 		loadfast(0)
@@ -132,6 +131,22 @@ def main(pstring, argv=()):
 			loadconst(1)
 			storefast(0)
 			loadconst(0)
+		elif f == 2:
+			loadfast(0)
+			loadconst(1)
+			emit("DUP_TOP_TWO")
+			emit("COMPARE_OP",4)
+			f=len(r)
+			emit("POP_JUMP_IF_TRUE",0)
+			emit("COMPARE_OP",2)
+			emit("POP_JUMP_IF_TRUE",len(r)+6)
+			loadconst(0)
+			loadconst(0)
+			loadconst(2)
+			storefast(0)
+			patch((f,),(len(r),))
+			pop()
+			pop()
 		elif f:
 			loadfast(0)
 			i=len(r)
@@ -332,10 +347,15 @@ def main(pstring, argv=()):
 			i+=1 if op<HAVE_ARGUMENT else 3
 		return filterempty(r)
 	compile(10112,None)
+	def stackfix(st):
+		for a in reversed(st):
+			yield 100
+			yield a&255
+			yield a>>8
 	def prog():
 		do=True
 		while do != 0:
-			if do is not True:r[:0]=do[::-1]
+			if do is not True:r[:0]=stackfix(do)
 			f=FunctionType(CodeType(0,0,2,65536,0,bytes(optimize(r)),tuple(consts),(),("s","t"),"","",0,b""),{})
 			if debug>1 or "dis" in argv:
 				from dis import dis
