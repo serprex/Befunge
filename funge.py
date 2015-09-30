@@ -40,7 +40,8 @@ def main(pstring, argv=()):
 		pg=[None]*10240
 	initstate()
 	def rmem(x,y):return ps[x<<5|y] if 0<=x<=80 and 0<=y<=25 else 0
-	def wmem(x,y,v,i,s):
+	def wmem(x,i,s):
+		x,y,v=x
 		if 0<=x<=80 and 0<=y<=25:
 			y|=x<<5
 			ps[y]=v
@@ -241,13 +242,12 @@ def main(pstring, argv=()):
 		call(2)
 	def op25(op,i):
 		spguard(3,-3)
-		storefast(1)
+		emit("BUILD_TUPLE",3)
 		loadconst(wmem)
-		rot3()
-		loadfast(1)
+		swap()
 		loadconst(i)
 		loadfast(0)
-		call(5)
+		call(3)
 		j=len(r)
 		emit("POP_JUMP_IF_FALSE", 0)
 		emit("BUILD_LIST",0)
@@ -369,7 +369,7 @@ def main(pstring, argv=()):
 		do=True
 		while do != 0:
 			if do is not True:stackfix(do)
-			f=FunctionType(CodeType(0,0,2,65536,0,bytes(optimize(r)),tuple(consts),(),("s","t"),"","",0,b""),{})
+			f=FunctionType(CodeType(0,0,1,65536,0,bytes(optimize(r)),tuple(consts),(),("s",),"","",0,b""),{})
 			if debug>1 or "dis" in argv:
 				from dis import dis
 				dis(f)
