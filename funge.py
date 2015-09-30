@@ -132,6 +132,7 @@ def main(pstring, argv=()):
 			loadconst(1)
 			storefast(0)
 			loadconst(0)
+			incrsp(n)
 		elif f == 2:
 			loadfast(0)
 			loadconst(1)
@@ -143,11 +144,15 @@ def main(pstring, argv=()):
 			emit("POP_JUMP_IF_TRUE",len(r)+6)
 			loadconst(0)
 			loadconst(0)
-			loadconst(2)
+			loadconst(2+n)
 			storefast(0)
+			j=len(r)
+			jump(0)
 			patch(f,len(r))
 			pop()
 			pop()
+			incrsp(n)
+			patch(j,len(r))
 		elif f:
 			loadfast(0)
 			i=len(r)
@@ -162,7 +167,7 @@ def main(pstring, argv=()):
 			loadconst(f-1)
 			emit("COMPARE_OP",4)
 			emit("POP_JUMP_IF_FALSE",i+3)
-		incrsp(n)
+			incrsp(n)
 	def mv(i):
 		i3=i&3
 		return (
