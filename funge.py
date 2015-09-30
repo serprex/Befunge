@@ -6,6 +6,7 @@ def getch():
 		return lambda:ord(getch())
 	from sys import stdin
 	def getch():
+		print(end="",flush=True)
 		fd=stdin.fileno()
 		oldset=tcgetattr(fd)
 		newset=oldset[:]
@@ -343,15 +344,20 @@ def main(pstring, argv=()):
 		from collections import defaultdict
 		jtbl=defaultdict(list)
 		i=0
+		jabs=113
 		while i<len(r):
 			op = r[i]
 			if op in hasjabs:
-				jtbl[op].append(i)
+				jtbl[r[i+1]|r[i+2]<<8].append(i)
 			i+=1 if op<HAVE_ARGUMENT else 3
 		return filterempty(r)
 	compile(10112,0)
-	def stackfix(st):
-		for i,a in zip(range(len(st)*3-2,0,-3),st):
+	def stackfix(a):
+		for i,a in zip(range(len(a)*3-2,0,-3),a):
+			if a in consts:a=consts.index(a)
+			else:
+				consts.append(a)
+				a=len(consts)-1
 			r[i]=a&255
 			r[i+1]=a>>8
 	def prog():
