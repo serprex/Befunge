@@ -89,7 +89,7 @@ def main(pstring, argv=()):
 	putint = lambda x:print(+x,end=' ')
 	def emitarg(arg):
 		r.extend((arg&255,arg>>8))
-	def incrsp(n):
+	def incr(n):
 		if n:
 			loadconst(n)
 			emit("BINARY_ADD")
@@ -115,12 +115,13 @@ def main(pstring, argv=()):
 		loadconst(True)
 		popcall(257)
 	def spguard(f,n=0):
+		prtop()
 		if f==1:
 			dup()
 			emit("POP_JUMP_IF_TRUE",len(r)+7)
 			loadconst(0)
 			swap()
-			incrsp(n)
+			incr(n)
 		else:
 			i=len(r)
 			jump(0)
@@ -133,7 +134,7 @@ def main(pstring, argv=()):
 			loadconst(f-1)
 			emit("COMPARE_OP",4)
 			emit("POP_JUMP_IF_FALSE",i+3)
-			incrsp(n)
+			incr(n)
 	def mv(i):
 		i3=i&3
 		return (
@@ -144,7 +145,7 @@ def main(pstring, argv=()):
 	def setpro(i):pro[i>>4]|=1<<(i>>1&6)
 	def getpro(i):return pro[i>>4]&(1<<(i>>1&6))
 	def opC(op,i):
-		incrsp(1)
+		incr(1)
 		loadconst(op)
 		swap()
 	def binOp(name):
@@ -173,7 +174,7 @@ def main(pstring, argv=()):
 		dup()
 		i=len(r)
 		emit("POP_JUMP_IF_FALSE",0)
-		incrsp(-1)
+		incr(-1)
 		swap()
 		pop()
 		patch(i,len(r))
@@ -205,11 +206,12 @@ def main(pstring, argv=()):
 		swap()
 		popcall(1)
 	def op22(op,i):
-		incrsp(1)
+		incr(1)
 		loadconst(getch)
 		call(0)
+		swap()
 	def op23(op,i):
-		incrsp(1)
+		incr(1)
 		loadconst(int)
 		loadconst(input)
 		call(0)
@@ -286,7 +288,7 @@ def main(pstring, argv=()):
 			swap()
 			i=mv(i)
 			n+=1
-		incrsp(n)
+		incr(n)
 		return i
 	def op30(op,i):
 		loadconst(0)
