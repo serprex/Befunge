@@ -40,8 +40,8 @@ def main(pstring, argv=()):
 		pg=[None]*10240
 	initstate()
 	def rmem(x,y):return ps[x<<5|y] if 0<=x<=80 and 0<=y<=25 else 0
-	def wmem(x,i,s):
-		x,y,v=x
+	def wmem(x,i):
+		x,y,v,s=x
 		if 0<=x<=80 and 0<=y<=25:
 			y|=x<<5
 			ps[y]=v
@@ -87,20 +87,12 @@ def main(pstring, argv=()):
 		emitidx(consts, c)
 	putch = stdout.write
 	putint = lambda x:print(+x,end=' ')
-	def storefast(x):
-		r.append(125)
-		emitarg(x)
-	def loadfast(x):
-		r.append(124)
-		emitarg(x)
 	def emitarg(arg):
 		r.extend((arg&255,arg>>8))
 	def incrsp(n):
 		if n:
-			loadfast(0)
 			loadconst(n)
 			emit("BINARY_ADD")
-			storefast(0)
 	def prbug(x, oneline=False):
 		if not debug:return
 		loadconst(print)
@@ -111,60 +103,33 @@ def main(pstring, argv=()):
 			loadconst("flush")
 			loadconst(True)
 		popcall(513 if oneline else 1)
-	def debugtop(x=""):
+	def prtop():
 		if not debug:return
-		loadfast(0)
+		dup()
+		loadconst("TOP %s")
+		swap()
+		emit("BINARY_MODULO")
 		loadconst(print)
 		swap()
-		loadconst(str(x)+"?")
-		call(2)
-		pop()
-		emit("DUP_TOP_TWO")
-		loadconst(print)
-		rot3()
-		loadfast(0)
-		loadconst(str(x)+"!")
-		call(4)
-		pop()
+		loadconst("flush")
+		loadconst(True)
+		popcall(257)
 	def spguard(f,n=0):
-		if f == 1:
-			loadfast(0)
-			emit("POP_JUMP_IF_TRUE",len(r)+12)
-			loadconst(1)
-			storefast(0)
+		if f==1:
+			dup()
+			emit("POP_JUMP_IF_TRUE",len(r)+7)
 			loadconst(0)
+			swap()
 			incrsp(n)
-		elif f == 2:
-			loadfast(0)
-			loadconst(1)
-			emit("DUP_TOP_TWO")
-			emit("COMPARE_OP",4)
-			f=len(r)
-			emit("POP_JUMP_IF_TRUE",0)
-			emit("COMPARE_OP",2)
-			emit("POP_JUMP_IF_TRUE",len(r)+6)
-			loadconst(0)
-			loadconst(0)
-			loadconst(2+n)
-			storefast(0)
-			j=len(r)
-			jump(0)
-			patch(f,len(r))
-			pop()
-			pop()
-			incrsp(n)
-			patch(j,len(r))
-		elif f:
-			loadfast(0)
+		else:
 			i=len(r)
 			jump(0)
-			loadconst(0)
-			loadfast(0)
 			loadconst(1)
 			emit("BINARY_ADD")
-			dup()
-			storefast(0)
+			loadconst(0)
+			swap()
 			patch(i,len(r))
+			dup()
 			loadconst(f-1)
 			emit("COMPARE_OP",4)
 			emit("POP_JUMP_IF_FALSE",i+3)
@@ -181,12 +146,13 @@ def main(pstring, argv=()):
 	def opC(op,i):
 		incrsp(1)
 		loadconst(op)
+		swap()
 	def binOp(name):
 		def g(op,i):
-			prbug("\t"+name,True)
 			spguard(2,-1)
+			rot3()
 			emit(name)
-			prbug("done")
+			swap()
 		return g
 	op10=binOp("BINARY_ADD")
 	op11=binOp("BINARY_SUBTRACT")
@@ -195,30 +161,43 @@ def main(pstring, argv=()):
 	op14=binOp("BINARY_MODULO")
 	def op15(op,i):
 		spguard(2,-1)
+		rot3()
 		emit("COMPARE_OP",4)
+		swap()
 	def op16(op,i):
 		spguard(1)
+		swap()
 		emit("UNARY_NOT")
+		swap()
 	def op17(op,i):
-		loadfast(0)
+		dup()
 		i=len(r)
 		emit("POP_JUMP_IF_FALSE",0)
 		incrsp(-1)
+		swap()
 		pop()
 		patch(i,len(r))
 	def op18(op,i):
 		spguard(1,1)
+		swap()
 		dup()
+		rot3()
+		rot3()
 	def op19(op,i):
 		spguard(2)
+		rot3()
 		swap()
+		rot3()
+		rot3()
 	def op20(op,i):
 		spguard(1,-1)
+		swap()
 		loadconst(putint)
 		swap()
 		popcall(1)
 	def op21(op,i):
 		spguard(1,-1)
+		swap()
 		loadconst("%c")
 		swap()
 		emit("BINARY_MODULO")
@@ -235,23 +214,29 @@ def main(pstring, argv=()):
 		loadconst(input)
 		call(0)
 		call(1)
+		swap()
 	def op24(op,i):
 		spguard(2,-1)
+		rot3()
 		loadconst(rmem)
 		rot3()
 		call(2)
+		swap()
 	def op25(op,i):
 		spguard(3,-3)
-		emit("BUILD_TUPLE",3)
+		emit("BUILD_TUPLE",4)
+		dup()
+		loadconst(3)
+		emit("BINARY_SUBSCR")
+		swap()
 		loadconst(wmem)
 		swap()
 		loadconst(i)
-		loadfast(0)
-		call(3)
+		call(2)
 		j=len(r)
 		emit("POP_JUMP_IF_FALSE", 0)
 		emit("BUILD_LIST",0)
-		loadfast(0)
+		swap()
 		dup()
 		j2=len(r)
 		emit("POP_JUMP_IF_FALSE",0)
@@ -286,6 +271,7 @@ def main(pstring, argv=()):
 		return -1
 	def opIF(op,i):
 		spguard(1,-1)
+		swap()
 		j = len(r)
 		emit("POP_JUMP_IF_TRUE",0)
 		for a in range(2):
@@ -297,6 +283,7 @@ def main(pstring, argv=()):
 		n=0
 		while ps[i>>2]!=34:
 			loadconst(ps[i>>2])
+			swap()
 			i=mv(i)
 			n+=1
 		incrsp(n)
@@ -308,14 +295,12 @@ def main(pstring, argv=()):
 	def op31(op,i):return mv(i)
 	def opDIR(op,i):return i&~3|op&3
 	def op36(op,i):pass
-	opfs = (opC,opC,opC,opC,opC,opC,opC,opC,opC,opC,op10,op11,op12,
-		op13,op14,op15,op16,op17,op18,op19,op20,op21,op22,op23,op24,
-		op25,op26,opIF,opIF,op29,op30,op31,opDIR,opDIR,opDIR,opDIR,op36)
+	opfs=(opC,)*10+(op10,op11,op12,op13,op14,op15,op16,op17,op18,op19,op20,op21,op22,
+		op23,op24,op25,op26,opIF,opIF,op29,op30,op31,opDIR,opDIR,opDIR,opDIR,op36)
 	def compile(i, popflag=False):
 		if popflag is True:pop()
 		elif popflag is not False:
 			loadconst(popflag)
-			storefast(0)
 		i=mv(i)
 		while True:
 			if pg[i] is not None:
@@ -326,10 +311,12 @@ def main(pstring, argv=()):
 			op = getop(ps[i>>2])
 			setpro(i)
 			if op < 31 and debug==3:
+				dup()
 				loadconst(print)
-				loadfast(0)
+				swap()
 				loadconst(op)
 				popcall(2)
+			prbug(op)
 			ni=opfs[op](op,i)
 			if ni is not None:
 				if ni == -1:return
@@ -369,7 +356,7 @@ def main(pstring, argv=()):
 		do=True
 		while do != 0:
 			if do is not True:stackfix(do)
-			f=FunctionType(CodeType(0,0,1,65536,0,bytes(optimize(r)),tuple(consts),(),("s",),"","",0,b""),{})
+			f=FunctionType(CodeType(0,0,0,65536,0,bytes(optimize(r)),tuple(consts),(),(),"","",0,b""),{})
 			if debug>1 or "dis" in argv:
 				from dis import dis
 				dis(f)
