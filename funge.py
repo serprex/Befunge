@@ -26,12 +26,12 @@ def main(pstring, argv=()):
 	hasjabs = frozenset(hasjabs)
 	ps = [0]*2560
 	if debug:print(pstring)
-	pstring = pstring.split("\n")
+	pstring = pstring.split(b"\n")
 	for y,line in enumerate(pstring):
-		if y>25:break
+		if y>=25:break
 		for x,c in enumerate(line):
-			if x>80:break
-			ps[x<<5|y]=ord(c)
+			if x>=80:break
+			ps[x<<5|y]=c
 	r=pro=pg=None
 	def initstate():
 		nonlocal pg,pro,r
@@ -163,7 +163,7 @@ def main(pstring, argv=()):
 	def op15(op,i):
 		spguard(2,-1)
 		rot3()
-		emit("COMPARE_OP",4)
+		emit("COMPARE_OP",1)
 		swap()
 	def op16(op,i):
 		spguard(1)
@@ -368,4 +368,4 @@ def main(pstring, argv=()):
 if __name__ == "__main__":
 	from sys import argv
 	debug = argv.count("d")
-	main(open(argv[1]).read(),argv)()
+	main(open(argv[1],"rb").read(),argv)()
