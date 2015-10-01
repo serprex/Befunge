@@ -41,7 +41,7 @@ def main(pstring, argv=()):
 	initstate()
 	def rmem(x,y):return ps[x<<5|y] if 0<=x<=80 and 0<=y<=25 else 0
 	def wmem(x,i):
-		x,y,v,s=x
+		v,x,y,s=x
 		if 0<=x<=80 and 0<=y<=25:
 			y|=x<<5
 			ps[y]=v
@@ -50,7 +50,7 @@ def main(pstring, argv=()):
 				r.extend(b"d"*(s*3))
 				compile(i,s)
 				return True
-			return False
+		return False
 	def rng():return randint(0,3)
 	def getop(i):return b'\x10\x1d\x1f\x11\x0e\x17$$$\x0c\n\x15\x0b\x14\r\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\x12$"$ \x1a\x1e$$$$$$$$$$$$$$$$$$$$$$$$$$$\x13$!\x1c\x0f$$$$$$\x18$$$$$$$$\x19$$$$$#$$$$$\x1b$\x16'[i-33] if 33<=i<=126 else 36
 	def emit(op,arg=None):
