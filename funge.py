@@ -39,17 +39,19 @@ def main(pstring, argv=()):
 		pro=bytearray(b"\0")*640
 		pg=[None]*10240
 	initstate()
-	def rmem(x,y):return ps[x<<5|y] if 0<=x<=80 and 0<=y<=25 else 0
+	def rmem(x,y):
+		y|=x<<5
+		return ps[y] if 0<=y<10240 else 0
 	def wmem(x,i):
+		nonlocal r
 		v,x,y,s=x
-		if 0<=x<=80 and 0<=y<=25:
-			y|=x<<5
+		y|=x<<5
+		if 0<=y<10240:
 			ps[y]=v
 			if getpro(y):
 				initstate()
-				r.extend(b"d"*(s*3))
-				compile(i,s)
-				return True
+				r += b"d"*(s*3)
+				return compile(i,s)
 		return False
 	def rng():return randint(0,3)
 	def getop(i):return b'\x10\x1d\x1f\x11\x0e\x17$$$\x0c\n\x15\x0b\x14\r\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\x12$"$ \x1a\x1e$$$$$$$$$$$$$$$$$$$$$$$$$$$\x13$!\x1c\x0f$$$$$$\x18$$$$$$$$\x19$$$$$#$$$$$\x1b$\x16'[i-33] if 33<=i<=126 else 36
@@ -104,7 +106,6 @@ def main(pstring, argv=()):
 			loadconst(True)
 		popcall(513 if oneline else 1)
 	def prtop():
-		if not debug:return
 		dup()
 		loadconst("TOP %s")
 		swap()
@@ -115,7 +116,7 @@ def main(pstring, argv=()):
 		loadconst(True)
 		popcall(257)
 	def spguard(f,n=0):
-		prtop()
+		if debug:prtop()
 		if f==1:
 			dup()
 			emit("POP_JUMP_IF_TRUE",len(r)+7)
@@ -308,7 +309,7 @@ def main(pstring, argv=()):
 			if pg[i] is not None:
 				prbug("JUMP"+str(pg[i]))
 				jump(pg[i])
-				return
+				return True
 			pg[i]=len(r)
 			op = getop(ps[i>>2])
 			setpro(i)
@@ -321,7 +322,7 @@ def main(pstring, argv=()):
 			prbug(op)
 			ni=opfs[op](op,i)
 			if ni is not None:
-				if ni == -1:return
+				if ni == -1:return True
 				else:i=ni
 			i=mv(i)
 	def filterempty(r):
