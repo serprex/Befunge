@@ -39,11 +39,11 @@ def main(pstring, argv=()):
 		pro=bytearray(b"\0")*640
 		pg=[None]*10240
 	initstate()
-	def rmem(x,y):return ps[x<<5|y] if 0<=x<=80 and 0<=y<=25 else 0
+	def rmem(x,y):return ps[x<<5|y] if 0<=x<80 and 0<=y<25 else 0
 	def wmem(x,i):
 		nonlocal r
 		v,x,y,s=x
-		if 0<=x<=80 and 0<=y<=25:
+		if 0<=x<80 and 0<=y<25:
 			y|=x<<5
 			ps[y]=v
 			if getpro(y):
