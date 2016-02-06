@@ -55,13 +55,13 @@ def main(pstring, argv=()):
 	def getop(i):return b'\x10\x1d\x1f\x11\x0e\x17$$$\x0c\n\x15\x0b\x14\r\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\x12$"$ \x1a\x1e$$$$$$$$$$$$$$$$$$$$$$$$$$$\x13$!\x1c\x0f$$$$$$\x18$$$$$$$$\x19$$$$$#$$$$$\x1b$\x16'[i-33] if 33<=i<=126 else 36
 	def emit(op,arg=None):
 		r.append(opmap[op])
-		if arg is not None:emitarg(arg)
+		if arg is not None:return emitarg(arg)
 	def mkemit(op):
 		op = opmap[op]
 		def f(arg=None):
+			nonlocal r
 			if (arg is None) != (op<HAVE_ARGUMENT):print("HAVE_ARGUMENT mismatch", op)
-			if arg is None:r.append(op)
-			else:r.extend((op,arg&255,arg>>8))	
+			return r.append(op) if arg is None else r.extend((op,arg&255,arg>>8))
 		return f
 	swap = mkemit("ROT_TWO")
 	rot3 = mkemit("ROT_THREE")
@@ -71,28 +71,28 @@ def main(pstring, argv=()):
 	jump = mkemit("JUMP_ABSOLUTE")
 	def popcall(arg):
 		call(arg)
-		pop()
+		return pop()
 	def patch(loc,off):
 		r[loc+1]=off&255
 		r[loc+2]=off>>8
 	consts = []
 	def emitidx(a,c):
 		if c in a:
-			emitarg(a.index(c))
+			return emitarg(a.index(c))
 		else:
 			emitarg(len(a))
-			a.append(c)
+			a += c,
 	def loadconst(c):
 		r.append(100)
-		emitidx(consts, c)
+		return emitidx(consts, c)
 	putch = stdout.write
 	putint = lambda x:print(+x,end=' ')
 	def emitarg(arg):
-		r.extend((arg&255,arg>>8))
+		return r.extend((arg&255,arg>>8))
 	def incr(n):
 		if n:
 			loadconst(n)
-			emit("BINARY_ADD")
+			return emit("BINARY_ADD")
 	def prbug(x, oneline=False):
 		if not debug:return
 		loadconst(print)
@@ -102,7 +102,7 @@ def main(pstring, argv=()):
 			loadconst(" ")
 			loadconst("flush")
 			loadconst(True)
-		popcall(513 if oneline else 1)
+		return popcall(513 if oneline else 1)
 	def prtop():
 		dup()
 		loadconst("TOP %s")
@@ -112,7 +112,7 @@ def main(pstring, argv=()):
 		swap()
 		loadconst("flush")
 		loadconst(True)
-		popcall(257)
+		return popcall(257)
 	def spguard(f,n=0):
 		if debug:prtop()
 		if f==1:
@@ -120,7 +120,6 @@ def main(pstring, argv=()):
 			emit("POP_JUMP_IF_TRUE",len(r)+7)
 			loadconst(0)
 			swap()
-			incr(n)
 		else:
 			i=len(r)
 			jump(0)
@@ -133,7 +132,7 @@ def main(pstring, argv=()):
 			loadconst(f-1)
 			emit("COMPARE_OP",4)
 			emit("POP_JUMP_IF_FALSE",i+3)
-			incr(n)
+		return incr(n)
 	def mv(i):
 		i3=i&3
 		return (
@@ -146,13 +145,13 @@ def main(pstring, argv=()):
 	def opC(op,i):
 		incr(1)
 		loadconst(op)
-		swap()
+		return swap()
 	def binOp(name):
 		def g(op,i):
 			spguard(2,-1)
 			rot3()
 			emit(name)
-			swap()
+			return swap()
 		return g
 	op10=binOp("BINARY_ADD")
 	op11=binOp("BINARY_SUBTRACT")
@@ -163,12 +162,12 @@ def main(pstring, argv=()):
 		spguard(2,-1)
 		rot3()
 		emit("COMPARE_OP",1)
-		swap()
+		return swap()
 	def op16(op,i):
 		spguard(1)
 		swap()
 		emit("UNARY_NOT")
-		swap()
+		return swap()
 	def op17(op,i):
 		dup()
 		i=len(r)
@@ -176,25 +175,25 @@ def main(pstring, argv=()):
 		incr(-1)
 		swap()
 		pop()
-		patch(i,len(r))
+		return patch(i,len(r))
 	def op18(op,i):
 		spguard(1,1)
 		swap()
 		dup()
 		rot3()
-		rot3()
+		return rot3()
 	def op19(op,i):
 		spguard(2)
 		rot3()
 		swap()
 		rot3()
-		rot3()
+		return rot3()
 	def op20(op,i):
 		spguard(1,-1)
 		swap()
 		loadconst(putint)
 		swap()
-		popcall(1)
+		return popcall(1)
 	def op21(op,i):
 		spguard(1,-1)
 		swap()
@@ -203,26 +202,26 @@ def main(pstring, argv=()):
 		emit("BINARY_MODULO")
 		loadconst(putch)
 		swap()
-		popcall(1)
+		return popcall(1)
 	def op22(op,i):
 		incr(1)
 		loadconst(getch)
 		call(0)
-		swap()
+		return swap()
 	def op23(op,i):
 		incr(1)
 		loadconst(int)
 		loadconst(input)
 		call(0)
 		call(1)
-		swap()
+		return swap()
 	def op24(op,i):
 		spguard(2,-1)
 		rot3()
 		loadconst(rmem)
 		rot3()
 		call(2)
-		swap()
+		return swap()
 	def op25(op,i):
 		spguard(3,-3)
 		emit("BUILD_TUPLE",4)
@@ -235,7 +234,7 @@ def main(pstring, argv=()):
 		loadconst(i)
 		call(2)
 		j=len(r)
-		emit("POP_JUMP_IF_FALSE", 0)
+		emit("POP_JUMP_IF_FALSE",0)
 		emit("BUILD_LIST",0)
 		swap()
 		dup()
@@ -253,7 +252,7 @@ def main(pstring, argv=()):
 		emit("RETURN_VALUE")
 		i=len(r)
 		patch(j,i)
-		patch(j2,i-2)
+		return patch(j2,i-2)
 	def op26(op,i):
 		loadconst(rng)
 		call(0)
@@ -298,12 +297,12 @@ def main(pstring, argv=()):
 	def op36(op,i):pass
 	opfs=(opC,)*10+(op10,op11,op12,op13,op14,op15,op16,op17,op18,op19,op20,op21,op22,
 		op23,op24,op25,op26,opIF,opIF,op29,op30,op31,opDIR,opDIR,opDIR,opDIR,op36)
-	def compile(i, popflag=False):
+	def compile(i,popflag=False):
 		if popflag is True:pop()
 		elif popflag is not False:
 			loadconst(popflag)
-		i=mv(i)
 		while True:
+			i=mv(i)
 			if pg[i] is not None:
 				prbug("JUMP"+str(pg[i]))
 				jump(pg[i])
@@ -322,28 +321,6 @@ def main(pstring, argv=()):
 			if ni is not None:
 				if ni == -1:return True
 				else:i=ni
-			i=mv(i)
-	def filterempty(r):
-		i=0
-		while i<len(r):
-			op = r[i]
-			n = i+(1 if op<HAVE_ARGUMENT else 3)
-			while i<n:
-				if op:yield r[i]
-				i+=1
-		return r
-	def optimize(r):
-		if "-o" in argv:return r
-		from collections import defaultdict
-		jtbl=defaultdict(list)
-		i=0
-		jabs=113
-		while i<len(r):
-			op = r[i]
-			if op in hasjabs:
-				jtbl[r[i+1]|r[i+2]<<8] += i,
-			i+=1 if op<HAVE_ARGUMENT else 3
-		return filterempty(r)
 	compile(10112,0)
 	def stackfix(a):
 		nonlocal consts
@@ -358,7 +335,7 @@ def main(pstring, argv=()):
 		do=True
 		while do != 0:
 			if do is not True:stackfix(do)
-			f=FunctionType(CodeType(0,0,0,65536,0,bytes(optimize(r)),tuple(consts),(),(),"","",0,b""),{})
+			f=FunctionType(CodeType(0,0,0,65536,0,bytes(r),tuple(consts),(),(),"","",0,b""),{})
 			if debug>1 or "dis" in argv:
 				from dis import dis
 				dis(f)
