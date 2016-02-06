@@ -39,14 +39,12 @@ def main(pstring, argv=()):
 		pro=bytearray(b"\0")*640
 		pg=[None]*10240
 	initstate()
-	def rmem(x,y):
-		y|=x<<5
-		return ps[y] if 0<=y<10240 else 0
+	def rmem(x,y):return ps[x<<5|y] if 0<=x<=80 and 0<=y<=25 else 0
 	def wmem(x,i):
 		nonlocal r
 		v,x,y,s=x
-		y|=x<<5
-		if 0<=y<10240:
+		if 0<=x<=80 and 0<=y<=25:
+			y|=x<<5
 			ps[y]=v
 			if getpro(y):
 				initstate()
@@ -266,9 +264,9 @@ def main(pstring, argv=()):
 			dup()
 			loadconst(a)
 			emit("COMPARE_OP",2)
-			offsets.append(len(r))
+			offsets += (len(r),)
 			emit("POP_JUMP_IF_TRUE",0)
-		for a in range(4):
+		for a in 0,1,2,3:
 			if a:patch(offsets[a-1],len(r))
 			compile(i&~3|a,True)
 		return -1
@@ -277,7 +275,7 @@ def main(pstring, argv=()):
 		swap()
 		j = len(r)
 		emit("POP_JUMP_IF_TRUE",0)
-		for a in range(2):
+		for a in 0,1:
 			if a==1:patch(j,len(r))
 			compile(i&~3|(3-a*2 if op==27 else a*2))
 		return -1
@@ -343,15 +341,16 @@ def main(pstring, argv=()):
 		while i<len(r):
 			op = r[i]
 			if op in hasjabs:
-				jtbl[r[i+1]|r[i+2]<<8].append(i)
+				jtbl[r[i+1]|r[i+2]<<8] += i,
 			i+=1 if op<HAVE_ARGUMENT else 3
 		return filterempty(r)
 	compile(10112,0)
 	def stackfix(a):
+		nonlocal consts
 		for i,a in zip(range(len(a)*3-2,0,-3),a):
 			if a in consts:a=consts.index(a)
 			else:
-				consts.append(a)
+				consts += a,
 				a=len(consts)-1
 			r[i]=a&255
 			r[i+1]=a>>8
