@@ -18,26 +18,25 @@ def getch():
 	return getch
 getch = getch()
 
-def main(pstring, argv=()):
-	from opcode import opmap,HAVE_ARGUMENT,hasjabs
+def main(pro, argv=()):
+	from opcode import opmap,HAVE_ARGUMENT
 	from types import CodeType,FunctionType
 	from random import randint
 	from sys import stdout
-	hasjabs = frozenset(hasjabs)
 	ps = [0]*2560
-	if debug:print(pstring)
-	pstring = pstring.split(b"\n")
-	for y,line in enumerate(pstring):
+	if debug:print(pro.decode())
+	for y,line in enumerate(pro.split(b"\n")):
 		if y>=25:break
 		for x,c in enumerate(line):
 			if x>=80:break
 			ps[x<<5|y]=c
-	r=pro=pg=None
+	consts=r=pro=pg=None
 	def initstate():
-		nonlocal pg,pro,r
+		nonlocal pg,pro,r,consts
 		r=bytearray()
-		pro=bytearray(b"\0")*640
+		pro=set()
 		pg=[None]*10240
+		consts=[]
 	initstate()
 	def rmem(x,y):return ps[x<<5|y] if 0<=x<80 and 0<=y<25 else 0
 	def wmem(x,i):
@@ -46,7 +45,7 @@ def main(pstring, argv=()):
 		if 0<=x<80 and 0<=y<25:
 			y|=x<<5
 			ps[y]=v
-			if pro[y>>4]&(1<<(y>>1&6)):
+			if y in pro:
 				initstate()
 				r += b"d"*(s*3)
 				return compile(i,s)
@@ -70,15 +69,14 @@ def main(pstring, argv=()):
 	def patch(loc,off):
 		r[loc+1]=off&255
 		r[loc+2]=off>>8
-	consts = []
 	def loadconst(c):
 		nonlocal consts
 		r.append(100)
-		if c in consts:
-			return emitarg(consts.index(c))
-		else:
-			emitarg(len(consts))
-			consts += c,
+		isint = type(c) == int
+		for (i, a) in enumerate(consts):
+			if (c==a if isint else c is a):return emitarg(i)
+		emitarg(len(consts))
+		consts += c,
 	putint = lambda x:print(+x,end=' ')
 	def emitarg(arg):
 		return r.extend((arg&255,arg>>8))
@@ -270,17 +268,18 @@ def main(pstring, argv=()):
 			compile(i&~3|(3-a*2 if op==27 else a*2))
 		return -1
 	def op29(op,i):
-		i=mv(i)
 		n=0
-		while ps[i>>2]!=34:
-			loadconst(ps[i>>2])
-			swap()
-			i=mv(i)
+		while True:
 			n+=1
-		incr(n)
-		return i
+			i=mv(i)
+			op=ps[i>>2]
+			loadconst(op)
+			swap()
+			if op==34:
+				incr(n)
+				return i
 	def op30(op,i):
-		loadconst(0)
+		loadconst(True)
 		emit("RETURN_VALUE")
 		return -1
 	def op31(op,i):return mv(i)
@@ -299,21 +298,22 @@ def main(pstring, argv=()):
 				jump(pg[i])
 				return True
 			pg[i]=len(r)
-			pro[i>>4]|=1<<(i>>1&6)
-			op = ps[i>>2]
-			prbug("%d %c"%(op,op), True)
-			op = b'\x10\x1d\x1f\x11\x0e\x17$$$\x0c\n\x15\x0b\x14\r\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\x12$"$ \x1a\x1e$$$$$$$$$$$$$$$$$$$$$$$$$$$\x13$!\x1c\x0f$$$$$$\x18$$$$$$$$\x19$$$$$#$$$$$\x1b$\x16'[op-33] if 33<=op<=126 else 36
-			if op < 31 and debug==3:
-				dup()
-				loadconst(print)
-				swap()
-				loadconst(op)
-				popcall(2)
-			prbug(op)
-			ni=opfs[op](op,i)
-			if ni is not None:
-				if ni == -1:return True
-				else:i=ni
+			i2 = i>>2
+			pro.add(i2)
+			i2 = ps[i2]
+			op = b'\x10\x1d\x1f\x11\x0e\x17$$$\x0c\n\x15\x0b\x14\r\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\x12$"$ \x1a\x1e$$$$$$$$$$$$$$$$$$$$$$$$$$$\x13$!\x1c\x0f$$$$$$\x18$$$$$$$$\x19$$$$$#$$$$$\x1b$\x16'[i2-33] if 33<=i2<=126 else 36
+			if op < 31:
+				prbug("op %c %d"%(i2,op))
+				if debug==3:
+					dup()
+					loadconst(print)
+					swap()
+					loadconst(op)
+					popcall(2)
+			i2=opfs[op](op,i)
+			if i2 is not None:
+				if i2 == -1:return True
+				else:i=i2
 	compile(10112,0)
 	def stackfix(a):
 		nonlocal consts
@@ -324,18 +324,16 @@ def main(pstring, argv=()):
 				a=len(consts)-1
 			r[i]=a&255
 			r[i+1]=a>>8
-	def prog():
-		while True:
-			f=FunctionType(CodeType(0,0,0,65536,0,bytes(r),tuple(consts),(),(),"","",0,b""),{})
-			if debug>1 or "dis" in argv:
-				from dis import dis
-				dis(f)
-			do=f()
-			if debug:print("do", do)
-			if do == 0:return
-			stackfix(do)
-	return prog
+	while True:
+		f=FunctionType(CodeType(0,0,0,65536,0,bytes(r),tuple(consts),(),(),"","",0,b""),{})
+		if debug>1 or "dis" in argv:
+			from dis import dis
+			dis(f)
+		do=f()
+		if do is True:return
+		if debug:print("Return", do)
+		stackfix(do)
 if __name__ == "__main__":
 	from sys import argv
 	debug = argv.count("d")
-	main(open(argv[1],"rb").read(),argv)()
+	main(open(argv[1],"rb").read(),argv)
