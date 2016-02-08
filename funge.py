@@ -46,23 +46,18 @@ def main(pstring, argv=()):
 		if 0<=x<80 and 0<=y<25:
 			y|=x<<5
 			ps[y]=v
-			if getpro(y):
+			if pro[y>>4]&(1<<(y>>1&6)):
 				initstate()
 				r += b"d"*(s*3)
 				return compile(i,s)
 		return False
 	def rng():return randint(0,3)
-	def getop(i):return b'\x10\x1d\x1f\x11\x0e\x17$$$\x0c\n\x15\x0b\x14\r\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\x12$"$ \x1a\x1e$$$$$$$$$$$$$$$$$$$$$$$$$$$\x13$!\x1c\x0f$$$$$$\x18$$$$$$$$\x19$$$$$#$$$$$\x1b$\x16'[i-33] if 33<=i<=126 else 36
 	def emit(op,arg=None):
 		r.append(opmap[op])
 		if arg is not None:return emitarg(arg)
 	def mkemit(op):
 		op = opmap[op]
-		def f(arg=None):
-			nonlocal r
-			if (arg is None) != (op<HAVE_ARGUMENT):print("HAVE_ARGUMENT mismatch", op)
-			return r.append(op) if arg is None else r.extend((op,arg&255,arg>>8))
-		return f
+		return (lambda:r.append(op)) if op<HAVE_ARGUMENT else (lambda a:r.extend((op,a&255,a>>8)))
 	swap = mkemit("ROT_TWO")
 	rot3 = mkemit("ROT_THREE")
 	pop = mkemit("POP_TOP")
@@ -76,16 +71,14 @@ def main(pstring, argv=()):
 		r[loc+1]=off&255
 		r[loc+2]=off>>8
 	consts = []
-	def emitidx(a,c):
-		if c in a:
-			return emitarg(a.index(c))
-		else:
-			emitarg(len(a))
-			a += c,
 	def loadconst(c):
+		nonlocal consts
 		r.append(100)
-		return emitidx(consts, c)
-	putch = stdout.write
+		if c in consts:
+			return emitarg(consts.index(c))
+		else:
+			emitarg(len(consts))
+			consts += c,
 	putint = lambda x:print(+x,end=' ')
 	def emitarg(arg):
 		return r.extend((arg&255,arg>>8))
@@ -105,21 +98,21 @@ def main(pstring, argv=()):
 		return popcall(513 if oneline else 1)
 	def prtop():
 		dup()
-		loadconst("TOP %s")
-		swap()
-		emit("BINARY_MODULO")
 		loadconst(print)
+		swap()
+		loadconst("\tDepth")
 		swap()
 		loadconst("flush")
 		loadconst(True)
-		return popcall(257)
+		return popcall(258)
 	def spguard(f,n=0):
 		if debug:prtop()
 		if f==1:
-			dup()
-			emit("POP_JUMP_IF_TRUE",len(r)+7)
+			emit("JUMP_IF_TRUE_OR_POP",len(r)+8)
 			loadconst(0)
+			dup()
 			swap()
+			return incr(n)
 		else:
 			i=len(r)
 			jump(0)
@@ -132,7 +125,7 @@ def main(pstring, argv=()):
 			loadconst(f-1)
 			emit("COMPARE_OP",4)
 			emit("POP_JUMP_IF_FALSE",i+3)
-		return incr(n)
+			return incr(n)
 	def mv(i):
 		i3=i&3
 		return (
@@ -140,8 +133,6 @@ def main(pstring, argv=()):
 			(i-4 if i&124 else i+96) if i3==1 else
 			(i+10112 if i<128 else i-128) if i3==2 else
 			(i+4 if (i+4&124)<100 else i-96))
-	def setpro(i):pro[i>>4]|=1<<(i>>1&6)
-	def getpro(i):return pro[i>>4]&(1<<(i>>1&6))
 	def opC(op,i):
 		incr(1)
 		loadconst(op)
@@ -161,7 +152,7 @@ def main(pstring, argv=()):
 	def op15(op,i):
 		spguard(2,-1)
 		rot3()
-		emit("COMPARE_OP",1)
+		emit("COMPARE_OP",4)
 		return swap()
 	def op16(op,i):
 		spguard(1)
@@ -200,7 +191,7 @@ def main(pstring, argv=()):
 		loadconst("%c")
 		swap()
 		emit("BINARY_MODULO")
-		loadconst(putch)
+		loadconst(stdout.write)
 		swap()
 		return popcall(1)
 	def op22(op,i):
@@ -247,7 +238,7 @@ def main(pstring, argv=()):
 		swap()
 		loadconst(1)
 		emit("BINARY_SUBTRACT")
-		emit("JUMP_ABSOLUTE",j2-1)
+		jump(j2-1)
 		pop()
 		emit("RETURN_VALUE")
 		i=len(r)
@@ -308,8 +299,10 @@ def main(pstring, argv=()):
 				jump(pg[i])
 				return True
 			pg[i]=len(r)
-			op = getop(ps[i>>2])
-			setpro(i)
+			pro[i>>4]|=1<<(i>>1&6)
+			op = ps[i>>2]
+			prbug("%d %c"%(op,op), True)
+			op = b'\x10\x1d\x1f\x11\x0e\x17$$$\x0c\n\x15\x0b\x14\r\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\x12$"$ \x1a\x1e$$$$$$$$$$$$$$$$$$$$$$$$$$$\x13$!\x1c\x0f$$$$$$\x18$$$$$$$$\x19$$$$$#$$$$$\x1b$\x16'[op-33] if 33<=op<=126 else 36
 			if op < 31 and debug==3:
 				dup()
 				loadconst(print)
@@ -332,15 +325,15 @@ def main(pstring, argv=()):
 			r[i]=a&255
 			r[i+1]=a>>8
 	def prog():
-		do=True
-		while do != 0:
-			if do is not True:stackfix(do)
+		while True:
 			f=FunctionType(CodeType(0,0,0,65536,0,bytes(r),tuple(consts),(),(),"","",0,b""),{})
 			if debug>1 or "dis" in argv:
 				from dis import dis
 				dis(f)
 			do=f()
-			if debug:print(do)
+			if debug:print("do", do)
+			if do == 0:return
+			stackfix(do)
 	return prog
 if __name__ == "__main__":
 	from sys import argv
