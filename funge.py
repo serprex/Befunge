@@ -270,14 +270,16 @@ def main(pro, argv=()):
 	def op29(op,i):
 		n=0
 		while True:
-			n+=1
 			i=mv(i)
-			op=ps[i>>2]
-			loadconst(op)
-			swap()
+			i2=i>>2
+			pro.add(i2)
+			op=ps[i2]
 			if op==34:
 				incr(n)
 				return i
+			loadconst(op)
+			swap()
+			n+=1
 	def op30(op,i):
 		loadconst(True)
 		emit("RETURN_VALUE")
