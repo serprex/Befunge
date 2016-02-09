@@ -42,7 +42,7 @@ def main(pro, argv=()):
 				if y in pro:
 					r[:]=b"d"*(s*3)
 					consts[:]=()
-					nro.clear()
+					pro.clear()
 					pg.clear()
 					return compile(i,s)
 			return False
@@ -65,7 +65,7 @@ def main(pro, argv=()):
 	def patch(loc,off):
 		r[loc+1]=off&255
 		r[loc+2]=off>>8
-	def loadconst(c):
+	def load(c):
 		nonlocal consts
 		r.append(100)
 		isint = type(c) == int
@@ -74,49 +74,48 @@ def main(pro, argv=()):
 		emitarg(len(consts))
 		consts += c,
 	putint = lambda x:print(+x,end=' ')
-	def emitarg(arg):
-		return r.extend((arg&255,arg>>8))
+	def emitarg(arg):return r.extend((arg&255,arg>>8))
 	def incr(n):
 		if n:
-			loadconst(n)
+			load(n)
 			return emit("BINARY_ADD")
 	def prbug(x, oneline=False):
 		if not debug:return
-		loadconst(print)
-		loadconst(x)
+		load(print)
+		load(x)
 		if oneline:
-			loadconst("end")
-			loadconst(" ")
-			loadconst("flush")
-			loadconst(True)
+			load("end")
+			load(" ")
+			load("flush")
+			load(True)
 		return popcall(513 if oneline else 1)
 	def prtop():
 		dup()
-		loadconst(print)
+		load(print)
 		swap()
-		loadconst("\tDepth")
+		load("\tDepth")
 		swap()
-		loadconst("flush")
-		loadconst(True)
+		load("flush")
+		load(True)
 		return popcall(258)
 	def spguard(f,n=0):
 		if debug:prtop()
 		if f==1:
 			emit("JUMP_IF_TRUE_OR_POP",len(r)+8)
-			loadconst(0)
+			load(0)
 			dup()
 			swap()
 			return incr(n)
 		else:
 			i=len(r)
 			jump(0)
-			loadconst(1)
+			load(1)
 			emit("BINARY_ADD")
-			loadconst(0)
+			load(0)
 			swap()
 			patch(i,len(r))
 			dup()
-			loadconst(f-1)
+			load(f-1)
 			emit("COMPARE_OP",4)
 			emit("POP_JUMP_IF_FALSE",i+3)
 			return incr(n)
@@ -129,7 +128,7 @@ def main(pro, argv=()):
 			(i+4 if (i+4&124)<100 else i-96))
 	def opC(op,i):
 		incr(1)
-		loadconst(op)
+		load(op)
 		return swap()
 	def binOp(name):
 		def g(op,i):
@@ -176,27 +175,27 @@ def main(pro, argv=()):
 	def op20(op,i):
 		spguard(1,-1)
 		swap()
-		loadconst(putint)
+		load(putint)
 		swap()
 		return popcall(1)
 	def op21(op,i):
 		spguard(1,-1)
 		swap()
-		loadconst("%c")
+		load("%c")
 		swap()
 		emit("BINARY_MODULO")
-		loadconst(stdout.write)
+		load(stdout.write)
 		swap()
 		return popcall(1)
 	def op22(op,i):
 		incr(1)
-		loadconst(getch)
+		load(getch)
 		call(0)
 		return swap()
 	def op23(op,i):
 		incr(1)
-		loadconst(int)
-		loadconst(input)
+		load(int)
+		load(input)
 		call(0)
 		call(1)
 		return swap()
@@ -204,20 +203,20 @@ def main(pro, argv=()):
 		spguard(2,-1)
 		rot3()
 		swap()
-		loadconst(5)
+		load(5)
 		emit("BINARY_LSHIFT")
 		emit("BINARY_OR")
 		dup()
-		loadconst(0)
+		load(0)
 		emit("COMPARE_OP",0)
 		j=len(r)
 		emit("POP_JUMP_IF_TRUE",0)
 		dup()
-		loadconst(2560)
+		load(2560)
 		emit("COMPARE_OP",5)
 		j2=len(r)
 		emit("POP_JUMP_IF_TRUE",0)
-		loadconst(ps)
+		load(ps)
 		swap()
 		emit("BINARY_SUBSCR")
 		j3=len(r)
@@ -231,10 +230,10 @@ def main(pro, argv=()):
 		spguard(3,-3)
 		emit("BUILD_TUPLE",4)
 		dup()
-		loadconst(3)
+		load(3)
 		emit("BINARY_SUBSCR")
 		swap()
-		loadconst(wmem(i))
+		load(wmem(i))
 		swap()
 		call(1)
 		j=len(r)
@@ -249,7 +248,7 @@ def main(pro, argv=()):
 		emit("BUILD_TUPLE",1)
 		emit("INPLACE_ADD")
 		swap()
-		loadconst(1)
+		load(1)
 		emit("BINARY_SUBTRACT")
 		jump(j2-1)
 		pop()
@@ -258,15 +257,15 @@ def main(pro, argv=()):
 		patch(j,i)
 		return patch(j2,i-2)
 	def op26(op,i):
-		loadconst(getrandbits)
-		loadconst(2)
+		load(getrandbits)
+		load(2)
 		call(1)
 		dup()
 		offsets = [len(r)]
 		emit("POP_JUMP_IF_FALSE",0)
 		for a in 1,2:
 			dup()
-			loadconst(a)
+			load(a)
 			emit("COMPARE_OP",2)
 			offsets += (len(r),)
 			emit("POP_JUMP_IF_TRUE",0)
@@ -293,11 +292,11 @@ def main(pro, argv=()):
 			if op==34:
 				incr(n)
 				return i
-			loadconst(op)
+			load(op)
 			swap()
 			n+=1
 	def op30(op,i):
-		loadconst(True)
+		load(True)
 		emit("RETURN_VALUE")
 		return -1
 	def op31(op,i):return mv(i)
@@ -307,7 +306,7 @@ def main(pro, argv=()):
 		op23,op24,op25,op26,opIF,opIF,op29,op30,op31,opDIR,opDIR,opDIR,opDIR,op36)
 	def compile(i,popflag=False):
 		if popflag is True:pop()
-		elif popflag is not False:loadconst(popflag)
+		elif popflag is not False:load(popflag)
 		while True:
 			i=mv(i)
 			if i in pg:
