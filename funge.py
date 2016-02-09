@@ -21,7 +21,7 @@ getch = getch()
 def main(pro, argv=()):
 	from opcode import opmap,HAVE_ARGUMENT
 	from types import CodeType,FunctionType
-	from random import randint
+	from random import getrandbits
 	from sys import stdout
 	ps = [0]*2560
 	for y,line in enumerate(pro):
@@ -35,7 +35,6 @@ def main(pro, argv=()):
 	r=bytearray()
 	def wmem(i):
 		def f(x):
-			nonlocal r
 			v,x,y,s=x
 			y|=x<<5
 			if (y&31)<25 and 0<=y<2560:
@@ -43,12 +42,11 @@ def main(pro, argv=()):
 				if y in pro:
 					r[:]=b"d"*(s*3)
 					consts[:]=()
-					pro.clear()
+					nro.clear()
 					pg.clear()
 					return compile(i,s)
 			return False
 		return f
-	def rng():return randint(0,3)
 	def emit(op,arg=None):
 		r.append(opmap[op])
 		if arg is not None:return emitarg(arg)
@@ -260,8 +258,9 @@ def main(pro, argv=()):
 		patch(j,i)
 		return patch(j2,i-2)
 	def op26(op,i):
-		loadconst(rng)
-		call(0)
+		loadconst(getrandbits)
+		loadconst(2)
+		call(1)
 		dup()
 		offsets = [len(r)]
 		emit("POP_JUMP_IF_FALSE",0)
