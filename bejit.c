@@ -297,8 +297,11 @@ int main(int argc,char**argv){
 	OP22:*++sp=getchar();LOOP;
 	OP23:scanf("%d",++sp);LOOP;
 	OP24:
-		if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[*sp<<5|sp[1]]:0;}
-		else if(sp==st)*sp=*sp<25&&*sp>=0?ps[*sp]:0;else*++sp=ps[0];
+		if(sp>st){
+			sp--;
+			int x=*sp<<5|sp[1];
+			*sp=x>=0&&x<2560?ps[x]:0;
+		}else if(sp==st)*sp=*sp<25&&*sp>=0?ps[*sp]:0;else*++sp=ps[0];
 		LOOP;
 	OP25:{
 		int x,y;

@@ -88,8 +88,11 @@
 #endif
 	&3);
 	OP(get)
-		if(sp>st){sp--;*sp=*sp<80&&*sp>=0&&sp[1]<25&&sp[1]>=0?ps[(int)*sp*32|(int)sp[1]]:0;}
-		else if(sp==st)*sp=*sp<25&&*sp>=0?ps[(int)*sp]:0;else*++sp=ps[0];
+		if(sp>st){
+			sp--;
+			int x=*sp<<5|sp[1];
+			*sp=x>=0&&x<2560?ps[x]:0;
+		}else if(sp==st)*sp=*sp<25&&*sp>=0?ps[(int)*sp]:0;else*++sp=ps[0];
 	LOOP;
 	OP(put)switch(sp-st){
 		int x;
