@@ -33,9 +33,6 @@ def main(pro, argv=()):
 	consts=[]
 	pro=set()
 	r=bytearray()
-	def rmem(x,y):
-		y|=x<<5
-		return ps[y] if 0<=y<2560 else 0
 	def wmem(i):
 		def f(x):
 			nonlocal r
@@ -208,9 +205,29 @@ def main(pro, argv=()):
 	def op24(op,i):
 		spguard(2,-1)
 		rot3()
-		loadconst(rmem)
-		rot3()
-		call(2)
+		swap()
+		loadconst(5)
+		emit("BINARY_LSHIFT")
+		emit("BINARY_OR")
+		dup()
+		loadconst(0)
+		emit("COMPARE_OP",0)
+		j=len(r)
+		emit("POP_JUMP_IF_TRUE",0)
+		dup()
+		loadconst(2560)
+		emit("COMPARE_OP",5)
+		j2=len(r)
+		emit("POP_JUMP_IF_TRUE",0)
+		loadconst(ps)
+		swap()
+		emit("BINARY_SUBSCR")
+		j3=len(r)
+		jump(0)
+		patch(j,len(r))
+		patch(j2,len(r))
+		emit("UNARY_NOT")
+		patch(j3,len(r))
 		return swap()
 	def op25(op,i):
 		spguard(3,-3)
