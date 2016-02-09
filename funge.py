@@ -24,32 +24,33 @@ def main(pro, argv=()):
 	from random import randint
 	from sys import stdout
 	ps = [0]*2560
-	if debug:print(pro.decode())
-	for y,line in enumerate(pro.split(b"\n")):
+	for y,line in enumerate(pro):
 		if y>=25:break
 		for x,c in enumerate(line):
 			if x>=80:break
 			ps[x<<5|y]=c
-	consts=r=pro=pg=None
-	def initstate():
-		nonlocal pg,pro,r,consts
-		r=bytearray()
-		pro=set()
-		pg=[None]*10240
-		consts=[]
-	initstate()
-	def rmem(x,y):return ps[x<<5|y] if 0<=x<80 and 0<=y<25 else 0
-	def wmem(x,i):
-		nonlocal r
-		v,x,y,s=x
-		if 0<=x<80 and 0<=y<25:
+	pg={}
+	consts=[]
+	pro=set()
+	r=bytearray()
+	def rmem(x,y):
+		y|=x<<5
+		return ps[y] if 0<=y<2560 else 0
+	def wmem(i):
+		def f(x):
+			nonlocal r
+			v,x,y,s=x
 			y|=x<<5
-			ps[y]=v
-			if y in pro:
-				initstate()
-				r += b"d"*(s*3)
-				return compile(i,s)
-		return False
+			if (y&31)<25 and 0<=y<2560:
+				ps[y]=v
+				if y in pro:
+					r[:]=b"d"*(s*3)
+					consts[:]=()
+					pro.clear()
+					pg.clear()
+					return compile(i,s)
+			return False
+		return f
 	def rng():return randint(0,3)
 	def emit(op,arg=None):
 		r.append(opmap[op])
@@ -218,10 +219,9 @@ def main(pro, argv=()):
 		loadconst(3)
 		emit("BINARY_SUBSCR")
 		swap()
-		loadconst(wmem)
+		loadconst(wmem(i))
 		swap()
-		loadconst(i)
-		call(2)
+		call(1)
 		j=len(r)
 		emit("POP_JUMP_IF_FALSE",0)
 		emit("BUILD_LIST",0)
@@ -291,12 +291,11 @@ def main(pro, argv=()):
 		op23,op24,op25,op26,opIF,opIF,op29,op30,op31,opDIR,opDIR,opDIR,opDIR,op36)
 	def compile(i,popflag=False):
 		if popflag is True:pop()
-		elif popflag is not False:
-			loadconst(popflag)
+		elif popflag is not False:loadconst(popflag)
 		while True:
 			i=mv(i)
-			if pg[i] is not None:
-				prbug("JUMP"+str(pg[i]))
+			if i in pg:
+				if debug:prbug("JUMP%s"%pg[i])
 				jump(pg[i])
 				return True
 			pg[i]=len(r)
@@ -304,14 +303,7 @@ def main(pro, argv=()):
 			pro.add(i2)
 			i2 = ps[i2]
 			op = b'\x10\x1d\x1f\x11\x0e\x17$$$\x0c\n\x15\x0b\x14\r\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\x12$"$ \x1a\x1e$$$$$$$$$$$$$$$$$$$$$$$$$$$\x13$!\x1c\x0f$$$$$$\x18$$$$$$$$\x19$$$$$#$$$$$\x1b$\x16'[i2-33] if 33<=i2<=126 else 36
-			if op < 31:
-				prbug("op %c %d"%(i2,op))
-				if debug==3:
-					dup()
-					loadconst(print)
-					swap()
-					loadconst(op)
-					popcall(2)
+			if debug and op < 31:prbug("op %c %d"%(i2,op))
 			i2=opfs[op](op,i)
 			if i2 is not None:
 				if i2 == -1:return True
@@ -338,4 +330,4 @@ def main(pro, argv=()):
 if __name__ == "__main__":
 	from sys import argv
 	debug = argv.count("d")
-	main(open(argv[1],"rb").read(),argv)
+	main(open(argv[1],"rb"),argv)
