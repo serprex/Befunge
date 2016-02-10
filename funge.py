@@ -125,12 +125,14 @@ def main(pro, argv=()):
 			(i-4 if i&124 else i+96) if i3==1 else
 			(i+10112 if i<128 else i-128) if i3==2 else
 			(i+4 if (i+4&124)<100 else i-96))
-	def opC(op,i):
-		incr(1)
-		load(op)
-		return swap()
+	def opC(op):
+		def f(i):
+			incr(1)
+			load(op)
+			return swap()
+		return f
 	def binOp(name):
-		def g(op,i):
+		def g(i):
 			spguard(2,-1)
 			rot3()
 			emit(name)
@@ -141,17 +143,17 @@ def main(pro, argv=()):
 	op12=binOp("BINARY_MULTIPLY")
 	op13=binOp("BINARY_FLOOR_DIVIDE")
 	op14=binOp("BINARY_MODULO")
-	def op15(op,i):
+	def op15(i):
 		spguard(2,-1)
 		rot3()
 		emit("COMPARE_OP",4)
 		return swap()
-	def op16(op,i):
+	def op16(i):
 		spguard(1)
 		swap()
 		emit("UNARY_NOT")
 		return swap()
-	def op17(op,i):
+	def op17(i):
 		dup()
 		i=len(r)
 		emit("POP_JUMP_IF_FALSE",0)
@@ -159,25 +161,25 @@ def main(pro, argv=()):
 		swap()
 		pop()
 		return patch(i,len(r))
-	def op18(op,i):
+	def op18(i):
 		spguard(1,1)
 		swap()
 		dup()
 		rot3()
 		return rot3()
-	def op19(op,i):
+	def op19(i):
 		spguard(2)
 		rot3()
 		swap()
 		rot3()
 		return rot3()
-	def op20(op,i):
+	def op20(i):
 		spguard(1,-1)
 		swap()
 		load(putint)
 		swap()
 		return popcall(1)
-	def op21(op,i):
+	def op21(i):
 		spguard(1,-1)
 		swap()
 		load("%c")
@@ -186,19 +188,19 @@ def main(pro, argv=()):
 		load(stdout.write)
 		swap()
 		return popcall(1)
-	def op22(op,i):
+	def op22(i):
 		incr(1)
 		load(getch)
 		call(0)
 		return swap()
-	def op23(op,i):
+	def op23(i):
 		incr(1)
 		load(int)
 		load(input)
 		call(0)
 		call(1)
 		return swap()
-	def op24(op,i):
+	def op24(i):
 		spguard(2,-1)
 		rot3()
 		swap()
@@ -225,7 +227,7 @@ def main(pro, argv=()):
 		emit("UNARY_NOT")
 		patch(j3,len(r))
 		return swap()
-	def op25(op,i):
+	def op25(i):
 		spguard(3,-3)
 		emit("BUILD_TUPLE",4)
 		dup()
@@ -255,7 +257,7 @@ def main(pro, argv=()):
 		i=len(r)
 		patch(j,i)
 		return patch(j2,i-2)
-	def op26(op,i):
+	def op26(i):
 		load(getrandbits)
 		load(2)
 		call(1)
@@ -272,16 +274,18 @@ def main(pro, argv=()):
 			if a:patch(offsets[a-1],len(r))
 			compile(i&~3|a,True)
 		return -1
-	def opIF(op,i):
-		spguard(1,-1)
-		swap()
-		j = len(r)
-		emit("POP_JUMP_IF_TRUE",0)
-		for a in 0,1:
-			if a:patch(j,len(r))
-			compile(i&~3|(3-a*2 if op==27 else a*2))
-		return -1
-	def op29(op,i):
+	def opIF(op):
+		def f(i):
+			spguard(1,-1)
+			swap()
+			j = len(r)
+			emit("POP_JUMP_IF_TRUE",0)
+			for a in 0,1:
+				if a:patch(j,len(r))
+				compile(i&~3|(3-a*2 if op==27 else a*2))
+			return -1
+		return f
+	def op29(i):
 		n=0
 		while True:
 			i=mv(i)
@@ -294,15 +298,15 @@ def main(pro, argv=()):
 			load(op)
 			swap()
 			n+=1
-	def op30(op,i):
+	def op30(i):
 		load(True)
 		emit("RETURN_VALUE")
 		return -1
-	def op31(op,i):return mv(i)
-	def opDIR(op,i):return i&~3|op&3
-	def op36(op,i):pass
-	opfs=(opC,)*10+(op10,op11,op12,op13,op14,op15,op16,op17,op18,op19,op20,op21,op22,
-		op23,op24,op25,op26,opIF,opIF,op29,op30,op31,opDIR,opDIR,opDIR,opDIR,op36)
+	def op31(i):return mv(i)
+	def opDIR(op):return lambda i:i&~3|op&3
+	def op36(i):pass
+	opfs=tuple(map(opC, range(10)))+(op10,op11,op12,op13,op14,op15,op16,op17,op18,op19,op20,op21,op22,
+		op23,op24,op25,op26,opIF(27),opIF(28),op29,op30,op31,opDIR(32),opDIR(33),opDIR(34),opDIR(35),op36)
 	def compile(i,popflag=False):
 		if popflag is True:pop()
 		elif popflag is not False:load(popflag)
@@ -318,7 +322,7 @@ def main(pro, argv=()):
 			i2 = ps[i2]
 			op = b'\x10\x1d\x1f\x11\x0e\x17$$$\x0c\n\x15\x0b\x14\r\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\x12$"$ \x1a\x1e$$$$$$$$$$$$$$$$$$$$$$$$$$$\x13$!\x1c\x0f$$$$$$\x18$$$$$$$$\x19$$$$$#$$$$$\x1b$\x16'[i2-33] if 33<=i2<=126 else 36
 			if debug and op < 31:prbug("op %c %d"%(i2,op))
-			i2=opfs[op](op,i)
+			i2=opfs[op](i)
 			if i2 is not None:
 				if i2 == -1:return True
 				else:i=i2
