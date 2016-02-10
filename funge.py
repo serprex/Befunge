@@ -101,10 +101,9 @@ def main(pro, argv=()):
 	def spguard(f,n=0):
 		if debug:prtop()
 		if f==1:
-			emit("JUMP_IF_TRUE_OR_POP",len(r)+8)
+			emit("JUMP_IF_TRUE_OR_POP",len(r)+7)
 			load(0)
 			dup()
-			swap()
 			return incr(n)
 		else:
 			i=len(r)
@@ -279,7 +278,7 @@ def main(pro, argv=()):
 		j = len(r)
 		emit("POP_JUMP_IF_TRUE",0)
 		for a in 0,1:
-			if a==1:patch(j,len(r))
+			if a:patch(j,len(r))
 			compile(i&~3|(3-a*2 if op==27 else a*2))
 		return -1
 	def op29(op,i):
