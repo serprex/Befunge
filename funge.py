@@ -30,7 +30,7 @@ def main(pro, argv=()):
 			if x>=80:break
 			ps[x<<5|y]=c
 	pg={}
-	consts=[]
+	consts={}
 	pro=set()
 	r=bytearray()
 	def wmem(i):
@@ -41,7 +41,7 @@ def main(pro, argv=()):
 				ps[y]=v
 				if y in pro:
 					r[:]=b"d"*(s*3)
-					consts[:]=()
+					consts.clear()
 					pro.clear()
 					pg.clear()
 					return compile(i,s)
@@ -81,20 +81,18 @@ def main(pro, argv=()):
 		r[loc+1]=off&255
 		r[loc+2]=off>>8
 	def load(c):
-		nonlocal consts
-		isint = type(c) == int
-		for (i, a) in enumerate(consts):
-			if (c==a if isint else c is a):return r.extend((100,i&255,i>>8))
-		i=len(consts)
-		r.extend((100,i&255,i>>8))
-		consts += c,
+		k = (c, type(c))
+		if k in consts:c=consts[k]
+		else:
+			c=len(consts)
+			consts[k]=c
+		r.extend((100, c&255, c>>8))
 	putint = lambda x:print(+x,end=' ')
 	def incr(n):
 		if n:
 			load(n)
 			return add()
 	def prbug(x, oneline=False):
-		if not debug:return
 		load(print)
 		load(x)
 		if oneline:
@@ -342,16 +340,16 @@ def main(pro, argv=()):
 				else:i=i2
 	compile(10112,0)
 	def stackfix(a):
-		nonlocal consts
 		for i,a in zip(range(len(a)*3-2,0,-3),a):
-			if a in consts:a=consts.index(a)
+			a=(a,type(a))
+			if a in consts:c=consts[a]
 			else:
-				consts += a,
-				a=len(consts)-1
-			r[i]=a&255
-			r[i+1]=a>>8
+				c=len(consts)
+				consts[a]=c
+			r[i]=c&255
+			r[i+1]=c>>8
 	while True:
-		f=FunctionType(CodeType(0,0,0,65536,0,bytes(r),tuple(consts),(),(),"","",0,b""),{})
+		f=FunctionType(CodeType(0,0,0,65536,0,bytes(r),tuple(x[0][0] for x in sorted(consts.items(), key=lambda x:x[1])),(),(),"","",0,b""),{})
 		if debug>1 or "dis" in argv:
 			from dis import dis
 			dis(f)
