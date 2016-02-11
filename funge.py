@@ -31,6 +31,7 @@ def main(pro, argv=()):
 			ps[x<<5|y]=c
 	pg={}
 	consts={}
+	constl=[ps]
 	pro=set()
 	r=bytearray()
 	def wmem(i):
@@ -42,6 +43,7 @@ def main(pro, argv=()):
 				if y in pro:
 					r[:]=b"d"*(s*3)
 					consts.clear()
+					constl[1:]=()
 					pro.clear()
 					pg.clear()
 					return compile(i,s)
@@ -74,6 +76,7 @@ def main(pro, argv=()):
 	jumpif = mkemit("POP_JUMP_IF_TRUE")
 	jumpifnot = mkemit("POP_JUMP_IF_FALSE")
 	ret = mkemit("RETURN_VALUE")
+	loadconst = mkemit("LOAD_CONST")
 	def popcall(arg):
 		call(arg)
 		return pop()
@@ -81,12 +84,13 @@ def main(pro, argv=()):
 		r[loc+1]=off&255
 		r[loc+2]=off>>8
 	def load(c):
+		nonlocal constl
 		k = (c, type(c))
-		if k in consts:c=consts[k]
+		if k in consts:a=consts[k]
 		else:
-			c=len(consts)
-			consts[k]=c
-		r.extend((100, c&255, c>>8))
+			a=consts[k]=len(constl)
+			constl += c,
+		r.extend((100, a&255, a>>8))
 	putint = lambda x:print(+x,end=' ')
 	def incr(n):
 		if n:
@@ -111,7 +115,6 @@ def main(pro, argv=()):
 		load(True)
 		return popcall(258)
 	def spguard(f,n=0):
-		if debug:prtop()
 		if f==1:
 			jumpiforpop(len(r)+7)
 			load(0)
@@ -229,7 +232,7 @@ def main(pro, argv=()):
 		cmp(5)
 		j2=len(r)
 		jumpif(0)
-		load(ps)
+		loadconst(0)
 		swap()
 		subscr()
 		j3=len(r)
@@ -324,40 +327,32 @@ def main(pro, argv=()):
 		elif popflag is not False:load(popflag)
 		while True:
 			i=mv(i)
-			if i in pg:
-				if debug:prbug("JUMP%s"%pg[i])
-				jump(pg[i])
-				return True
+			if i in pg:return not jump(pg[i])
 			pg[i]=len(r)
 			i2 = i>>2
 			pro.add(i2)
 			i2 = ps[i2]
-			op = b'\x10\x1d\x1f\x11\x0e\x17$$$\x0c\n\x15\x0b\x14\r\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\x12$"$ \x1a\x1e$$$$$$$$$$$$$$$$$$$$$$$$$$$\x13$!\x1c\x0f$$$$$$\x18$$$$$$$$\x19$$$$$#$$$$$\x1b$\x16'[i2-33] if 33<=i2<=126 else 36
-			if debug and op < 31:prbug("op %c %d"%(i2,op))
-			i2=opfs[op](i)
-			if i2 is not None:
-				if i2 == -1:return True
-				else:i=i2
+			if 33<=i2<=126:
+				i2=opfs[b'\x10\x1d\x1f\x11\x0e\x17$$$\x0c\n\x15\x0b\x14\r\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\x12$"$ \x1a\x1e$$$$$$$$$$$$$$$$$$$$$$$$$$$\x13$!\x1c\x0f$$$$$$\x18$$$$$$$$\x19$$$$$#$$$$$\x1b$\x16'[i2-33]](i)
+				if i2 is not None:
+					if i2 == -1:return True
+					else:i=i2
 	compile(10112,0)
-	def stackfix(a):
-		for i,a in zip(range(len(a)*3-2,0,-3),a):
-			a=(a,type(a))
-			if a in consts:c=consts[a]
+	def stackfix(c):
+		nonlocal constl
+		for i,c in zip(range(len(c)*3-2,0,-3),c):
+			k=(c,type(c))
+			if k in consts:a=consts[k]
 			else:
-				c=len(consts)
-				consts[a]=c
-			r[i]=c&255
-			r[i+1]=c>>8
+				a=consts[k]=len(constl)
+				constl += c,
+			r[i]=a&255
+			r[i+1]=a>>8
 	while True:
-		f=FunctionType(CodeType(0,0,0,65536,0,bytes(r),tuple(x[0][0] for x in sorted(consts.items(), key=lambda x:x[1])),(),(),"","",0,b""),{})
-		if debug>1 or "dis" in argv:
-			from dis import dis
-			dis(f)
+		f=FunctionType(CodeType(0,0,0,65536,0,bytes(r),tuple(constl),(),(),"","",0,b""),{})
 		do=f()
 		if do is True:return
-		if debug:print("Return", do)
 		stackfix(do)
 if __name__ == "__main__":
 	from sys import argv
-	debug = argv.count("d")
 	main(open(argv[1],"rb"),argv)
