@@ -18,42 +18,14 @@ def getch():
 	return getch
 getch = getch()
 
-def main(pro, argv=()):
+def main(pro):
 	from opcode import opmap,HAVE_ARGUMENT
 	from types import CodeType,FunctionType
 	from random import getrandbits
 	from sys import stdout
-	putint = lambda x:print(+x,end=' ')
-	ps = [0]*2560
-	for y,line in enumerate(pro):
-		if y>=25:break
-		for x,c in enumerate(line):
-			if x>=80:break
-			ps[x<<5|y]=c
-	pg={}
-	consts={}
-	constl=[ps]
-	pro=set()
-	r=bytearray()
-	def wmem(i):
-		def f(x):
-			v,x,y,s=x
-			y|=x<<5
-			if (y&31)<25 and 0<=y<2560:
-				ps[y]=v
-				if y in pro:
-					r[:]=b"d"*(s*3)
-					consts.clear()
-					constl[1:]=()
-					pro.clear()
-					pg.clear()
-					loadconst(mkconst(s))(r)
-					return compile(i)
-			return False
-		return f
 	def mkemit(op):
 		op = opmap[op]
-		return (lambda r:r.append(op)) if op<HAVE_ARGUMENT else (lambda a:lambda r:r.extend((op,a&255,a>>8)))
+		return op.to_bytes(1,"little") if op<HAVE_ARGUMENT else lambda a:(op|a<<8).to_bytes(3,"little")
 	swap = mkemit("ROT_TWO")
 	rot3 = mkemit("ROT_THREE")
 	pop = mkemit("POP_TOP")
@@ -72,14 +44,14 @@ def main(pro, argv=()):
 	mklist = mkemit("BUILD_LIST")
 	_not = mkemit("UNARY_NOT")
 	cmp = mkemit("COMPARE_OP")
+	ret = mkemit("RETURN_VALUE")
+	loadconst = mkemit("LOAD_CONST")
 	jumpabs = mkemit("JUMP_ABSOLUTE")
 	jump = bytes((opmap["JUMP_ABSOLUTE"],0,0))
 	jumpiforpop = bytes((opmap["JUMP_IF_TRUE_OR_POP"],0,0))
 	jumpifnotorpop = bytes((opmap["JUMP_IF_FALSE_OR_POP"],0,0))
 	jumpif = bytes((opmap["POP_JUMP_IF_TRUE"],0,0))
 	jumpifnot = bytes((opmap["POP_JUMP_IF_FALSE"],0,0))
-	ret = mkemit("RETURN_VALUE")
-	loadconst = mkemit("LOAD_CONST")
 	def mkconst(c):
 		nonlocal constl
 		k = (c, type(c))
@@ -88,6 +60,35 @@ def main(pro, argv=()):
 			a=consts[k]=len(constl)
 			constl += c,
 		return a
+	putint = lambda x:print(+x,end=' ')
+	ps = [0]*2560
+	for y,line in enumerate(pro):
+		if y>=25:break
+		for x,c in enumerate(line):
+			if x>=80:break
+			ps[x<<5|y]=c
+	pg={}
+	consts={}
+	constl=[ps]
+	pro=set()
+	r=bytearray(loadconst(mkconst(0)))
+	def wmem(i):
+		def f(x):
+			nonlocal r
+			v,x,y,s=x
+			y|=x<<5
+			if (y&31)<25 and 0<=y<2560:
+				ps[y]=v
+				if y in pro:
+					r[:]=b"d"*(s*3)
+					consts.clear()
+					constl[1:]=()
+					pro.clear()
+					pg.clear()
+					r+=loadconst(mkconst(s))
+					return compile(i)
+			return False
+		return f
 	def mv(i):
 		i3=i&3
 		return (
@@ -110,38 +111,39 @@ def main(pro, argv=()):
 			bc += jumpiforpop
 			cs[4]=0
 			bc += b"ddd"
-			dup(bc)
+			bc += dup
 		elif f:
 			jidx["-"] = 1
 			jtbl["-"] = 11
 			bc += jump
 			cs[len(bc)+1]=1
 			bc += b"ddd"
-			add(bc)
+			bc += add
 			cs[len(bc)+1]=0
 			bc += b"ddd"
-			swap(bc)
-			dup(bc)
+			bc += swap
+			bc += dup
 			cs[len(bc)+1]=f-1
 			bc += b"ddd"
-			cmp(4)(bc)
+			bc += cmp(4)
 			jidx["~"]=len(bc)+1
 			jtbl["~"]=3
 			bc += jumpifnot
 		if n:
 			cs[len(bc)+1]=n
 			bc += b"ddd"
-			add(bc)
+			bc += add
 		for op in ops:
 			if op is None:
 				wmemloc = len(bc)+1
 				bc += b"ddd"
+				continue
 			elif op is ...:
 				rval=-1
 				break
 			ot = type(op)
-			if ot is FunctionType:
-				op(bc)
+			if ot is bytes:
+				bc += op
 			elif ot is bytearray:
 				bc += op
 			elif ot is tuple:
@@ -154,7 +156,7 @@ def main(pro, argv=()):
 					bc += o0
 			elif ot is str:
 				jtbl[op] = len(bc)
-			elif ot is int:
+			else: #int
 				bclst += (bc, jtbl, cs, op, wmemloc),
 				bc = bytearray()
 				jtbl = {}
@@ -211,6 +213,7 @@ def main(pro, argv=()):
 		pop, 0, "a", pop, 1, "b", pop, 2, "c", pop, 3, ...)
 	opIF = lambda j0,j1:mkop(1,-1, swap, (jumpif, "a"), j0, "a", j1, ...)
 	def op29(i):
+		nonlocal r
 		n=0
 		while True:
 			i=mv(i)
@@ -218,20 +221,23 @@ def main(pro, argv=()):
 			pro.add(i2)
 			op=ps[i2]
 			if op==34:
-				loadconst(mkconst(n))(r)
-				add(r)
+				r+=loadconst(mkconst(n))
+				r+=add
 				return i
-			loadconst(mkconst(op))(r)
-			swap(r)
+			r+=loadconst(mkconst(op))
+			r+=swap
 			n+=1
 	op30=mkop(0, 0, (None, True), ret, ...)
 	def opDIR(d):return lambda i:i&~3|d
 	opfs=list(map(opC, range(10)))
 	opfs+=(op10,op11,op12,op13,op14,op15,op16,op17,op18,op19,op20,op21,op22,op23,op24,op25,op26,opIF(3,1),opIF(0,2),op29,op30,mv,opDIR(0),opDIR(1),opDIR(2),opDIR(3),(lambda i:None))
 	def compile(i):
+		nonlocal r
 		while True:
 			i=mv(i)
-			if i in pg:return not jumpabs(pg[i])(r)
+			if i in pg:
+				r+=jumpabs(pg[i])
+				return True
 			pg[i]=len(r)
 			i2 = i>>2
 			pro.add(i2)
@@ -241,7 +247,6 @@ def main(pro, argv=()):
 				if i2 is not None:
 					if i2 == -1:return True
 					else:i=i2
-	loadconst(mkconst(0))(r)
 	compile(10112)
 	empty={}
 	while True:
@@ -253,4 +258,4 @@ def main(pro, argv=()):
 			r[i+1]=f>>8
 if __name__ == "__main__":
 	from sys import argv
-	main(open(argv[1],"rb"),argv)
+	main(open(argv[1],"rb"))
