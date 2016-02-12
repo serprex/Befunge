@@ -243,10 +243,9 @@ def main(pro, argv=()):
 					else:i=i2
 	loadconst(mkconst(0))(r)
 	compile(10112)
+	empty={}
 	while True:
-		f=FunctionType(CodeType(0,0,0,65536,0,bytes(r),tuple(constl),(),(),"","",0,b""),{})
-		from dis import dis
-		f=f()
+		f=FunctionType(CodeType(0,0,0,65536,0,bytes(r),tuple(constl),(),(),"","",0,b""),empty)()
 		if f is True:return
 		for i,f in zip(range(len(f)*3-2,0,-3),f):
 			f=mkconst(f)
