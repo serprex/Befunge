@@ -23,6 +23,7 @@ def main(pro, argv=()):
 	from types import CodeType,FunctionType
 	from random import getrandbits
 	from sys import stdout
+	putint = lambda x:print(+x,end=' ')
 	ps = [0]*2560
 	for y,line in enumerate(pro):
 		if y>=25:break
@@ -46,18 +47,18 @@ def main(pro, argv=()):
 					constl[1:]=()
 					pro.clear()
 					pg.clear()
-					return compile(i,s)
+					loadconst(mkconst(s))(r)
+					return compile(i)
 			return False
 		return f
 	def mkemit(op):
 		op = opmap[op]
-		return (lambda:r.append(op)) if op<HAVE_ARGUMENT else (lambda a:r.extend((op,a&255,a>>8)))
+		return (lambda r:r.append(op)) if op<HAVE_ARGUMENT else (lambda a:lambda r:r.extend((op,a&255,a>>8)))
 	swap = mkemit("ROT_TWO")
 	rot3 = mkemit("ROT_THREE")
 	pop = mkemit("POP_TOP")
 	dup = mkemit("DUP_TOP")
 	call = mkemit("CALL_FUNCTION")
-	jump = mkemit("JUMP_ABSOLUTE")
 	iadd = mkemit("INPLACE_ADD")
 	add = mkemit("BINARY_ADD")
 	subtract = mkemit("BINARY_SUBTRACT")
@@ -71,68 +72,22 @@ def main(pro, argv=()):
 	mklist = mkemit("BUILD_LIST")
 	_not = mkemit("UNARY_NOT")
 	cmp = mkemit("COMPARE_OP")
-	jumpiforpop = mkemit("JUMP_IF_TRUE_OR_POP")
-	jumpifnotorpop = mkemit("JUMP_IF_FALSE_OR_POP")
-	jumpif = mkemit("POP_JUMP_IF_TRUE")
-	jumpifnot = mkemit("POP_JUMP_IF_FALSE")
+	jumpabs = mkemit("JUMP_ABSOLUTE")
+	jump = bytes((opmap["JUMP_ABSOLUTE"],0,0))
+	jumpiforpop = bytes((opmap["JUMP_IF_TRUE_OR_POP"],0,0))
+	jumpifnotorpop = bytes((opmap["JUMP_IF_FALSE_OR_POP"],0,0))
+	jumpif = bytes((opmap["POP_JUMP_IF_TRUE"],0,0))
+	jumpifnot = bytes((opmap["POP_JUMP_IF_FALSE"],0,0))
 	ret = mkemit("RETURN_VALUE")
 	loadconst = mkemit("LOAD_CONST")
-	def popcall(arg):
-		call(arg)
-		return pop()
-	def patch(loc,off):
-		r[loc+1]=off&255
-		r[loc+2]=off>>8
-	def load(c):
+	def mkconst(c):
 		nonlocal constl
 		k = (c, type(c))
 		if k in consts:a=consts[k]
 		else:
 			a=consts[k]=len(constl)
 			constl += c,
-		r.extend((100, a&255, a>>8))
-	putint = lambda x:print(+x,end=' ')
-	def incr(n):
-		if n:
-			load(n)
-			return add()
-	def prbug(x, oneline=False):
-		load(print)
-		load(x)
-		if oneline:
-			load("end")
-			load(" ")
-			load("flush")
-			load(True)
-		return popcall(513 if oneline else 1)
-	def prtop():
-		dup()
-		load(print)
-		swap()
-		load("\tDepth")
-		swap()
-		load("flush")
-		load(True)
-		return popcall(258)
-	def spguard(f,n=0):
-		if f==1:
-			jumpiforpop(len(r)+7)
-			load(0)
-			dup()
-			return incr(n)
-		else:
-			i=len(r)
-			jump(0)
-			load(1)
-			add()
-			load(0)
-			swap()
-			patch(i,len(r))
-			dup()
-			load(f-1)
-			cmp(4)
-			jumpifnot(i+3)
-			return incr(n)
+		return a
 	def mv(i):
 		i3=i&3
 		return (
@@ -140,166 +95,121 @@ def main(pro, argv=()):
 			(i-4 if i&124 else i+96) if i3==1 else
 			(i+10112 if i<128 else i-128) if i3==2 else
 			(i+4 if (i+4&124)<100 else i-96))
-	def opC(op):
-		def f(i):
-			incr(1)
-			load(op)
-			return swap()
-		return f
-	def binOp(bin):
-		def g(i):
-			spguard(2,-1)
-			rot3()
-			bin()
-			return swap()
-		return g
+	def mkop(f, n, *ops):
+		from types import FunctionType
+		jtbl = {}
+		jidx = {}
+		cs = {}
+		bc = bytearray()
+		bclst = []
+		wmemloc = None
+		rval=None
+		if f==1:
+			jidx["-"] = 1
+			jtbl["-"] = 7
+			bc += jumpiforpop
+			cs[4]=0
+			bc += b"ddd"
+			dup(bc)
+		elif f:
+			jidx["-"] = 1
+			jtbl["-"] = 11
+			bc += jump
+			cs[len(bc)+1]=1
+			bc += b"ddd"
+			add(bc)
+			cs[len(bc)+1]=0
+			bc += b"ddd"
+			swap(bc)
+			dup(bc)
+			cs[len(bc)+1]=f-1
+			bc += b"ddd"
+			cmp(4)(bc)
+			jidx["~"]=len(bc)+1
+			jtbl["~"]=3
+			bc += jumpifnot
+		if n:
+			cs[len(bc)+1]=n
+			bc += b"ddd"
+			add(bc)
+		for op in ops:
+			if op is None:
+				wmemloc = len(bc)+1
+				bc += b"ddd"
+			elif op is ...:
+				rval=-1
+				break
+			ot = type(op)
+			if ot is FunctionType:
+				op(bc)
+			elif ot is bytearray:
+				bc += op
+			elif ot is tuple:
+				o0,o1 = op
+				if o0 is None:
+					cs[len(bc)+1]=o1
+					bc += b"ddd"
+				else:
+					jidx[o1] = len(bc)+1
+					bc += o0
+			elif ot is str:
+				jtbl[op] = len(bc)
+			elif ot is int:
+				bclst += (bc, jtbl, cs, op, wmemloc),
+				bc = bytearray()
+				jtbl = {}
+				cs = {}
+				wmemloc = None
+		bclst += (bc, jtbl, cs, None, wmemloc),
+		def emitop(i):
+			nonlocal r
+			rl0=len(r)
+			rl01=rl0+1
+			for a in bclst:
+				bc,jtbl,cs,comp,wm = a
+				rl=len(r)
+				rl1=rl+1
+				r+=bc
+				for j,l in jtbl.items():
+					j=jidx[j]
+					r[rl0+j]=rl+l&255
+					r[rl01+j]=rl+l>>8
+				for j,c in cs.items():
+					l=mkconst(c)
+					r[rl+j]=l&255
+					r[rl1+j]=l>>8
+				if wm is not None:
+					l=mkconst(wmem(i))
+					r[rl+wm]=l&255
+					r[rl1+wm]=l>>8
+				if comp is not None:compile(i&~3|comp)
+			return rval
+		return emitop
+	opC=lambda op:mkop(0, 0, (None, 1), add, (None, op), swap)
+	binOp=lambda bin:mkop(2,-1, rot3, bin, swap)
 	op10=binOp(add)
 	op11=binOp(subtract)
 	op12=binOp(multiply)
 	op13=binOp(floordivide)
 	op14=binOp(modulo)
-	def op15(i):
-		spguard(2,-1)
-		rot3()
-		cmp(4)
-		return swap()
-	def op16(i):
-		spguard(1)
-		swap()
-		_not()
-		return swap()
-	def op17(i):
-		dup()
-		i=len(r)
-		jumpifnot(0)
-		incr(-1)
-		swap()
-		pop()
-		return patch(i,len(r))
-	def op18(i):
-		spguard(1,1)
-		swap()
-		dup()
-		rot3()
-		return rot3()
-	def op19(i):
-		spguard(2)
-		rot3()
-		swap()
-		rot3()
-		return rot3()
-	def op20(i):
-		spguard(1,-1)
-		swap()
-		load(putint)
-		swap()
-		return popcall(1)
-	def op21(i):
-		spguard(1,-1)
-		swap()
-		load("%c")
-		swap()
-		modulo()
-		load(stdout.write)
-		swap()
-		return popcall(1)
-	def op22(i):
-		incr(1)
-		load(getch)
-		call(0)
-		return swap()
-	def op23(i):
-		incr(1)
-		load(int)
-		load(input)
-		call(0)
-		call(1)
-		return swap()
-	def op24(i):
-		spguard(2,-1)
-		rot3()
-		swap()
-		load(5)
-		lshift()
-		bor()
-		dup()
-		load(0)
-		cmp(0)
-		j=len(r)
-		jumpif(0)
-		dup()
-		load(2560)
-		cmp(5)
-		j2=len(r)
-		jumpif(0)
-		loadconst(0)
-		swap()
-		subscr()
-		j3=len(r)
-		jump(0)
-		patch(j,len(r))
-		patch(j2,len(r))
-		_not()
-		patch(j3,len(r))
-		return swap()
-	def op25(i):
-		spguard(3,-3)
-		mktuple(4)
-		dup()
-		load(3)
-		subscr()
-		swap()
-		load(wmem(i))
-		swap()
-		call(1)
-		j=len(r)
-		jumpifnot(0)
-		mktuple(0)
-		swap()
-		dup()
-		j2=len(r)
-		jumpifnot(0)
-		rot3()
-		swap()
-		mktuple(1)
-		iadd()
-		swap()
-		load(1)
-		subtract()
-		jump(j2-1)
-		pop()
-		ret()
-		i=len(r)
-		patch(j,i)
-		return patch(j2,i-2)
-	def op26(i):
-		load(getrandbits)
-		load(2)
-		call(1)
-		dup()
-		offsets = [len(r)]
-		jumpifnot(0)
-		for a in 1,2:
-			dup()
-			load(a)
-			cmp(2)
-			offsets += (len(r),)
-			jumpif(0)
-		for a in 0,1,2,3:
-			if a:patch(offsets[a-1],len(r))
-			compile(i&~3|a,True)
-		return -1
-	def opIF(op):
-		def f(i):
-			spguard(1,-1)
-			swap()
-			j = len(r)
-			jumpif(0)
-			for a in 0,1:
-				if a:patch(j,len(r))
-				compile(i&~3|(3-a*2 if op==27 else a*2))
-			return -1
-		return f
+	op15=mkop(2,-1, rot3, cmp(4), swap)
+	op16=mkop(1, 0, swap, _not, swap)
+	op17=mkop(0, 0, dup, (jumpifnot, "a"), (None, -1), add, swap, pop, "a")
+	op18=mkop(1, 1, swap, dup, rot3, rot3)
+	op19=mkop(2, 0, rot3, swap, rot3, rot3)
+	op20=mkop(1,-1, swap, (None, putint), swap, call(1), pop)
+	op21=mkop(1,-1, swap, (None, "%c"), swap, modulo, (None, stdout.write), swap, call(1), pop)
+	op22=mkop(0, 0, (None, 1), add, (None, getch), call(0), swap)
+	op23=mkop(0, 0, (None, 1), add, (None, int), (None, input), call(0), call(1), swap)
+	op24=mkop(2,-1, rot3, swap, (None, 5), lshift, bor, dup, (None, 0), cmp(0), (jumpif, "a"),
+		dup, (None, 2560), cmp(5), (jumpif, "b"), loadconst(0), swap, subscr, (jump, "c"), "a", "b", _not, "c", swap)
+	op25=mkop(3,-3, mktuple(4), dup, (None, 3), subscr, swap, None, swap, call(1), (jumpifnot, "a"), mktuple(0), swap, "c", dup, (jumpifnot, "b"),
+		rot3, swap, mktuple(1), iadd, swap, (None, 1), subtract, (jump, "c"), "b", pop, ret, "a")
+	op26=mkop(0, 0, (None, getrandbits), (None, 2), call(1), dup, (jumpifnot, "a"),
+		dup, (None, 1), cmp(2), (jumpif, "b"),
+		dup, (None, 2), cmp(2), (jumpif, "c"),
+		pop, 0, "a", pop, 1, "b", pop, 2, "c", pop, 3, ...)
+	opIF = lambda j0,j1:mkop(1,-1, swap, (jumpif, "a"), j0, "a", j1, ...)
 	def op29(i):
 		n=0
 		while True:
@@ -308,26 +218,20 @@ def main(pro, argv=()):
 			pro.add(i2)
 			op=ps[i2]
 			if op==34:
-				incr(n)
+				loadconst(mkconst(n))(r)
+				add(r)
 				return i
-			load(op)
-			swap()
+			loadconst(mkconst(op))(r)
+			swap(r)
 			n+=1
-	def op30(i):
-		load(True)
-		ret()
-		return -1
-	def op31(i):return mv(i)
-	def opDIR(op):return lambda i:i&~3|op&3
-	def op36(i):pass
-	opfs=tuple(map(opC, range(10)))+(op10,op11,op12,op13,op14,op15,op16,op17,op18,op19,op20,op21,op22,
-		op23,op24,op25,op26,opIF(27),opIF(28),op29,op30,op31,opDIR(32),opDIR(33),opDIR(34),opDIR(35),op36)
-	def compile(i,popflag=False):
-		if popflag is True:pop()
-		elif popflag is not False:load(popflag)
+	op30=mkop(0, 0, (None, True), ret, ...)
+	def opDIR(d):return lambda i:i&~3|d
+	opfs=list(map(opC, range(10)))
+	opfs+=(op10,op11,op12,op13,op14,op15,op16,op17,op18,op19,op20,op21,op22,op23,op24,op25,op26,opIF(3,1),opIF(0,2),op29,op30,mv,opDIR(0),opDIR(1),opDIR(2),opDIR(3),(lambda i:None))
+	def compile(i):
 		while True:
 			i=mv(i)
-			if i in pg:return not jump(pg[i])
+			if i in pg:return not jumpabs(pg[i])(r)
 			pg[i]=len(r)
 			i2 = i>>2
 			pro.add(i2)
@@ -337,22 +241,17 @@ def main(pro, argv=()):
 				if i2 is not None:
 					if i2 == -1:return True
 					else:i=i2
-	compile(10112,0)
-	def stackfix(c):
-		nonlocal constl
-		for i,c in zip(range(len(c)*3-2,0,-3),c):
-			k=(c,type(c))
-			if k in consts:a=consts[k]
-			else:
-				a=consts[k]=len(constl)
-				constl += c,
-			r[i]=a&255
-			r[i+1]=a>>8
+	loadconst(mkconst(0))(r)
+	compile(10112)
 	while True:
 		f=FunctionType(CodeType(0,0,0,65536,0,bytes(r),tuple(constl),(),(),"","",0,b""),{})
-		do=f()
-		if do is True:return
-		stackfix(do)
+		from dis import dis
+		f=f()
+		if f is True:return
+		for i,f in zip(range(len(f)*3-2,0,-3),f):
+			f=mkconst(f)
+			r[i]=f&255
+			r[i+1]=f>>8
 if __name__ == "__main__":
 	from sys import argv
 	main(open(argv[1],"rb"),argv)
