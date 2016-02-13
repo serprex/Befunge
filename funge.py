@@ -72,25 +72,20 @@ def main(pro):
 			ps[x<<5|y]=c
 	pg={}
 	consts={}
-	constl=[ps]
 	pro=set()
+	constl=[ps, pro]
 	r=bytearray(loadmkconst(0))
 	def wmem(imv):
-		def f(x):
+		def f(s):
 			nonlocal r
-			v,x,y,s=x
-			y|=x<<5
-			if (y&31)<25 and 0<=y<2560:
-				ps[y]=v
-				if y in pro:
-					r[:]=b"d"*(s*3)
-					consts.clear()
-					constl[1:]=()
-					pro.clear()
-					pg.clear()
-					r+=loadmkconst(s)
-					return compile(*imv)
-			return False
+			r[:]=b"d"*(s*3)
+			consts.clear()
+			constl[2:]=()
+			pro.clear()
+			pg.clear()
+			r+=loadmkconst(s)
+			compile(*imv)
+			return []
 		return f
 	mvL=lambda i:i-2528 if i>=2528 else i+32
 	mvK=lambda i:i-1 if i&31 else i+24
@@ -210,8 +205,12 @@ def main(pro):
 	op23=mksimpleop(1, add, lambda:int(input()), call0, swap)
 	op24=mkop(2, (None, -1), add, rot3, swap, (None, 5), lshift, bor, dup, (None, 0), cmp(0), (jumpif, "a"),
 		dup, (None, 2560), cmp(5), (jumpif, "b"), loadconst(0), swap, subscr, (jump, "c"), "a", "b", _not, "c", swap)
-	op25=mkop(3, (None, -3), add, mktuple(4), dup, (None, 3), subscr, swap, (None, None), swap, call1, (jumpifnot, "a"), mktuple(0), swap, "c", dup, (jumpifnot, "b"),
-		rot3, swap, mktuple(1), iadd, swap, (None, 1), subtract, (jump, "c"), "b", pop, ret, "a")
+	op25=mkop(3, (None, -3), add, rot3, swap, (None, 5), lshift, bor, dup, (None, 0), cmp(0), (jumpif, "a"),
+		dup, (None, 2560), cmp(5), (jumpif, "b"), dup, (None, 31), mkemit("BINARY_AND"), (None, 25), cmp(5), (jumpif, "c"),
+		swap, rot3, dup, rot3, loadconst(0), swap, mkemit("STORE_SUBSCR"),
+		loadconst(1), cmp(6), (jumpifnot, "d"), dup, (None, None), swap, call1, swap, "e", dup,
+		(jumpifnot, "f"), rot3, swap, mktuple(1), iadd, swap, (None, -1), add, (jump, "e"),
+		"f", pop, ret, "a", "b", "c", pop, "d")
 	op26=mkop(0, (None, getrandbits), (None, 2), call1, dup, (jumpifnot, "a"),
 		dup, (None, 1), cmpeq, (jumpif, "b"),
 		dup, (None, 2), cmpeq, (jumpif, "c"),
@@ -244,14 +243,14 @@ def main(pro):
 			imv=i,mv
 			if imv in pg:
 				r+=jumpabs(pg[imv])
-				return True
+				return
 			pg[imv]=len(r)
 			pro.add(i)
 			i2 = ps[i]
 			if 33<=i2<=126:
 				i2=opfs[b'\x10\x1d\x1f\x11\x0e\x17$$$\x0c\n\x15\x0b\x14\r\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\x12$"$ \x1a\x1e$$$$$$$$$$$$$$$$$$$$$$$$$$$\x13$!\x1c\x0f$$$$$$\x18$$$$$$$$\x19$$$$$#$$$$$\x1b$\x16'[i2-33]](imv)
 				if i2 is not None:
-					if i2 is ...:return True
+					if i2 is ...:return
 					else:i,mv=i2
 	compile(2528,mvL)
 	empty={}
