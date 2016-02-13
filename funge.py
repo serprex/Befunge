@@ -22,7 +22,7 @@ def main(pro):
 	from opcode import opmap,HAVE_ARGUMENT
 	from types import CodeType,FunctionType
 	from random import getrandbits
-	from itertools import count
+	from itertools import count,repeat
 	from sys import stdout
 	def mkemit(op):
 		op = opmap[op]
@@ -78,11 +78,12 @@ def main(pro):
 	def wmem(imv):
 		def f(s):
 			nonlocal r
-			r[:]=b"d"*(s*3)
 			consts.clear()
 			constl[2:]=()
 			pro.clear()
 			pg.clear()
+			r.clear()
+			for a in repeat(b"ddd",s):r+=a
 			r+=loadmkconst(s)
 			compile(*imv)
 			return []
