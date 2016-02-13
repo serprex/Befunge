@@ -159,7 +159,7 @@ def main(pro):
 				if rl0 is None:rl0=rl
 				bc,jtbl,cs,comp = a
 				for j,l in cs.items():
-					l=mkconst(wmem(imv) if l is wmem else l)
+					l=mkconst(wmem(imv) if l is None else l)
 					bc[j]=l[0]
 					bc[j+1]=l[1]
 				r+=bc
@@ -210,7 +210,7 @@ def main(pro):
 	op23=mksimpleop(1, add, lambda:int(input()), call0, swap)
 	op24=mkop(2, (None, -1), add, rot3, swap, (None, 5), lshift, bor, dup, (None, 0), cmp(0), (jumpif, "a"),
 		dup, (None, 2560), cmp(5), (jumpif, "b"), loadconst(0), swap, subscr, (jump, "c"), "a", "b", _not, "c", swap)
-	op25=mkop(3, (None, -3), add, mktuple(4), dup, (None, 3), subscr, swap, (None, wmem), swap, call1, (jumpifnot, "a"), mktuple(0), swap, "c", dup, (jumpifnot, "b"),
+	op25=mkop(3, (None, -3), add, mktuple(4), dup, (None, 3), subscr, swap, (None, None), swap, call1, (jumpifnot, "a"), mktuple(0), swap, "c", dup, (jumpifnot, "b"),
 		rot3, swap, mktuple(1), iadd, swap, (None, 1), subtract, (jump, "c"), "b", pop, ret, "a")
 	op26=mkop(0, (None, getrandbits), (None, 2), call1, dup, (jumpifnot, "a"),
 		dup, (None, 1), cmpeq, (jumpif, "b"),
