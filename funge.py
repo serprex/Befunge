@@ -93,7 +93,6 @@ def main(pro):
 	mvH=lambda i:i+2528 if i<32 else i-32
 	mvJ=lambda i:i+1 if (i+1&31)<25 else i-24
 	def mkop(f, *ops):
-		from types import FunctionType
 		jtbl = {}
 		jidx = {}
 		cs = {}
@@ -125,9 +124,6 @@ def main(pro):
 			jtbl["~"]=3
 			bc += jumpifnot
 		for op in ops:
-			if op is ...:
-				rval=...
-				break
 			ot = type(op)
 			if ot is bytes:
 				bc += op
@@ -136,6 +132,9 @@ def main(pro):
 				if o0 is None:
 					cs[len(bc)+1]=o1
 					bc += b"ddd"
+				elif o0 is ...:
+					rval = o1
+					break
 				else:
 					jidx[o1] = len(bc)+1
 					bc += o0
@@ -165,17 +164,17 @@ def main(pro):
 					r[j]=l&255
 					r[j+1]=l>>8
 				if comp is not None:compile(imv[0], comp)
-			return rval
+			return rval if rval is None or rval is ... else (imv[0], rval)
 		return emitop
 	def mksimpleop(*ops):
 		bc=bytearray()
 		cs={}
 		rval=None
 		for op in ops:
-			if op is ...:
+			if type(op) is bytes:bc += op
+			elif op is ...:
 				rval = ...
 				break
-			elif type(op) is bytes:bc += op
 			else:
 				cs[len(bc)+1] = op
 				bc += b"ddd"
@@ -215,8 +214,8 @@ def main(pro):
 	op26=mkop(0, (None, getrandbits), (None, 2), call1, dup, (jumpifnot, "a"),
 		dup, (None, 1), cmpeq, (jumpif, "b"),
 		dup, (None, 2), cmpeq, (jumpif, "c"),
-		pop, mvL, "a", pop, mvK, "b", pop, mvH, "c", pop, mvJ, ...)
-	opIF = lambda j0,j1:mkop(1, (None, -1), add, swap, (jumpif, "a"), j0, "a", j1, ...)
+		pop, mvL, "a", pop, mvK, "b", pop, mvH, "c", pop, (..., mvJ))
+	opIF = lambda j0,j1:mkop(1, (None, -1), add, swap, (jumpif, "a"), j0, "a", (..., j1))
 	def op29(imv):
 		nonlocal r
 		i,mv=imv
