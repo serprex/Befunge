@@ -22,6 +22,7 @@ def main(pro):
 	from opcode import opmap,HAVE_ARGUMENT
 	from types import CodeType,FunctionType
 	from random import getrandbits
+	from itertools import count
 	from sys import stdout
 	def mkemit(op):
 		op = opmap[op]
@@ -49,20 +50,20 @@ def main(pro):
 	call0 = call(0)
 	call1 = call(1)
 	loadconst = mkemit("LOAD_CONST")
+	loadmkconst = lambda a:b"d"+mkconst(a)
 	jumpabs = mkemit("JUMP_ABSOLUTE")
-	jump = bytes((opmap["JUMP_ABSOLUTE"],0,0))
-	jumpiforpop = bytes((opmap["JUMP_IF_TRUE_OR_POP"],0,0))
-	jumpifnotorpop = bytes((opmap["JUMP_IF_FALSE_OR_POP"],0,0))
-	jumpif = bytes((opmap["POP_JUMP_IF_TRUE"],0,0))
-	jumpifnot = bytes((opmap["POP_JUMP_IF_FALSE"],0,0))
+	jump = jumpabs(0)
+	jumpiforpop = opmap["JUMP_IF_TRUE_OR_POP"].to_bytes(3,"little")
+	jumpifnotorpop = opmap["JUMP_IF_FALSE_OR_POP"].to_bytes(3,"little")
+	jumpif = opmap["POP_JUMP_IF_TRUE"].to_bytes(3,"little")
+	jumpifnot = opmap["POP_JUMP_IF_FALSE"].to_bytes(3,"little")
 	def mkconst(c):
 		nonlocal constl
 		if c in consts:return consts[c]
 		else:
-			a=consts[c]=len(constl)
+			a=consts[c]=len(constl).to_bytes(2,"little")
 			constl += c,
 			return a
-	putint = lambda x:print(+x,end=' ')
 	ps = [0]*2560
 	for y,line in enumerate(pro):
 		if y>=25:break
@@ -73,8 +74,8 @@ def main(pro):
 	consts={}
 	constl=[ps]
 	pro=set()
-	r=bytearray(loadconst(mkconst(0)))
-	def wmem(i):
+	r=bytearray(loadmkconst(0))
+	def wmem(imv):
 		def f(x):
 			nonlocal r
 			v,x,y,s=x
@@ -87,17 +88,14 @@ def main(pro):
 					constl[1:]=()
 					pro.clear()
 					pg.clear()
-					r+=loadconst(mkconst(s))
-					return compile(i)
+					r+=loadmkconst(s)
+					return compile(*imv)
 			return False
 		return f
-	def mv(i):
-		i3=i&3
-		return (
-			(i-10112 if i>=10112 else i+128) if i3==0 else
-			(i-4 if i&124 else i+96) if i3==1 else
-			(i+10112 if i<128 else i-128) if i3==2 else
-			(i+4 if (i+4&124)<100 else i-96))
+	mvL=lambda i:i-2528 if i>=2528 else i+32
+	mvK=lambda i:i-1 if i&31 else i+24
+	mvH=lambda i:i+2528 if i<32 else i-32
+	mvJ=lambda i:i+1 if (i+1&31)<25 else i-24
 	def mkop(f, *ops):
 		from types import FunctionType
 		jtbl = {}
@@ -105,7 +103,6 @@ def main(pro):
 		cs = {}
 		bc = bytearray()
 		bclst = []
-		wmemloc = None
 		rval=None
 		if f==1:
 			jidx["-"] = 1
@@ -132,12 +129,8 @@ def main(pro):
 			jtbl["~"]=3
 			bc += jumpifnot
 		for op in ops:
-			if op is None:
-				wmemloc = len(bc)+1
-				bc += b"ddd"
-				continue
-			elif op is ...:
-				rval=-1
+			if op is ...:
+				rval=...
 				break
 			ot = type(op)
 			if ot is bytes:
@@ -152,38 +145,54 @@ def main(pro):
 					bc += o0
 			elif ot is str:
 				jtbl[op] = len(bc)
-			else: #int
-				bclst += (bc, jtbl, cs, op, wmemloc),
+			else:
+				bclst += (bc, jtbl, cs, op),
 				bc = bytearray()
 				jtbl = {}
 				cs = {}
-				wmemloc = None
-		bclst += (bc, jtbl, cs, None, wmemloc),
-		def emitop(i):
+		bclst += (bc, jtbl, cs, None),
+		def emitop(imv):
 			nonlocal r
-			rl0=len(r)
-			rl01=rl0+1
+			rl0=None
 			for a in bclst:
-				bc,jtbl,cs,comp,wm = a
 				rl=len(r)
-				rl1=rl+1
+				if rl0 is None:rl0=rl
+				bc,jtbl,cs,comp = a
+				for j,l in cs.items():
+					l=mkconst(wmem(imv) if l is wmem else l)
+					bc[j]=l[0]
+					bc[j+1]=l[1]
 				r+=bc
 				for j,l in jtbl.items():
-					j=jidx[j]
-					r[rl0+j]=rl+l&255
-					r[rl01+j]=rl+l>>8
-				for j,c in cs.items():
-					l=mkconst(c)
-					r[rl+j]=l&255
-					r[rl1+j]=l>>8
-				if wm is not None:
-					l=mkconst(wmem(i))
-					r[rl+wm]=l&255
-					r[rl1+wm]=l>>8
-				if comp is not None:compile(i&~3|comp)
+					j=rl0+jidx[j]
+					l+=rl
+					r[j]=l&255
+					r[j+1]=l>>8
+				if comp is not None:compile(imv[0], comp)
 			return rval
 		return emitop
-	opC=lambda op:mkop(0, (None, 1), add, (None, op), swap)
+	def mksimpleop(*ops):
+		bc=bytearray()
+		cs={}
+		rval=None
+		for op in ops:
+			if op is ...:
+				rval = ...
+				break
+			elif type(op) is bytes:bc += op
+			else:
+				cs[len(bc)+1] = op
+				bc += b"ddd"
+		def emitsimple(imv):
+			nonlocal r
+			for j,c in cs.items():
+				c=mkconst(c)
+				bc[j]=c[0]
+				bc[j+1]=c[1]
+			r += bc
+			return rval
+		return emitsimple
+	opC=lambda op:mksimpleop(1, add, op, swap)
 	binOp=lambda bin:mkop(2, (None, -1), add, rot3, bin, swap)
 	op10=binOp(add)
 	op11=binOp(subtract)
@@ -195,63 +204,64 @@ def main(pro):
 	op17=mkop(0, dup, (jumpifnot, "a"), (None, -1), add, swap, pop, "a")
 	op18=mkop(1, (None, 1), add, swap, dup, rot3, rot3)
 	op19=mkop(2, rot3, swap, rot3, rot3)
-	op20=mkop(1, (None, -1), add, swap, (None, putint), swap, call1, pop)
+	op20=mkop(1, (None, -1), add, swap, (None, lambda x:print(+x,end=' ')), swap, call1, pop)
 	op21=mkop(1, (None, -1), add, swap, (None, "%c"), swap, modulo, (None, stdout.write), swap, call1, pop)
-	op22=mkop(0, (None, 1), add, (None, getch), call0, swap)
-	op23=mkop(0, (None, 1), add, (None, int), (None, input), call0, call1, swap)
+	op22=mksimpleop(1, add, getch, call0, swap)
+	op23=mksimpleop(1, add, lambda:int(input()), call0, swap)
 	op24=mkop(2, (None, -1), add, rot3, swap, (None, 5), lshift, bor, dup, (None, 0), cmp(0), (jumpif, "a"),
 		dup, (None, 2560), cmp(5), (jumpif, "b"), loadconst(0), swap, subscr, (jump, "c"), "a", "b", _not, "c", swap)
-	op25=mkop(3, (None, -3), add, mktuple(4), dup, (None, 3), subscr, swap, None, swap, call1, (jumpifnot, "a"), mktuple(0), swap, "c", dup, (jumpifnot, "b"),
+	op25=mkop(3, (None, -3), add, mktuple(4), dup, (None, 3), subscr, swap, (None, wmem), swap, call1, (jumpifnot, "a"), mktuple(0), swap, "c", dup, (jumpifnot, "b"),
 		rot3, swap, mktuple(1), iadd, swap, (None, 1), subtract, (jump, "c"), "b", pop, ret, "a")
 	op26=mkop(0, (None, getrandbits), (None, 2), call1, dup, (jumpifnot, "a"),
 		dup, (None, 1), cmpeq, (jumpif, "b"),
 		dup, (None, 2), cmpeq, (jumpif, "c"),
-		pop, 0, "a", pop, 1, "b", pop, 2, "c", pop, 3, ...)
+		pop, mvL, "a", pop, mvK, "b", pop, mvH, "c", pop, mvJ, ...)
 	opIF = lambda j0,j1:mkop(1, (None, -1), add, swap, (jumpif, "a"), j0, "a", j1, ...)
-	def op29(i):
+	def op29(imv):
 		nonlocal r
-		n=0
-		while True:
+		i,mv=imv
+		for n in count():
 			i=mv(i)
-			i2=i>>2
-			pro.add(i2)
-			op=ps[i2]
-			if op==34:
-				r+=loadconst(mkconst(n))
+			pro.add(i)
+			i2=ps[i]
+			if i2==34:
+				r+=loadmkconst(n)
 				r+=add
-				return i
-			r+=loadconst(mkconst(op))
+				return i,mv
+			r+=loadmkconst(i2)
 			r+=swap
-			n+=1
-	op30=mkop(0, (None, None), ret, ...)
-	def opDIR(d):return lambda i:i&~3|d
+	op30=mksimpleop(None, ret, ...)
+	def op31(imv):
+		i,mv=imv
+		return mv(i),mv
+	opDIR=lambda d:lambda imv:(imv[0],d)
 	opfs=list(map(opC, range(10)))
-	opfs+=(op10,op11,op12,op13,op14,op15,op16,op17,op18,op19,op20,op21,op22,op23,op24,op25,op26,opIF(3,1),opIF(0,2),op29,op30,mv,opDIR(0),opDIR(1),opDIR(2),opDIR(3),(lambda i:None))
-	def compile(i):
+	opfs+=(op10,op11,op12,op13,op14,op15,op16,op17,op18,op19,op20,op21,op22,op23,op24,op25,op26,opIF(mvJ,mvK),opIF(mvL,mvH),op29,op30,op31,opDIR(mvL),opDIR(mvK),opDIR(mvH),opDIR(mvJ),lambda imv:None)
+	def compile(i,mv):
 		nonlocal r
 		while True:
 			i=mv(i)
-			if i in pg:
-				r+=jumpabs(pg[i])
+			imv=i,mv
+			if imv in pg:
+				r+=jumpabs(pg[imv])
 				return True
-			pg[i]=len(r)
-			i2 = i>>2
-			pro.add(i2)
-			i2 = ps[i2]
+			pg[imv]=len(r)
+			pro.add(i)
+			i2 = ps[i]
 			if 33<=i2<=126:
-				i2=opfs[b'\x10\x1d\x1f\x11\x0e\x17$$$\x0c\n\x15\x0b\x14\r\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\x12$"$ \x1a\x1e$$$$$$$$$$$$$$$$$$$$$$$$$$$\x13$!\x1c\x0f$$$$$$\x18$$$$$$$$\x19$$$$$#$$$$$\x1b$\x16'[i2-33]](i)
+				i2=opfs[b'\x10\x1d\x1f\x11\x0e\x17$$$\x0c\n\x15\x0b\x14\r\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\x12$"$ \x1a\x1e$$$$$$$$$$$$$$$$$$$$$$$$$$$\x13$!\x1c\x0f$$$$$$\x18$$$$$$$$\x19$$$$$#$$$$$\x1b$\x16'[i2-33]](imv)
 				if i2 is not None:
-					if i2 == -1:return True
-					else:i=i2
-	compile(10112)
+					if i2 is ...:return True
+					else:i,mv=i2
+	compile(2528,mvL)
 	empty={}
 	while True:
 		f=FunctionType(CodeType(0,0,0,65536,0,bytes(r),tuple(constl),(),(),"","",0,b""),empty)()
 		if f is None:return
 		for i,f in zip(range(len(f)*3-2,0,-3),f):
 			f=mkconst(f)
-			r[i]=f&255
-			r[i+1]=f>>8
+			r[i]=f[0]
+			r[i+1]=f[1]
 if __name__ == "__main__":
 	from sys import argv
 	main(open(argv[1],"rb"))
