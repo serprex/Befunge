@@ -30,7 +30,6 @@ def main(pro):
 	rot3 = mkemit("ROT_THREE")
 	pop = mkemit("POP_TOP")
 	dup = mkemit("DUP_TOP")
-	call = mkemit("CALL_FUNCTION")
 	iadd = mkemit("INPLACE_ADD")
 	add = mkemit("BINARY_ADD")
 	subtract = mkemit("BINARY_SUBTRACT")
@@ -40,11 +39,15 @@ def main(pro):
 	lshift = mkemit("BINARY_LSHIFT")
 	bor = mkemit("BINARY_OR")
 	subscr = mkemit("BINARY_SUBSCR")
-	mktuple = mkemit("BUILD_TUPLE")
-	mklist = mkemit("BUILD_LIST")
 	_not = mkemit("UNARY_NOT")
-	cmp = mkemit("COMPARE_OP")
 	ret = mkemit("RETURN_VALUE")
+	mktuple = mkemit("BUILD_TUPLE")
+	cmp = mkemit("COMPARE_OP")
+	cmpeq = cmp(2)
+	cmpgt = cmp(4)
+	call = mkemit("CALL_FUNCTION")
+	call0 = call(0)
+	call1 = call(1)
 	loadconst = mkemit("LOAD_CONST")
 	jumpabs = mkemit("JUMP_ABSOLUTE")
 	jump = bytes((opmap["JUMP_ABSOLUTE"],0,0))
@@ -54,12 +57,11 @@ def main(pro):
 	jumpifnot = bytes((opmap["POP_JUMP_IF_FALSE"],0,0))
 	def mkconst(c):
 		nonlocal constl
-		k = (c, type(c))
-		if k in consts:a=consts[k]
+		if c in consts:return consts[c]
 		else:
-			a=consts[k]=len(constl)
+			a=consts[c]=len(constl)
 			constl += c,
-		return a
+			return a
 	putint = lambda x:print(+x,end=' ')
 	ps = [0]*2560
 	for y,line in enumerate(pro):
@@ -96,7 +98,7 @@ def main(pro):
 			(i-4 if i&124 else i+96) if i3==1 else
 			(i+10112 if i<128 else i-128) if i3==2 else
 			(i+4 if (i+4&124)<100 else i-96))
-	def mkop(f, n, *ops):
+	def mkop(f, *ops):
 		from types import FunctionType
 		jtbl = {}
 		jidx = {}
@@ -125,14 +127,10 @@ def main(pro):
 			bc += dup
 			cs[len(bc)+1]=f-1
 			bc += b"ddd"
-			bc += cmp(4)
+			bc += cmpgt
 			jidx["~"]=len(bc)+1
 			jtbl["~"]=3
 			bc += jumpifnot
-		if n:
-			cs[len(bc)+1]=n
-			bc += b"ddd"
-			bc += add
 		for op in ops:
 			if op is None:
 				wmemloc = len(bc)+1
@@ -143,8 +141,6 @@ def main(pro):
 				break
 			ot = type(op)
 			if ot is bytes:
-				bc += op
-			elif ot is bytearray:
 				bc += op
 			elif ot is tuple:
 				o0,o1 = op
@@ -187,31 +183,31 @@ def main(pro):
 				if comp is not None:compile(i&~3|comp)
 			return rval
 		return emitop
-	opC=lambda op:mkop(0, 0, (None, 1), add, (None, op), swap)
-	binOp=lambda bin:mkop(2,-1, rot3, bin, swap)
+	opC=lambda op:mkop(0, (None, 1), add, (None, op), swap)
+	binOp=lambda bin:mkop(2, (None, -1), add, rot3, bin, swap)
 	op10=binOp(add)
 	op11=binOp(subtract)
 	op12=binOp(multiply)
 	op13=binOp(floordivide)
 	op14=binOp(modulo)
-	op15=mkop(2,-1, rot3, cmp(4), swap)
-	op16=mkop(1, 0, swap, _not, swap)
-	op17=mkop(0, 0, dup, (jumpifnot, "a"), (None, -1), add, swap, pop, "a")
-	op18=mkop(1, 1, swap, dup, rot3, rot3)
-	op19=mkop(2, 0, rot3, swap, rot3, rot3)
-	op20=mkop(1,-1, swap, (None, putint), swap, call(1), pop)
-	op21=mkop(1,-1, swap, (None, "%c"), swap, modulo, (None, stdout.write), swap, call(1), pop)
-	op22=mkop(0, 0, (None, 1), add, (None, getch), call(0), swap)
-	op23=mkop(0, 0, (None, 1), add, (None, int), (None, input), call(0), call(1), swap)
-	op24=mkop(2,-1, rot3, swap, (None, 5), lshift, bor, dup, (None, 0), cmp(0), (jumpif, "a"),
+	op15=mkop(2, (None, -1), add, rot3, cmpgt, swap)
+	op16=mkop(1, swap, _not, swap)
+	op17=mkop(0, dup, (jumpifnot, "a"), (None, -1), add, swap, pop, "a")
+	op18=mkop(1, (None, 1), add, swap, dup, rot3, rot3)
+	op19=mkop(2, rot3, swap, rot3, rot3)
+	op20=mkop(1, (None, -1), add, swap, (None, putint), swap, call1, pop)
+	op21=mkop(1, (None, -1), add, swap, (None, "%c"), swap, modulo, (None, stdout.write), swap, call1, pop)
+	op22=mkop(0, (None, 1), add, (None, getch), call0, swap)
+	op23=mkop(0, (None, 1), add, (None, int), (None, input), call0, call1, swap)
+	op24=mkop(2, (None, -1), add, rot3, swap, (None, 5), lshift, bor, dup, (None, 0), cmp(0), (jumpif, "a"),
 		dup, (None, 2560), cmp(5), (jumpif, "b"), loadconst(0), swap, subscr, (jump, "c"), "a", "b", _not, "c", swap)
-	op25=mkop(3,-3, mktuple(4), dup, (None, 3), subscr, swap, None, swap, call(1), (jumpifnot, "a"), mktuple(0), swap, "c", dup, (jumpifnot, "b"),
+	op25=mkop(3, (None, -3), add, mktuple(4), dup, (None, 3), subscr, swap, None, swap, call1, (jumpifnot, "a"), mktuple(0), swap, "c", dup, (jumpifnot, "b"),
 		rot3, swap, mktuple(1), iadd, swap, (None, 1), subtract, (jump, "c"), "b", pop, ret, "a")
-	op26=mkop(0, 0, (None, getrandbits), (None, 2), call(1), dup, (jumpifnot, "a"),
-		dup, (None, 1), cmp(2), (jumpif, "b"),
-		dup, (None, 2), cmp(2), (jumpif, "c"),
+	op26=mkop(0, (None, getrandbits), (None, 2), call1, dup, (jumpifnot, "a"),
+		dup, (None, 1), cmpeq, (jumpif, "b"),
+		dup, (None, 2), cmpeq, (jumpif, "c"),
 		pop, 0, "a", pop, 1, "b", pop, 2, "c", pop, 3, ...)
-	opIF = lambda j0,j1:mkop(1,-1, swap, (jumpif, "a"), j0, "a", j1, ...)
+	opIF = lambda j0,j1:mkop(1, (None, -1), add, swap, (jumpif, "a"), j0, "a", j1, ...)
 	def op29(i):
 		nonlocal r
 		n=0
@@ -227,7 +223,7 @@ def main(pro):
 			r+=loadconst(mkconst(op))
 			r+=swap
 			n+=1
-	op30=mkop(0, 0, (None, True), ret, ...)
+	op30=mkop(0, (None, None), ret, ...)
 	def opDIR(d):return lambda i:i&~3|d
 	opfs=list(map(opC, range(10)))
 	opfs+=(op10,op11,op12,op13,op14,op15,op16,op17,op18,op19,op20,op21,op22,op23,op24,op25,op26,opIF(3,1),opIF(0,2),op29,op30,mv,opDIR(0),opDIR(1),opDIR(2),opDIR(3),(lambda i:None))
@@ -251,7 +247,7 @@ def main(pro):
 	empty={}
 	while True:
 		f=FunctionType(CodeType(0,0,0,65536,0,bytes(r),tuple(constl),(),(),"","",0,b""),empty)()
-		if f is True:return
+		if f is None:return
 		for i,f in zip(range(len(f)*3-2,0,-3),f):
 			f=mkconst(f)
 			r[i]=f&255
