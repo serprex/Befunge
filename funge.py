@@ -22,7 +22,7 @@ def main(pro):
 	from opcode import opmap,HAVE_ARGUMENT
 	from types import CodeType,FunctionType
 	from random import getrandbits
-	from itertools import count,repeat
+	from itertools import repeat
 	from sys import stdout
 	def mkemit(op):
 		op = opmap[op]
@@ -44,8 +44,10 @@ def main(pro):
 	ret = mkemit("RETURN_VALUE")
 	mktuple = mkemit("BUILD_TUPLE")
 	cmp = mkemit("COMPARE_OP")
+	cmplt = cmp(0)
 	cmpeq = cmp(2)
 	cmpgt = cmp(4)
+	cmpgte = cmp(5)
 	call = mkemit("CALL_FUNCTION")
 	call0 = call(0)
 	call1 = call(1)
@@ -199,14 +201,14 @@ def main(pro):
 	op17=mkop(0, dup, (jumpifnot, "a"), (None, -1), add, swap, pop, "a")
 	op18=mkop(1, (None, 1), add, swap, dup, rot3, rot3)
 	op19=mkop(2, rot3, swap, rot3, rot3)
-	op20=mkop(1, (None, -1), add, swap, (None, lambda x:print(+x,end=' ')), swap, call1, pop)
+	op20=mkop(1, (None, -1), add, swap, (None, "%d "), swap, modulo, (None, stdout.write), swap, call1, pop)
 	op21=mkop(1, (None, -1), add, swap, (None, "%c"), swap, modulo, (None, stdout.write), swap, call1, pop)
 	op22=mksimpleop(1, add, getch, call0, swap)
 	op23=mksimpleop(1, add, lambda:int(input()), call0, swap)
-	op24=mkop(2, (None, -1), add, rot3, swap, (None, 5), lshift, bor, dup, (None, 0), cmp(0), (jumpif, "a"),
-		dup, (None, 2560), cmp(5), (jumpif, "b"), loadconst(0), swap, subscr, (jump, "c"), "a", "b", _not, "c", swap)
-	op25=mkop(3, (None, -3), add, rot3, swap, (None, 5), lshift, bor, dup, (None, 0), cmp(0), (jumpif, "a"),
-		dup, (None, 2560), cmp(5), (jumpif, "b"), dup, (None, 31), mkemit("BINARY_AND"), (None, 25), cmp(5), (jumpif, "c"),
+	op24=mkop(2, (None, -1), add, rot3, swap, (None, 5), lshift, bor, dup, (None, 0), cmplt, (jumpif, "a"),
+		dup, (None, 2560), cmpgte, (jumpif, "b"), loadconst(0), swap, subscr, (jump, "c"), "a", "b", _not, "c", swap)
+	op25=mkop(3, (None, -3), add, rot3, swap, (None, 5), lshift, bor, dup, (None, 0), cmplt, (jumpif, "a"),
+		dup, (None, 2560), cmpgte, (jumpif, "b"), dup, (None, 31), mkemit("BINARY_AND"), (None, 25), cmpgte, (jumpif, "c"),
 		swap, rot3, dup, rot3, loadconst(0), swap, mkemit("STORE_SUBSCR"),
 		loadconst(1), cmp(6), (jumpifnot, "d"), dup, (None, None), swap, call1, swap, "e", dup,
 		(jumpifnot, "f"), rot3, swap, mktuple(1), iadd, swap, (None, -1), add, (jump, "e"),
@@ -219,12 +221,13 @@ def main(pro):
 	def op29(imv):
 		nonlocal r
 		i,mv=imv
-		for n in count():
+		rl = len(r)
+		while True:
 			i=mv(i)
 			pro.add(i)
 			i2=ps[i]
 			if i2==34:
-				r+=loadmkconst(n)
+				r+=loadmkconst(len(r)-rl>>2)
 				r+=add
 				return i,mv
 			r+=loadmkconst(i2)
