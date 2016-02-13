@@ -115,17 +115,17 @@ def main(pro):
 			jidx["-"] = 1
 			jtbl["-"] = 11
 			bc += jump
-			cs[len(bc)+1]=1
+			cs[4]=1
 			bc += b"ddd"
 			bc += add
-			cs[len(bc)+1]=0
+			cs[8]=0
 			bc += b"ddd"
 			bc += swap
 			bc += dup
-			cs[len(bc)+1]=f-1
+			cs[13]=f-1
 			bc += b"ddd"
 			bc += cmpgt
-			jidx["~"]=len(bc)+1
+			jidx["~"]=19
 			jtbl["~"]=3
 			bc += jumpifnot
 		for op in ops:
