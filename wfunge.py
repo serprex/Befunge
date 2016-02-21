@@ -19,50 +19,51 @@ def getch():
 getch = getch()
 
 def main(pro):
-	from opcode import opmap,HAVE_ARGUMENT
+	from opcode import opmap
 	from types import CodeType,FunctionType
 	from random import getrandbits
 	from itertools import repeat
 	from sys import stdout
 	def mkemit(op):
 		op = opmap[op]
-		return op.to_bytes(1,"little") if op<HAVE_ARGUMENT else lambda a:(op|a<<8).to_bytes(3,"little")
-	swap = mkemit("ROT_TWO")
-	rot3 = mkemit("ROT_THREE")
-	pop = mkemit("POP_TOP")
-	dup = mkemit("DUP_TOP")
-	iadd = mkemit("INPLACE_ADD")
-	add = mkemit("BINARY_ADD")
-	subtract = mkemit("BINARY_SUBTRACT")
-	multiply = mkemit("BINARY_MULTIPLY")
-	floordivide = mkemit("BINARY_FLOOR_DIVIDE")
-	modulo = mkemit("BINARY_MODULO")
-	lshift = mkemit("BINARY_LSHIFT")
-	bor = mkemit("BINARY_OR")
-	subscr = mkemit("BINARY_SUBSCR")
-	_not = mkemit("UNARY_NOT")
-	ret = mkemit("RETURN_VALUE")
-	cmp = mkemit("COMPARE_OP")
+		return lambda a:(144|(a&0xff00)|op<<16|(a&255)<<24).to_bytes(4,"little")
+	def mkemit1(op, a):return (opmap[op]|a<<8).to_bytes(2,"little")
+	swap = mkemit1("ROT_TWO",0)
+	rot3 = mkemit1("ROT_THREE",0)
+	pop = mkemit1("POP_TOP",0)
+	dup = mkemit1("DUP_TOP",0)
+	iadd = mkemit1("INPLACE_ADD",0)
+	add = mkemit1("BINARY_ADD",0)
+	subtract = mkemit1("BINARY_SUBTRACT",0)
+	multiply = mkemit1("BINARY_MULTIPLY",0)
+	floordivide = mkemit1("BINARY_FLOOR_DIVIDE",0)
+	modulo = mkemit1("BINARY_MODULO",0)
+	lshift = mkemit1("BINARY_LSHIFT",0)
+	bor = mkemit1("BINARY_OR",0)
+	subscr = mkemit1("BINARY_SUBSCR",0)
+	_not = mkemit1("UNARY_NOT",0)
+	ret = mkemit1("RETURN_VALUE",0)
+	cmp = lambda a:mkemit1("COMPARE_OP", a)
 	cmplt = cmp(0)
 	cmpeq = cmp(2)
 	cmpgt = cmp(4)
 	cmpgte = cmp(5)
-	call = mkemit("CALL_FUNCTION")
-	call0 = call(0)
-	call1 = call(1)
+	call0 = mkemit1("CALL_FUNCTION", 0)
+	call1 = mkemit1("CALL_FUNCTION", 1)
+	loadconst1 = lambda a:mkemit1("LOAD_CONST", a)
 	loadconst = mkemit("LOAD_CONST")
-	loadmkconst = lambda a:b"d"+mkconst(a)
+	loadmkconst = lambda a:loadconst(mkconst(a))
 	jumpabs = mkemit("JUMP_ABSOLUTE")
 	jump = jumpabs(0)
-	jumpiforpop = opmap["JUMP_IF_TRUE_OR_POP"].to_bytes(3,"little")
-	jumpifnotorpop = opmap["JUMP_IF_FALSE_OR_POP"].to_bytes(3,"little")
-	jumpif = opmap["POP_JUMP_IF_TRUE"].to_bytes(3,"little")
-	jumpifnot = opmap["POP_JUMP_IF_FALSE"].to_bytes(3,"little")
+	jumpiforpop = mkemit("JUMP_IF_TRUE_OR_POP")(0)
+	jumpifnotorpop = mkemit("JUMP_IF_FALSE_OR_POP")(0)
+	jumpif = mkemit("POP_JUMP_IF_TRUE")(0)
+	jumpifnot = mkemit("POP_JUMP_IF_FALSE")(0)
 	def mkconst(c):
 		nonlocal constl
 		if c in consts:return consts[c]
 		else:
-			a=consts[c]=len(constl).to_bytes(2,"little")
+			a=consts[c]=len(constl)
 			constl += c,
 			return a
 	ps = [0]*2560
@@ -84,7 +85,7 @@ def main(pro):
 			pro.clear()
 			pg.clear()
 			r.clear()
-			for a in repeat(b"ddd",s):r+=a
+			for a in repeat(b"\x90ddd",s):r+=a
 			r+=loadmkconst(s)
 			compile(*imv)
 			return []
@@ -101,28 +102,28 @@ def main(pro):
 		bclst = []
 		rval=None
 		if f==1:
-			jidx["-"] = 1
-			jtbl["-"] = 7
+			jidx["-"] = len(bc)+1
 			bc += jumpiforpop
-			cs[4]=0
-			bc += b"ddd"
+			cs[len(bc)+1] = 0
+			bc += b"\x90ddd"
 			bc += dup
+			jtbl["-"] = len(bc)
 		elif f:
-			jidx["-"] = 1
-			jtbl["-"] = 11
+			jidx["-"] = len(bc)+1
 			bc += jump
-			cs[4]=1
-			bc += b"ddd"
+			jtbl["~"] = len(bc)
+			cs[len(bc)+1] = 1
+			bc += b"\x90ddd"
 			bc += add
-			cs[8]=0
-			bc += b"ddd"
+			cs[len(bc)+1] = 0
+			bc += b"\x90ddd"
 			bc += swap
+			jtbl["-"] = len(bc)
 			bc += dup
-			cs[13]=f-1
-			bc += b"ddd"
+			cs[len(bc)+1] = f-1
+			bc += b"\x90ddd"
 			bc += cmpgt
-			jidx["~"]=19
-			jtbl["~"]=3
+			jidx["~"]=len(bc)+1
 			bc += jumpifnot
 		for op in ops:
 			ot = type(op)
@@ -132,7 +133,7 @@ def main(pro):
 				o0,o1 = op
 				if o0 is None:
 					cs[len(bc)+1]=o1
-					bc += b"ddd"
+					bc += b"\x90ddd"
 				elif o0 is ...:
 					rval = o1
 					break
@@ -156,31 +157,32 @@ def main(pro):
 				bc,jtbl,cs,comp = a
 				for j,l in cs.items():
 					l=mkconst(wmem(imv) if l is None else l)
-					bc[j]=l[0]
-					bc[j+1]=l[1]
+					bc[j]=l>>8
+					bc[j+2]=l&255
 				r+=bc
 				for j,l in jtbl.items():
 					j=rl0+jidx[j]
 					l+=rl
-					r[j]=l&255
-					r[j+1]=l>>8
+					r[j]=l>>8
+					r[j+2]=l&255
 				if comp is not None:compile(imv[0], comp)
 			return rval if rval is None or rval is ... else (imv[0], rval)
 		return emitop
 	def mksimpleop(*ops):
 		bc=bytearray()
 		cs={}
+		rval=None
 		for op in ops:
 			if type(op) is bytes:bc += op
 			else:
 				cs[len(bc)+1] = op
-				bc += b"ddd"
+				bc += b"\x90ddd"
 		def emitsimple(imv):
 			nonlocal r
 			for j,c in cs.items():
 				c=mkconst(c)
-				bc[j]=c[0]
-				bc[j+1]=c[1]
+				bc[j]=c>>8
+				bc[j+2]=c&255
 			r += bc
 		return emitsimple
 	opC=lambda op:mksimpleop(1, add, op, swap)
@@ -200,12 +202,12 @@ def main(pro):
 	op22=mksimpleop(1, add, getch, call0, swap)
 	op23=mksimpleop(1, add, lambda:int(input()), call0, swap)
 	op24=mkop(2, (None, -1), add, rot3, swap, (None, 5), lshift, bor, dup, (None, 0), cmplt, (jumpif, "a"),
-		dup, (None, 2560), cmpgte, (jumpif, "b"), loadconst(0), swap, subscr, (jump, "c"), "a", "b", _not, "c", swap)
+		dup, (None, 2560), cmpgte, (jumpif, "b"), loadconst1(0), swap, subscr, (jump, "c"), "a", "b", _not, "c", swap)
 	op25=mkop(3, (None, -3), add, rot3, swap, (None, 5), lshift, bor, dup, (None, 0), cmplt, (jumpif, "a"),
-		dup, (None, 2560), cmpgte, (jumpif, "b"), dup, (None, 31), mkemit("BINARY_AND"), (None, 25), cmpgte, (jumpif, "c"),
-		swap, rot3, dup, rot3, loadconst(0), swap, mkemit("STORE_SUBSCR"),
-		loadconst(1), cmp(6), (jumpifnot, "d"), dup, (None, None), swap, call1, swap, "e", dup,
-		(jumpifnot, "f"), rot3, swap, mkemit("LIST_APPEND")(1), swap, (None, -1), add, (jump, "e"),
+		dup, (None, 2560), cmpgte, (jumpif, "b"), dup, (None, 31), mkemit1("BINARY_AND",0), (None, 25), cmpgte, (jumpif, "c"),
+		swap, rot3, dup, rot3, loadconst1(0), swap, mkemit1("STORE_SUBSCR",0),
+		loadconst1(1), cmp(6), (jumpifnot, "d"), dup, (None, None), swap, call1, swap, "e", dup,
+		(jumpifnot, "f"), rot3, swap, mkemit1("LIST_APPEND", 1), swap, (None, -1), add, (jump, "e"),
 		"f", pop, ret, "a", "b", "c", pop, "d")
 	op26=mkop(0, (None, getrandbits), (None, 2), call1, dup, (jumpifnot, "a"),
 		dup, (None, 1), cmpeq, (jumpif, "b"),
@@ -221,11 +223,9 @@ def main(pro):
 			pro.add(i)
 			i2=ps[i]
 			if i2==34:
-				r+=loadmkconst(len(r)-rl>>2)
-				r+=add
+				r+=loadmkconst((len(r)-rl)//6) + add
 				return i,mv
-			r+=loadmkconst(i2)
-			r+=swap
+			r+=loadmkconst(i2) + swap
 	def op30(imv):
 		nonlocal r
 		r += loadmkconst(None) + ret
@@ -254,13 +254,15 @@ def main(pro):
 					else:i,mv=i2
 	compile(2528,mvL)
 	empty={}
+	skipfirst=True
 	while True:
+		from dis import dis
 		f=FunctionType(CodeType(0,0,0,65536,0,bytes(r),tuple(constl),(),(),"","",0,b""),empty)()
 		if f is None:return
-		for i,f in zip(range(len(f)*3-2,0,-3),f):
+		for i,f in zip(range(len(f)*4-3,0,-4),f):
 			f=mkconst(f)
-			r[i]=f[0]
-			r[i+1]=f[1]
+			r[i]=f>>8
+			r[i+2]=f&255
 if __name__ == "__main__":
 	from sys import argv
 	main(open(argv[1],"rb"))
