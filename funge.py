@@ -87,7 +87,7 @@ def main(pro):
 			for a in repeat(b"ddd",s):r+=a
 			r+=loadmkconst(s)
 			compile(*imv)
-			return []
+			return iter(range(s)),[]
 		return f
 	mvL=lambda i:i-2528 if i>=2528 else i+32
 	mvK=lambda i:i-1 if i&31 else i+24
@@ -204,9 +204,9 @@ def main(pro):
 	op25=mkop(3, (None, -3), add, rot3, swap, (None, 5), lshift, bor, dup, (None, 0), cmplt, (jumpif, "a"),
 		dup, (None, 2560), cmpgte, (jumpif, "b"), dup, (None, 31), mkemit("BINARY_AND"), (None, 25), cmpgte, (jumpif, "c"),
 		swap, rot3, dup, rot3, loadconst(0), swap, mkemit("STORE_SUBSCR"),
-		loadconst(1), cmp(6), (jumpifnot, "d"), dup, (None, None), swap, call1, swap, "e", dup,
-		(jumpifnot, "f"), rot3, swap, mkemit("LIST_APPEND")(1), swap, (None, -1), add, (jump, "e"),
-		"f", pop, ret, "a", "b", "c", pop, "d")
+		loadconst(1), cmp(6), (jumpifnot, "d"), (None, None), swap, call1, mkemit("UNPACK_SEQUENCE")(2),
+		"e", mkemit("FOR_ITER")(10), pop, rot3, swap, mkemit("LIST_APPEND")(1), swap, (jump, "e"), ret,
+		"a", "b", "c", pop, "d")
 	op26=mkop(0, (None, getrandbits), (None, 2), call1, dup, (jumpifnot, "a"),
 		dup, (None, 1), cmpeq, (jumpif, "b"),
 		dup, (None, 2), cmpeq, (jumpif, "c"),
