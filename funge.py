@@ -87,7 +87,7 @@ def main(pro):
 			for a in repeat(b"ddd",s):r+=a
 			r+=loadmkconst(s)
 			compile(*imv)
-			return iter(range(s)),[]
+			return iter(repeat(None, s)),[]
 		return f
 	mvL=lambda i:i-2528 if i>=2528 else i+32
 	mvK=lambda i:i-1 if i&31 else i+24
