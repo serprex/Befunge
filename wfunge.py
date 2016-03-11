@@ -183,7 +183,7 @@ def main(pro):
 				c=mkconst(c)
 				bc[j]=c>>8
 				bc[j+2]=c&255
-			r += bc
+			r+=bc
 		return emitsimple
 	opC=lambda op:mksimpleop(1, add, op, swap)
 	binOp=lambda bin:mkop(2, (None, -1), add, rot3, bin, swap)
@@ -225,10 +225,12 @@ def main(pro):
 			if i2==34:
 				r+=loadmkconst((len(r)-rl)//6) + add
 				return i,mv
-			r+=loadmkconst(i2) + swap
+			r+=loadmkconst(i2)
+			r+=swap
 	def op30(imv):
 		nonlocal r
-		r += loadmkconst(None) + ret
+		r+=loadmkconst(None)
+		r+=ret
 		return ...
 	def op31(imv):
 		i,mv=imv

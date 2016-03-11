@@ -228,7 +228,8 @@ def main(pro):
 			r+=swap
 	def op30(imv):
 		nonlocal r
-		r += loadmkconst(None) + ret
+		r+=loadmkconst(None)
+		r+=ret
 		return ...
 	def op31(imv):
 		i,mv=imv
