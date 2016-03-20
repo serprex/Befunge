@@ -475,6 +475,7 @@ def main(pro):
 		bc += pop
 	emits = emit0, emit1, emit2, emit3, emit4, emit5, emit6, emit7, emit8, emit9, emit10, emit11, emit12, emit13, emit14, emit15
 	class Inst:
+		__slots__ = "n", "op", "arg", "var", "sd", "si"
 		def __init__(self, parent=None, op=None, arg=None):
 			self.n = None
 			self.op = op
@@ -619,9 +620,10 @@ def main(pro):
 						else:
 							a=[]
 							ai=-1
+							bi=-len(cst)
 							for x in range(siop):
 								x=ai-x
-								if -x>len(cst):a.append(None)
+								if x<=bi+ai:a.append(None)
 								else:
 									c0,c1=cst[x]
 									a.append(c1)
@@ -630,7 +632,7 @@ def main(pro):
 										ai+=1
 										c0.remove()
 							ir.var=a
-							if None not in a and op<6:
+							if op<6 and None not in a:
 								x=[]
 								ir.eval(x)
 								ir.var=()
