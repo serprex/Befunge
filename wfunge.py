@@ -66,7 +66,7 @@ def main(pro):
 			a=consts[c]=len(constl)
 			constl += c,
 			return a
-	ps = [0]*2560
+	ps = [32]*2560
 	for y,line in enumerate(pro):
 		if y>=25:break
 		for x,c in enumerate(line):
