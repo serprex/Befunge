@@ -88,7 +88,7 @@ def main(pro):
 			for a in repeat(b"\x90ddd",s):r+=a
 			r+=loadmkconst(s)
 			compile(*imv)
-			return iter(repeat(None, s)),[]
+			return iter(repeat(s, s)),[]
 		return f
 	mvL=lambda i:i-2528 if i>=2528 else i+32
 	mvK=lambda i:i-1 if i&31 else i+24
@@ -96,34 +96,29 @@ def main(pro):
 	mvJ=lambda i:i+1 if (i+1&31)<25 else i-24
 	def mkop(f, *ops):
 		jtbl = {}
-		jidx = {}
+		jpad = {}
 		cs = {}
 		bc = bytearray()
-		bclst = []
-		rval=None
 		if f==1:
-			jidx["-"] = len(bc)+1
 			bc += jumpiforpop
-			cs[len(bc)+1] = 0
-			bc += b"\x90ddd"
-			bc += dup
-			jtbl["-"] = len(bc)
+			cs[5]=0
+			cs[9]=1
+			bc += b"\x90ddd\x90ddd"
+			jtbl[1]=12
 		elif f:
-			jidx["-"] = len(bc)+1
 			bc += jump
-			jtbl["~"] = len(bc)
-			cs[len(bc)+1] = 1
+			cs[5]=1
 			bc += b"\x90ddd"
 			bc += add
-			cs[len(bc)+1] = 0
+			cs[11]=0
 			bc += b"\x90ddd"
 			bc += swap
-			jtbl["-"] = len(bc)
+			jtbl[1]=16
 			bc += dup
-			cs[len(bc)+1] = f-1
+			cs[19]=f-1
 			bc += b"\x90ddd"
 			bc += cmpgt
-			jidx["~"]=len(bc)+1
+			jtbl[25]=4
 			bc += jumpifnot
 		for op in ops:
 			ot = type(op)
@@ -134,39 +129,29 @@ def main(pro):
 				if o0 is None:
 					cs[len(bc)+1]=o1
 					bc += b"\x90ddd"
-				elif o0 is ...:
-					rval = o1
-					break
 				else:
-					jidx[o1] = len(bc)+1
+					if o1 in jpad:
+						jtbl[len(bc)+1]=jpad[o1]
+					else:
+						jpad[o1]=len(bc)+1
 					bc += o0
-			elif ot is str:
-				jtbl[op] = len(bc)
+			elif op in jpad:
+				jtbl[jpad[op]]=len(bc)
 			else:
-				bclst += (bc, jtbl, cs, op),
-				bc = bytearray()
-				jtbl = {}
-				cs = {}
-		bclst += (bc, jtbl, cs, None),
+				jpad[op]=len(bc)
 		def emitop(imv):
 			nonlocal r
-			rl0=None
-			for a in bclst:
-				rl=len(r)
-				if rl0 is None:rl0=rl
-				bc,jtbl,cs,comp = a
-				for j,l in cs.items():
-					l=mkconst(wmem(imv) if l is None else l)
-					bc[j]=l>>8
-					bc[j+2]=l&255
-				r+=bc
-				for j,l in jtbl.items():
-					j=rl0+jidx[j]
-					l+=rl
-					r[j]=l>>8
-					r[j+2]=l&255
-				if comp is not None:compile(imv[0], comp)
-			return rval if rval is None or rval is ... else (imv[0], rval)
+			for j,l in cs.items():
+				l=mkconst(wmem(imv) if l is None else l)
+				bc[j]=l>>8
+				bc[j+2]=l&255
+			rl=len(r)
+			r+=bc
+			for j,l in jtbl.items():
+				j+=rl
+				l+=rl
+				r[j]=l>>8
+				r[j+2]=l&255
 		return emitop
 	def mksimpleop(*ops):
 		bc=bytearray()
@@ -192,10 +177,10 @@ def main(pro):
 	op12=binOp(multiply)
 	op13=binOp(floordivide)
 	op14=binOp(modulo)
-	op15=mkop(2, (None, -1), add, rot3, cmpgt, swap)
+	op15=binOp(cmpgt)
 	op16=mkop(1, swap, _not, swap)
 	op17=mkop(0, dup, (jumpifnot, "a"), (None, -1), add, swap, pop, "a")
-	op18=mkop(1, (None, 1), add, swap, dup, rot3, rot3)
+	op18=mkop(1, (None, 1), add, swap, dup, rot3, swap)
 	op19=mkop(2, rot3, swap, rot3, rot3)
 	op20=mkop(1, (None, -1), add, swap, (None, "%d "), swap, modulo, (None, stdout.write), swap, call1, pop)
 	op21=mkop(1, (None, -1), add, swap, (None, "%c"), swap, modulo, (None, stdout.write), swap, call1, pop)
@@ -209,11 +194,54 @@ def main(pro):
 		loadconst1(1), cmp(6), (jumpifnot, "d"), (None, None), swap, call1, mkemit1("UNPACK_SEQUENCE", 2),
 		"e", mkemit1("FOR_ITER", 14), pop, rot3, swap, mkemit1("LIST_APPEND", 1), swap, (jump, "e"), ret,
 		"a", "b", "c", pop, "d")
-	op26=mkop(0, (None, getrandbits), (None, 2), call1, dup, (jumpifnot, "a"),
-		dup, (None, 1), cmpeq, (jumpif, "b"),
-		dup, (None, 2), cmpeq, (jumpif, "c"),
-		pop, mvL, "a", pop, mvK, "b", pop, mvH, "c", pop, (..., mvJ))
-	opIF = lambda j0,j1:mkop(1, (None, -1), add, swap, (jumpif, "a"), j0, "a", (..., j1))
+	def op26(imv):
+		nonlocal r
+		imv=imv[0]
+		r+=loadmkconst(getrandbits)
+		r+=loadmkconst(2)
+		r+=call1
+		r+=dup
+		ja=len(r)+1
+		r+=jumpifnot
+		r+=dup
+		r+=loadmkconst(1)
+		r+=cmpeq
+		jb=len(r)+1
+		r+=jumpif
+		r+=dup
+		r+=loadmkconst(2)
+		r+=cmpeq
+		jc=len(r)+1
+		r+=jumpif
+		r+=pop
+		compile(imv,mvL)
+		r[ja:ja+4:2]=len(r).to_bytes(2,"big")
+		r+=pop
+		compile(imv,mvK)
+		r[jb:jb+4:2]=len(r).to_bytes(2,"big")
+		r+=pop
+		compile(imv,mvH)
+		r[jc:jc+4:2]=len(r).to_bytes(2,"big")
+		r+=pop
+		return imv,mvJ
+	def opIF(j0,j1):
+		def f(imv):
+			nonlocal r
+			imv=imv[0]
+			jsp=len(r)+1
+			r+=jumpiforpop
+			r+=loadmkconst(0)
+			r+=dup
+			r[jsp:jsp+4:2]=len(r).to_bytes(2,"big")
+			r+=loadmkconst(-1)
+			r+=add
+			r+=swap
+			ja=len(r)+1
+			r+=jumpif
+			compile(imv,j0)
+			r[ja:ja+4:2]=len(r).to_bytes(2,"big")
+			return imv,j1
+		return f
 	def op29(imv):
 		nonlocal r
 		i,mv=imv
@@ -256,9 +284,7 @@ def main(pro):
 					else:i,mv=i2
 	compile(2528,mvL)
 	empty={}
-	skipfirst=True
 	while True:
-		from dis import dis
 		f=FunctionType(CodeType(0,0,0,65536,0,bytes(r),tuple(constl),(),(),"","",0,b""),empty)()
 		if f is None:return
 		for i,f in zip(range(len(f)*4-3,0,-4),f):
