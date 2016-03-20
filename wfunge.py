@@ -285,7 +285,7 @@ def main(pro):
 	compile(2528,mvL)
 	empty={}
 	while True:
-		f=FunctionType(CodeType(0,0,0,65536,0,bytes(r),tuple(constl),(),(),"","",0,b""),empty)()
+		f=FunctionType(CodeType(0,0,0,65536,0,bytes(r),(*constl,),(),(),"","",0,b""),empty)()
 		if f is None:return
 		for i,f in zip(range(len(f)*4-3,0,-4),f):
 			f=mkconst(f)

@@ -549,13 +549,26 @@ def main(pro):
 				elif i2==33:mv=mvK
 				elif i2==34:mv=mvH
 				else:mv=mvJ
+	def calcvar(rgsiop, cst, siop):
+		a=-1
+		b=-len(cst)
+		for x in rgsiop:
+			x=a-x
+			if x<=a+b:yield None
+			else:
+				c0,c1=cst[x]
+				yield c1
+				if c1 is not None:
+					del cst[x]
+					a+=1
+					c0.remove()
 	def peephole(ir, cst):
 		head=ir
 		while True:
 			if ir.op is None:
 				ir=ir.n
 				continue
-			if ir.sd:return head
+			if ir.sd is True:return head
 			ir.sd=True
 			op=ir.op
 			if 12<=op<=14 or len(ir.si)>1:
@@ -583,12 +596,13 @@ def main(pro):
 				if not siop:
 					if so[op]:cst.append((ir, None))
 				else:
-					for cs,x in enumerate(reversed(cst), 0):
-						if x[1] is None:break
+					rgsiop=range(siop)
+					for cs,(x,x) in zip(rgsiop, reversed(cst)):
+						if x is None:break
 					else:cs+=1
 					if cs:
 						if op==3:
-							cst.pop()
+							del cst[-1]
 							ir.remove()
 						elif op==4:
 							ai,a=cst[-1]
@@ -596,7 +610,7 @@ def main(pro):
 							ir.arg=a
 							ir.op=0
 							cst.append((ir, a))
-						elif op==5:
+						elif op==5 and cs>1:
 							ai,a=cst.pop()
 							bi,b=cst.pop()
 							ai.arg=b
@@ -618,21 +632,9 @@ def main(pro):
 								ir.n=ir.arg
 							ir.arg=None
 						else:
-							a=[]
-							ai=-1
-							bi=-len(cst)
-							for x in range(siop):
-								x=ai-x
-								if x<=bi+ai:a.append(None)
-								else:
-									c0,c1=cst[x]
-									a.append(c1)
-									if c1 is not None:
-										del cst[x]
-										ai+=1
-										c0.remove()
-							ir.var=a
-							if op<6 and None not in a:
+							a=ir.var=(*calcvar(rgsiop, cst, siop),)
+							siop=a.count(None)
+							if not siop and op<6:
 								x=[]
 								ir.eval(x)
 								ir.var=()
@@ -640,7 +642,11 @@ def main(pro):
 								op=ir.op=0
 								cst.append((ir, ir.arg))
 							else:cst[-siop:]=repeat((ir,None), so[op])
-					else:cst[-siop:]=repeat((ir,None), so[op])
+					else:
+						if siop>1:
+							ir.var=(*calcvar(rgsiop, cst, siop),)
+							siop=ir.var.count(None)
+						cst[-siop:]=repeat((ir,None), so[op])
 			else:cst+=repeat((ir,None), so[op])
 			ir=ir.n
 		return head
