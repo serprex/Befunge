@@ -86,7 +86,7 @@ def main(pro):
 	mvL=lambda i:i-2528 if i>=2528 else i+32
 	mvK=lambda i:i-1 if i&31 else i+24
 	mvH=lambda i:i+2528 if i<32 else i-32
-	mvJ=lambda i:i+1 if (i+1&31)<25 else i-24
+	mvJ=lambda i:i+1 if (i&31)<24 else i-24
 	#    0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
 	si = b"\0\2\1\1\1\2\1\1\0\0\2\3\0\1\0\0"
 	so = b"\1\1\1\0\2\2\0\0\1\1\1\0\0\0\0\0"
@@ -522,7 +522,7 @@ def main(pro):
 				elif i2==26:
 					tail=Inst(tail, 12)
 					tail.arg=[Inst(),Inst(),Inst()]
-					compile(i,mvH,tail.arg[0])
+					compile(i,mvL,tail.arg[0])
 					compile(i,mvK,tail.arg[1])
 					compile(i,mvH,tail.arg[2])
 					mv=mvJ

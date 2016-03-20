@@ -92,7 +92,7 @@ def main(pro):
 	mvL=lambda i:i-2528 if i>=2528 else i+32
 	mvK=lambda i:i-1 if i&31 else i+24
 	mvH=lambda i:i+2528 if i<32 else i-32
-	mvJ=lambda i:i+1 if (i+1&31)<25 else i-24
+	mvJ=lambda i:i+1 if (i&31)<24 else i-24
 	def mkop(f, *ops):
 		jtbl = {}
 		jpad = {}
