@@ -4,9 +4,9 @@ def getch():
 	except ImportError:
 		from msvcrt import getch
 		return lambda:ord(getch())
-	from sys import stdin
+	from sys import stdin,stdout
 	def getch():
-		print(end="",flush=True)
+		stdout.flush()
 		fd=stdin.fileno()
 		oldset=tcgetattr(fd)
 		newset=oldset[:]
@@ -231,13 +231,15 @@ def main(pro):
 			jsp=len(r)+1
 			r+=jumpiforpop
 			r+=loadmkconst(0)
-			r+=dup
+			jb=len(r)+1
+			r+=jump
 			r[jsp:jsp+4:2]=len(r).to_bytes(2,"big")
 			r+=loadmkconst(-1)
 			r+=add
 			r+=swap
 			ja=len(r)+1
 			r+=jumpif
+			r[jb:jb+4:2]=len(r).to_bytes(2,"big")
 			compile(imv,j0)
 			r[ja:ja+4:2]=len(r).to_bytes(2,"big")
 			return imv,j1

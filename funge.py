@@ -4,9 +4,9 @@ def getch():
 	except ImportError:
 		from msvcrt import getch
 		return lambda:ord(getch())
-	from sys import stdin
+	from sys import stdin,stdout
 	def getch():
-		print(end="",flush=True)
+		stdout.flush()
 		fd=stdin.fileno()
 		oldset=tcgetattr(fd)
 		newset=oldset[:]
@@ -213,13 +213,13 @@ def main(pro):
 		r+=jumpif
 		r+=pop
 		compile(imv,mvL)
-		r[ja:ja+2]=len(r).to_bytes(2,"little")
+		r[ja],r[ja+1]=len(r).to_bytes(2,"little")
 		r+=pop
 		compile(imv,mvK)
-		r[jb:jb+2]=len(r).to_bytes(2,"little")
+		r[jb],r[jb+1]=len(r).to_bytes(2,"little")
 		r+=pop
 		compile(imv,mvH)
-		r[jc:jc+2]=len(r).to_bytes(2,"little")
+		r[jc],r[jc+1]=len(r).to_bytes(2,"little")
 		r+=pop
 		return imv,mvJ
 	def opIF(j0,j1):
@@ -229,15 +229,17 @@ def main(pro):
 			jsp=len(r)+1
 			r+=jumpiforpop
 			r+=loadmkconst(0)
-			r+=dup
-			r[jsp:jsp+2]=len(r).to_bytes(2,"little")
+			jb=len(r)+1
+			r+=jump
+			r[jsp],r[jsp+1]=len(r).to_bytes(2,"little")
 			r+=loadmkconst(-1)
 			r+=add
 			r+=swap
 			ja=len(r)+1
 			r+=jumpif
+			r[jb],r[jb+1]=len(r).to_bytes(2,"little")
 			compile(imv,j0)
-			r[ja:ja+2]=len(r).to_bytes(2,"little")
+			r[ja],r[ja+1]=len(r).to_bytes(2,"little")
 			return imv,j1
 		return f
 	def op29(imv):
