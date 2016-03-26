@@ -622,7 +622,8 @@ def main(pro):
 				elif i2==33:mv=mvK
 				elif i2==34:mv=mvH
 				else:mv=mvJ
-	def calcvar(lir, ir, cst):
+	def calcvar(lir, cst):
+		ir=lir.n
 		def calcvarhelper():
 			a=-1
 			b=-len(cst)
@@ -647,11 +648,9 @@ def main(pro):
 		if not siop:
 			ir.dep=len(cst)
 			return
-		print(lir.n is ir, lir in ir.si, lir, ir, [c[1] for c in cst], *ir.si)
 		if ir.op==13:
 			if cst[-1][1] is not None:
 				c0,c1=cst.pop()
-				print("#",lir, ir,"#",c0,"#", ir.n,ir.arg, [c[1] for c in cst])
 				c0.op=16
 				c0.var=()
 				lir.n = ir.n if c1 else ir.arg
@@ -660,18 +659,18 @@ def main(pro):
 				if not ir.si:
 					ir.n.si.remove(ir)
 					ir.arg.si.remove(ir)
-				return calcvar(lir, lir.n, cst)
+				return calcvar(lir, cst)
 			elif len(ir.si)==1:ir.dep=len(cst)
 			return
 		elif ir.op==4 and ir.n.op in (3,5):
+			opn=ir.n.op
 			ir.n.si.remove(ir)
 			ir.n=ir.n.n
 			ir.n.si.add(ir)
-			if ir.n.op==3:
+			if opn==3:
 				ir.remove()
-				return calcvar(lir, lir.n, cst)
+				return calcvar(lir, cst)
 		if len(ir.si)>1:
-			print("~", lir, ",", lir.n, ":", ir, ",", ir.n, ":", *ir.si, lir in ir.si)
 			if any(a is not None for a,a in cst[-siop:]):
 				ir.si.remove(lir)
 				a=ir.n
@@ -679,8 +678,7 @@ def main(pro):
 				ir.si.add(lir)
 				ir.n=a
 				a.si.add(ir)
-				print("~~", lir, ir, [c for c,c in cst])
-				return calcvar(lir, ir, cst)
+				return calcvar(lir, cst)
 			else:return
 		ir.var=(*calcvarhelper(),)
 		ir.dep=len(cst)
@@ -690,7 +688,6 @@ def main(pro):
 			while True:
 				if ir.sd:return
 				op=ir.op
-				print("$",ir,[c[1] for c in cst])
 				if not op:
 					cst.append((ir, ir.arg))
 					break
@@ -713,60 +710,67 @@ def main(pro):
 				elif op == 14:
 					ir.sd=True
 					return
-				if si[op]:
-					siop=ir.var.count(None)
-					if not siop:
-						if op<8:
-							if op==3:ir.remove()
-							elif op==4:
-								ir.sd=True
-								c=ir.var[0]
-								ir.op=0
-								ir.arg=c
-								ir.var=()
-								a=ir.n
-								ir.n=b=Inst(0, c)
-								b.si.add(ir)
-								b.n=a
-								a.si.remove(ir)
-								a.si.add(b)
-								cst += (ir, c), (b, c)
-								calcvar(b, a, cst)
-								ir=b.n
-								continue
-							elif op==5:
-								ir.sd=True
-								ir.op=0
-								ir.arg=ir.var[0]
-								a=ir.n
-								ir.n=b=Inst(0, ir.var[1])
-								b.si.add(ir)
-								b.n=a
-								a.si.remove(ir)
-								a.si.add(b)
-								cst += zip((b, a), ir.var)
-								ir.var=()
-								calcvar(b, a, cst)
-								ir=b.n
-								continue
-							elif op in (6,7):
-								ir.op=15
-								ir.arg=("%d " if op==6 else "%c")%ir.var
-								ir.var=()
-							else:
-								x=[]
-								ir.eval(x)
-								ir.op=0
-								ir.arg=x[0]
-								ir.var=()
-								cst.append((ir, ir.arg))
-							break
-					elif len(ir.si)>1:
-						cst.clear()
-						ir.dep=0
+				siop=ir.var.count(None)
+				if not siop:
+					if op<8:
+						if op==3:
+							calcvar(ir, cst)
+							ir.remove()
+							ir=ir.n
+							ir.dep=len(cst)
+							continue
+						elif op==4:
+							ir.sd=True
+							c,=ir.var
+							ir.op=0
+							ir.arg=c
+							ir.var=()
+							a=ir.n
+							ir.n=b=Inst(0, c)
+							b.si.add(ir)
+							b.n=a
+							a.si.remove(ir)
+							a.si.add(b)
+							cst += (ir, c), (b, c)
+							calcvar(b, cst)
+							ir=b.n
+							ir.dep=len(cst)
+							continue
+						elif op==5:
+							c,x=ir.var
+							ir.sd=True
+							ir.op=0
+							ir.arg=x
+							a=ir.n
+							ir.n=b=Inst(0, c)
+							b.si.add(ir)
+							b.n=a
+							a.si.remove(ir)
+							a.si.add(b)
+							cst += (ir, x), (b, c)
+							ir.var=()
+							calcvar(b, cst)
+							ir=b.n
+							ir.dep=len(cst)
+							continue
+						elif op in (6,7):
+							ir.op=15
+							ir.arg=("%d " if op==6 else "%c")%ir.var
+							ir.var=()
+						else:
+							x=[]
+							ir.eval(x)
+							ir.op=0
+							ir.arg=x[0]
+							ir.var=()
+							cst.append((ir, ir.arg))
+						break
+				elif len(ir.si)>1:
+					cst.clear()
+					ir.dep=0
 				cst[-siop:]=repeat((ir,None), so[op])
 				break
-			calcvar(ir, ir.n, cst)
+			calcvar(ir, cst)
 			ir.sd=True
 			ir=ir.n
 	def execir(ir):
@@ -777,13 +781,9 @@ def main(pro):
 	def compile2(ir, bc):
 		while True:
 			if ir.sd is not True and ir.sd is not False:
-				#print("%%%d jmp %d"%(len(bc), ir.sd))
 				bc += jumpabs(ir.sd)
 				return
 			ir.sd=len(bc)
-			#if len(ir.si)>1:print("\t",*ir.si)
-			#print("%%%d"%ir.sd, ir)
-			#if ir.op != 16:Inst(15, "%s\n"%ir).emit(bc)
 			if ir.emit(bc) is ...:return
 			ir=ir.n
 	empty={}
@@ -794,11 +794,9 @@ def main(pro):
 	while True:
 		pg.clear()
 		peephole(ir)
-		#f=execir(ir)
 		bc += loadmkconst(0)
 		compile2(ir, bc)
 		f=FunctionType(CodeType(0,0,0,65536,0,bytes(bc),tuple(constl),(),(),"","",0,b""),empty)()
-		#from dis import dis;dis(f);f=f()
 		if f is None:return
 		bc.clear()
 		ir=tail=compile(f[0], f[1])
