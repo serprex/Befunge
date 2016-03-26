@@ -4,9 +4,9 @@ def getch():
 	except ImportError:
 		from msvcrt import getch
 		return lambda:ord(getch())
-	from sys import stdin
+	from sys import stdin,stdout
 	def getch():
-		print(end="",flush=True)
+		stdout.flush()
 		fd=stdin.fileno()
 		oldset=tcgetattr(fd)
 		newset=oldset[:]
@@ -87,9 +87,8 @@ def main(pro):
 	mvK=lambda i:i-1 if i&31 else i+24
 	mvH=lambda i:i+2528 if i<32 else i-32
 	mvJ=lambda i:i+1 if (i&31)<24 else i-24
-	#    0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
-	si = b"\0\2\1\1\1\2\1\1\0\0\2\3\0\1\0\0"
-	so = b"\1\1\1\0\2\2\0\0\1\1\1\0\0\0\0\0"
+	si = b"\0\2\1\1\1\2\1\1\0\0\2\3\0\1\0\0\0"
+	so = b"\1\1\1\0\2\2\0\0\1\1\1\0\0\0\0\0\0"
 	bins = add, subtract, multiply, floordivide, modulo, cmpgt
 	def op0(self, st):
 		st.append(self.arg)
@@ -112,8 +111,8 @@ def main(pro):
 		st.append(a)
 		return self.n
 	def op5(self, st, a, b):
-		st.append(b)
 		st.append(a)
+		st.append(b)
 		return self.n
 	def op6(self, st, a):
 		sowrite("%d "%a)
@@ -129,7 +128,7 @@ def main(pro):
 		return self.n
 	def op10(self, st, a, b):
 		a|=b<<5
-		st.append(ps[a] if 0<=b<2560 else 0)
+		st.append(0<=a<2560 and ps[a])
 		return self.n
 	def op11(self, st, a, b, c):
 		a|=b<<5
@@ -147,7 +146,8 @@ def main(pro):
 	def op15(self, st):
 		sowrite(self.arg)
 		return self.n
-	ops = op0, op1, op2, op3, op4, op5, op6, op7, op8, op9, op10, op11, op12, op13, op14, op15
+	def op16(self, st):return self.n
+	ops = op0, op1, op2, op3, op4, op5, op6, op7, op8, op9, op10, op11, op12, op13, op14, op15, op16
 	def sguard(bc, x):
 		if x==1:
 			j1=len(bc)+1
@@ -184,7 +184,7 @@ def main(pro):
 			bc += swap
 		else:
 			if a is not None:
-				if self.dep<2:sguard(bc, 1)
+				if not self.dep:sguard(bc, 1)
 				bc += swap
 				bc += loadmkconst(a)
 			else:
@@ -225,11 +225,15 @@ def main(pro):
 			bc += rot3
 			bc += rot3
 		elif a is not None:
-			if self.dep<2:sguard(bc, 1)
+			if not self.dep:sguard(bc, 1)
+			bc += loadmkconst(1)
+			bc += add
 			bc += loadmkconst(a)
 			bc += rot3
 		else:
-			bc += loadmkconst(a)
+			bc += loadmkconst(1)
+			bc += add
+			bc += loadmkconst(b)
 			bc += swap
 	def emit6(self, bc):
 		if not self.dep:sguard(bc, 1)
@@ -310,14 +314,19 @@ def main(pro):
 			else:bc += loadmkconst(0)
 			bc += swap
 		elif a is not None:
-			if self.dep<2:sguard(bc, 1)
+			if not self.dep:sguard(bc, 1)
 			bc += swap
-			bc += loadmkconst(5)
-			bc += lshift
-			if a:
-				bc += loadmkconst(a)
-				bc += bor
-			return emit10h(bc)
+			if 0<=a<25:
+				bc += loadmkconst(5)
+				bc += lshift
+				if a:
+					bc += loadmkconst(a)
+					bc += bor
+				return emit10h(bc)
+			else:
+				bc += pop
+				bc += loadmkconst(0)
+				bc += swap
 		else:
 			bc += swap
 			if 0<=b<80:
@@ -407,7 +416,7 @@ def main(pro):
 						bc += loadmkconst(wmem(self.arg))
 						return emit11ret(bc)
 			elif 0<=a<2560:
-				if self.dep<3:sguard(bc, 1)
+				if not self.dep:sguard(bc, 1)
 				bc += loadmkconst(-1)
 				bc += add
 				bc += swap
@@ -419,7 +428,58 @@ def main(pro):
 					return emit11ret(bc)
 			else:emit3(self, bc)
 		else:
-			raise NotImplemented("Still need to handle (a^b) p")
+			if c is not None:
+				if not self.dep:sguard(bc, 1)
+				bc += loadmkconst(-1)
+			elif self.dep<2:
+				sguard(bc, 2)
+				bc += loadmkconst(-2)
+			bc += add
+			bc += rot3
+			bc += swap
+			if b is None:
+				bc += loadmkconst(5)
+				bc += lshift
+				bc += loadmkconst(a)
+			else:
+				bc += loadmkconst(b<<5)
+			bc += bor
+			bc += dup
+			bc += loadmkconst(0)
+			bc += cmplt
+			j1 = len(bc)+1
+			bc += jumpif
+			bc += dup
+			bc += loadmkconst(2560)
+			bc += cmpgte
+			j2 = len(bc)+1
+			bc += jumpif
+			bc += dup
+			bc += loadmkconst(31)
+			bc += band
+			bc += loadmkconst(25)
+			bc += cmpgte
+			j3 = len(bc)+1
+			bc += jumpif
+			bc += swap
+			bc += rot3
+			bc += dup
+			bc += rot3
+			bc += loadconst(0)
+			bc += swap
+			if c is not None:
+				bc += loadmkconst(c)
+				bc += rot3
+			bc += stscr
+			bc += loadconst(1)
+			bc += cmpin
+			j4 = len(bc)+1
+			bc += jumpifnot
+			bc += loadmkconst(wmem(self.arg))
+			emit11ret(bc)
+			bc[j1],bc[j1+1]=bc[j2],bc[j2+1]=bc[j3],bc[j3+1]=len(bc).to_bytes(2,"little")
+			if c is None:bc += pop
+			bc[j4],bc[j4+1]=len(bc).to_bytes(2,"little")
 	def emit12(self, bc):
 		bc += loadmkconst(getrandbits)
 		bc += loadmkconst(2)
@@ -451,41 +511,43 @@ def main(pro):
 		j1 = len(bc)+1
 		bc += jumpiforpop
 		bc += loadmkconst(0)
-		bc += dup
+		j3 = len(bc)+1
+		bc += jump
 		bc[j1],bc[j1+1]=len(bc).to_bytes(2,"little")
 		bc += loadmkconst(-1)
 		bc += add
 		bc += swap
 		j2 = len(bc)+1
 		bc += jumpif
+		bc[j3],bc[j3+1]=len(bc).to_bytes(2,"little")
 		compile2(self.arg, bc)
 		bc[j2],bc[j2+1]=len(bc).to_bytes(2,"little")
 	def emit14(self, bc):
 		bc += loadmkconst(None)
 		bc += ret
+		return ...
 	def emit15(self, bc):
 		bc += loadmkconst(sowrite)
 		bc += loadmkconst(self.arg)
 		bc += call1
 		bc += pop
-	emits = emit0, emit1, emit2, emit3, emit4, emit5, emit6, emit7, emit8, emit9, emit10, emit11, emit12, emit13, emit14, emit15
+	def emit16(self, bc):return
+	emits = emit0, emit1, emit2, emit3, emit4, emit5, emit6, emit7, emit8, emit9, emit10, emit11, emit12, emit13, emit14, emit15, emit16
 	class Inst:
 		__slots__ = "n", "op", "arg", "var", "sd", "dep", "si"
-		def __init__(self, parent=None, op=None, arg=None):
+		def __init__(self, op=16, arg=None):
 			self.n = None
 			self.op = op
 			self.arg = arg
-			self.var = None if op is None else ((),(None,),(None,None),(None,None,None))[si[op]]
+			self.var = ((),(None,),(None,None),(None,None,None))[si[op]]
 			self.sd = False
 			self.dep = 0
-			if parent:
-				parent.n=self
-				self.si={parent}
-			else:self.si=set()
-		def __str__(self, names=("ld","bin","not","pop","dup","swap","puti","putc","getc","geti","rmem","wmem","rj","jz","ret","put"),
+			self.si = set()
+		def __str__(self, names=("ld","bin","not","pop","dup","swp","pui","puc","gc","gi","ldm","stm","rj","jz","ret","pus","nop"),
 			blut={add:"+", subtract:"-", multiply:"*", floordivide:"/", modulo:"%", cmpgt:">"}):
-			return "NIL" if self.op is None else "%s\t%s\t%s"%(names[self.op],blut[self.arg] if self.op==1 else self.arg,self.var)
+			return "%d"%id(self) if self.op is None else "%s\t%s\t%s"%(names[self.op],blut[self.arg] if self.op==1 else self.arg,self.var)
 		def eval(self, st):return ops[self.op](self, st, *((c if c is not None else st.pop() if st else 0) for c in self.var))
+		def emit(self, bc):return emits[self.op](self, bc)
 		def remove(self):
 			sn=self.n
 			sn.si.remove(self)
@@ -496,40 +558,54 @@ def main(pro):
 				elif s.op == 12:
 					for sa in 0,1,2:
 						if s.arg[sa] is self:s.arg[sa]=sn
-		def emit(self, bc):return emits[self.op](self, bc)
-	def compile(i,mv,tail):
+	def compile(i,mv):
+		def emit(op, arg=None):
+			nonlocal inst
+			pist.clear()
+			tail=inst
+			inst=Inst()
+			tail.op=op
+			tail.arg=arg
+			tail.n=inst
+			tail.var = ((),(None,),(None,None),(None,None,None))[si[op]]
+			inst.si.add(tail)
+			return tail
+		head=inst=Inst()
+		pist=[]
 		while True:
 			i=mv(i)
 			imv=i,mv
 			if imv in pg:
-				tail.n=pg[imv].n or tail
-				return tail.n.si.add(tail)
-			pg[imv]=tail
+				i2=pg[imv]
+				if inst is not i2:
+					for i in pist:pg[i]=i2
+					if inst is head:return i2
+					for i in inst.si:
+						i.n=i2
+						i2.si.add(i)
+				return head
+			pg[imv]=inst
+			pist.append(imv)
 			pro.add(i)
 			i2 = ps[i]
 			if 33<=i2<=126:
-				i2=b'\x10\x1d\x1f\x11\x0e\x17$$$\x0c\n\x15\x0b\x14\r\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\x12$"$ \x1a\x1e$$$$$$$$$$$$$$$$$$$$$$$$$$$\x13$!\x1c\x0f$$$$$$\x18$$$$$$$$\x19$$$$$#$$$$$\x1b$\x16'[i2-33]
-				if i2<10:tail=Inst(tail, 0, i2)
-				elif i2<16:tail=Inst(tail, 1, bins[i2-10])
-				elif i2<25:tail=Inst(tail, i2-14)
+				i2=b'\x10\x1d\x1f\x11\x0e\x17$$$\x0c\n\x15\x0b\x14\r\0\1\2\3\4\5\6\7\x08\t\x12$"$ \x1a\x1e$$$$$$$$$$$$$$$$$$$$$$$$$$$\x13$!\x1c\x0f$$$$$$\x18$$$$$$$$\x19$$$$$#$$$$$\x1b$\x16'[i2-33]
+				if i2<10:emit(0, i2)
+				elif i2<16:emit(1, bins[i2-10])
+				elif i2<25:emit(i2-14)
 				elif i2==36:continue
-				elif i2==25:tail=Inst(tail, 11, imv)
+				elif i2==25:emit(11, imv)
 				elif i2==26:
-					tail=Inst(tail, 12)
-					tail.arg=[Inst(),Inst(),Inst()]
-					compile(i,mvL,tail.arg[0])
-					compile(i,mvK,tail.arg[1])
-					compile(i,mvH,tail.arg[2])
+					i2=emit(12, [compile(i,mvL), compile(i,mvK), compile(i,mvH)])
+					for mv in i2.arg:mv.si.add(i2)
 					mv=mvJ
 				elif i2==27:
-					tail=Inst(tail, 13)
-					tail.arg=Inst()
-					compile(i,mvJ,tail.arg)
+					i2=emit(13, compile(i,mvJ))
+					i2.arg.si.add(i2)
 					mv=mvK
 				elif i2==28:
-					tail=Inst(tail, 13)
-					tail.arg=Inst()
-					compile(i,mvL,tail.arg)
+					i2=emit(13, compile(i,mvL))
+					i2.arg.si.add(i2)
 					mv=mvH
 				elif i2==29:
 					while True:
@@ -537,148 +613,202 @@ def main(pro):
 						pro.add(i)
 						i2=ps[i]
 						if i2==34:break
-						tail=Inst(tail, 0, i2)
-				elif i2==30:return Inst(tail, 14)
+						emit(0, i2)
+				elif i2==30:
+					emit(14)
+					return head
 				elif i2==31:i=mv(i)
 				elif i2==32:mv=mvL
 				elif i2==33:mv=mvK
 				elif i2==34:mv=mvH
 				else:mv=mvJ
-	def calcvar(rgsiop, cst, siop):
-		a=-1
-		b=-len(cst)
-		for x in rgsiop:
-			x=a-x
-			if x<=a+b:yield None
-			else:
-				c0,c1=cst[x]
-				yield c1
-				if c1 is not None:
-					del cst[x]
-					a+=1
-					c0.remove()
-	def peephole(ir, cst):
-		head=ir
-		while True:
-			if ir.op is None:
-				ir=ir.n
-				continue
-			if ir.sd is True:return head
-			ir.sd=True
-			op=ir.op
-			if 12<=op<=14 or len(ir.si)>1:
-				cst.clear()
-				ir.dep=0
-				if 12<=op<=14:
-					if op==14:return head
-					elif op==13:peephole(ir.arg, [])
-					else:
-						for op in ir.arg:peephole(op, [])
-					ir=ir.n
-					continue
-			else:ir.dep=len(cst)
-			if not op:
-				cst.append((ir, ir.arg))
-			elif op==4 and ir.n.op==3:
-				ir.op = None
-				ir.n.si.remove(ir)
-				ir.n.n.si.add(ir)
-				ir.n = ir.n.n
-			elif op==4 and ir.n.op==5:
-				ir.n.si.remove(ir)
-				ir.n.n.si.add(ir)
-				ir.n = ir.n.n
-			elif cst:
-				siop=si[op]
-				if not siop:
-					if so[op]:cst.append((ir, None))
+	def calcvar(lir, ir, cst):
+		def calcvarhelper():
+			a=-1
+			b=-len(cst)
+			for x in range(siop):
+				x=a-x
+				if x<=a+b:yield None
 				else:
-					rgsiop=range(siop)
-					for cs,(x,x) in zip(rgsiop, reversed(cst)):
-						if x is None:break
-					else:cs+=1
-					if cs:
-						if op==3:
-							del cst[-1]
-							ir.remove()
-						elif op==4:
-							ai,a=cst[-1]
-							ir.var=()
-							ir.arg=a
-							ir.op=0
-							cst.append((ir, a))
-						elif op==5 and cs>1:
-							ai,a=cst.pop()
-							bi,b=cst.pop()
-							ai.arg=b
-							bi.arg=a
-							ir.remove()
-							cst += (bi,a),(ai,b)
-						elif op in (6,7):
-							ai,a=cst.pop()
-							ai.remove()
-							ir.var=()
-							ir.arg=("%d " if op==6 else "%c")%a
-							op=ir.op=15
-						elif op==13:
-							ai,a=cst.pop()
-							ir.op=None
-							if a:ir.arg.si.remove(ir)
+					c0,c1=cst[x]
+					yield c1
+					if c1 is not None:
+						del cst[x]
+						c0.op=16
+						c0.var=()
+						a+=1
+		while ir.op == 16:
+			if lir is ir:return
+			ir.si.remove(lir)
+			ir=lir.n=ir.n
+			ir.si.add(lir)
+		if not cst:return
+		siop=ir.var.count(None)
+		if not siop:
+			ir.dep=len(cst)
+			return
+		print(lir.n is ir, lir in ir.si, lir, ir, [c[1] for c in cst], *ir.si)
+		if ir.op==13:
+			if cst[-1][1] is not None:
+				c0,c1=cst.pop()
+				print("#",lir, ir,"#",c0,"#", ir.n,ir.arg, [c[1] for c in cst])
+				c0.op=16
+				c0.var=()
+				lir.n = ir.n if c1 else ir.arg
+				lir.n.si.add(lir)
+				ir.si.remove(lir)
+				if not ir.si:
+					ir.n.si.remove(ir)
+					ir.arg.si.remove(ir)
+				return calcvar(lir, lir.n, cst)
+			elif len(ir.si)==1:ir.dep=len(cst)
+			return
+		elif ir.op==4 and ir.n.op in (3,5):
+			ir.n.si.remove(ir)
+			ir.n=ir.n.n
+			ir.n.si.add(ir)
+			if ir.n.op==3:
+				ir.remove()
+				return calcvar(lir, lir.n, cst)
+		if len(ir.si)>1:
+			print("~", lir, ",", lir.n, ":", ir, ",", ir.n, ":", *ir.si, lir in ir.si)
+			if any(a is not None for a,a in cst[-siop:]):
+				ir.si.remove(lir)
+				a=ir.n
+				lir.n=ir=Inst(ir.op, ir.arg)
+				ir.si.add(lir)
+				ir.n=a
+				a.si.add(ir)
+				print("~~", lir, ir, [c for c,c in cst])
+				return calcvar(lir, ir, cst)
+			else:return
+		ir.var=(*calcvarhelper(),)
+		ir.dep=len(cst)
+	def peephole(ir):
+		cst=[]
+		while True:
+			while True:
+				if ir.sd:return
+				op=ir.op
+				print("$",ir,[c[1] for c in cst])
+				if not op:
+					cst.append((ir, ir.arg))
+					break
+				elif op==13:
+					if ir.n is ir.arg:
+						op=ir.op=3
+						ir.arg=None
+					else:
+						ir.sd=True
+						peephole(ir.arg)
+						ir=ir.n
+						cst.clear()
+						continue
+				elif op==12:
+					ir.sd=True
+					for a in ir.arg:peephole(a)
+					ir=ir.n
+					cst.clear()
+					continue
+				elif op == 14:
+					ir.sd=True
+					return
+				if si[op]:
+					siop=ir.var.count(None)
+					if not siop:
+						if op<8:
+							if op==3:ir.remove()
+							elif op==4:
+								ir.sd=True
+								c=ir.var[0]
+								ir.op=0
+								ir.arg=c
+								ir.var=()
+								a=ir.n
+								ir.n=b=Inst(0, c)
+								b.si.add(ir)
+								b.n=a
+								a.si.remove(ir)
+								a.si.add(b)
+								cst += (ir, c), (b, c)
+								calcvar(b, a, cst)
+								ir=b.n
+								continue
+							elif op==5:
+								ir.sd=True
+								ir.op=0
+								ir.arg=ir.var[0]
+								a=ir.n
+								ir.n=b=Inst(0, ir.var[1])
+								b.si.add(ir)
+								b.n=a
+								a.si.remove(ir)
+								a.si.add(b)
+								cst += zip((b, a), ir.var)
+								ir.var=()
+								calcvar(b, a, cst)
+								ir=b.n
+								continue
+							elif op in (6,7):
+								ir.op=15
+								ir.arg=("%d " if op==6 else "%c")%ir.var
+								ir.var=()
 							else:
-								ir.n.si.remove(ir)
-								ir.n=ir.arg
-							ir.arg=None
-						else:
-							a=ir.var=(*calcvar(rgsiop, cst, siop),)
-							siop=a.count(None)
-							if not siop and op<6:
 								x=[]
 								ir.eval(x)
-								ir.var=()
+								ir.op=0
 								ir.arg=x[0]
-								op=ir.op=0
+								ir.var=()
 								cst.append((ir, ir.arg))
-							else:cst[-siop:]=repeat((ir,None), so[op])
-					else:
-						if siop>1:
-							ir.var=(*calcvar(rgsiop, cst, siop),)
-							siop=ir.var.count(None)
-						cst[-siop:]=repeat((ir,None), so[op])
-			else:cst+=repeat((ir,None), so[op])
+							break
+					elif len(ir.si)>1:
+						cst.clear()
+						ir.dep=0
+				cst[-siop:]=repeat((ir,None), so[op])
+				break
+			calcvar(ir, ir.n, cst)
+			ir.sd=True
 			ir=ir.n
-		return head
 	def execir(ir):
 		st=[]
 		while True:
-			while ir.op is None:ir=ir.n
 			ir=ir.eval(st)
 			if type(ir) is not Inst:return ir
 	def compile2(ir, bc):
-		while ir is not None:
-			if ir.op is None:
-				ir=ir.n
-				continue
-			if ir.sd is not True:
+		while True:
+			if ir.sd is not True and ir.sd is not False:
+				#print("%%%d jmp %d"%(len(bc), ir.sd))
 				bc += jumpabs(ir.sd)
 				return
 			ir.sd=len(bc)
+			#if len(ir.si)>1:print("\t",*ir.si)
+			#print("%%%d"%ir.sd, ir)
+			#if ir.op != 16:Inst(15, "%s\n"%ir).emit(bc)
 			if ir.emit(bc) is ...:return
 			ir=ir.n
 	empty={}
-	ir=Inst()
-	compile(2528,mvL,ir)
+	root=Inst()
+	root.n=ir=compile(2528,mvL)
+	ir.si.add(root)
 	bc=bytearray()
 	while True:
 		pg.clear()
-		peephole(ir,[])
+		peephole(ir)
+		#f=execir(ir)
 		bc += loadmkconst(0)
 		compile2(ir, bc)
 		f=FunctionType(CodeType(0,0,0,65536,0,bytes(bc),tuple(constl),(),(),"","",0,b""),empty)()
+		#from dis import dis;dis(f);f=f()
 		if f is None:return
 		bc.clear()
-		ir=tail=Inst()
-		for x in range(len(f)-1, 1, -1):tail=Inst(tail, 0, f[x])
-		compile(f[0], f[1], tail)
+		ir=tail=compile(f[0], f[1])
+		for x in range(2,len(f)):
+			ir=Inst(0, f[x])
+			tail.si.add(ir)
+			ir.n=tail
+			tail=ir
+		root.n=ir
+		ir.si.add(root)
 if __name__ == "__main__":
 	from sys import argv
 	main(open(argv[1],"rb"))
