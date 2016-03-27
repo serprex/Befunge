@@ -24,6 +24,7 @@ def main(pro):
 	from random import getrandbits
 	from itertools import repeat
 	from sys import stdout
+	from collections import defaultdict
 	sowrite = stdout.write
 	def mkemit(op):
 		op = opmap[op]
@@ -44,6 +45,7 @@ def main(pro):
 	subscr = mkemit("BINARY_SUBSCR")
 	stscr = mkemit("STORE_SUBSCR")
 	unpack2 = mkemit("UNPACK_SEQUENCE")(2)
+	tuple2 = mkemit("BUILD_TUPLE")(2)
 	fiter = mkemit("FOR_ITER")
 	lappend1 = mkemit("LIST_APPEND")(1)
 	blist1 = mkemit("BUILD_LIST_UNPACK")(1)
@@ -73,20 +75,31 @@ def main(pro):
 			a=consts[c]=len(constl).to_bytes(2,"little")
 			constl += c,
 			return a
-	ps = [32]*2560
+	ps = defaultdict(lambda:32)
+	X1=Y1=X0=Y0=0
 	for y,line in enumerate(pro):
-		if y>=25:break
+		Y1=y
 		for x,c in enumerate(line):
-			if x>=80:break
-			ps[x<<5|y]=c
+			if c!=32:ps[x,y]=c
+		X1=max(X1,x)
+	WID=X1+1
+	HEI=Y1+1
 	pg={}
 	consts={}
 	pro=set()
 	constl=[ps, pro]
-	mvL=lambda i:i-2528 if i>=2528 else i+32
-	mvK=lambda i:i-1 if i&31 else i+24
-	mvH=lambda i:i+2528 if i<32 else i-32
-	mvJ=lambda i:i+1 if (i&31)<24 else i-24
+	def mvL(x,y):
+		x+=1
+		return (x-WID if x>X1 else x),y
+	def mvK(x,y):
+		y-=1
+		return x,(y+HEI if y<Y0 else y)
+	def mvH(x,y):
+		x-=1
+		return (x+WID if x<X0 else x),y
+	def mvJ(x,y):
+		y+=1
+		return x,(y-HEI if y>Y1 else y)
 	si = b"\0\2\1\1\1\2\1\1\0\0\2\3\0\1\0\0\0"
 	so = b"\1\1\1\0\2\2\0\0\1\1\1\0\0\0\0\0\0"
 	bins = add, subtract, multiply, floordivide, modulo, cmpgt
@@ -127,16 +140,15 @@ def main(pro):
 		st.append(int(input()))
 		return self.n
 	def op10(self, st, a, b):
-		a|=b<<5
-		st.append(0<=a<2560 and ps[a])
+		a=b,a
+		st.append(ps[a])
 		return self.n
 	def op11(self, st, a, b, c):
-		a|=b<<5
-		if 0<=a<2560 and (a&31)<25:
-			ps[a]=c
-			if a in pro:
-				pro.clear()
-				return [*self.arg,*reversed(st)]
+		a=b,a
+		ps[a]=c
+		if a in pro:
+			pro.clear()
+			return [*self.arg,*reversed(st)]
 		return self.n
 	def op12(self, st):
 		c=getrandbits(2)
@@ -272,24 +284,10 @@ def main(pro):
 		bc += call0
 		bc += swap
 	def emit10h(bc):
-		bc += dup
-		bc += loadmkconst(0)
-		bc += cmplt
-		j1 = len(bc)+1
-		bc += jumpif
-		bc += dup
-		bc += loadmkconst(2560)
-		bc += cmpgte
-		j2 = len(bc)+1
-		bc += jumpif
+		bc += tuple2
 		bc += loadconst(0)
 		bc += swap
 		bc += subscr
-		j3 = len(bc)+1
-		bc += jump
-		bc[j1],bc[j1+1]=bc[j2],bc[j2+1]=len(bc).to_bytes(2,"little")
-		bc += _not
-		bc[j3],bc[j3+1]=len(bc).to_bytes(2,"little")
 		bc += swap
 	def emit10(self, bc):
 		a,b = self.var
@@ -298,46 +296,24 @@ def main(pro):
 			bc += loadmkconst(-1)
 			bc += add
 			bc += rot3
-			bc += swap
-			bc += loadmkconst(5)
-			bc += lshift
-			bc += bor
 			return emit10h(bc)
 		elif a is not None and b is not None:
 			bc += loadmkconst(1)
 			bc += add
-			a|=b<<5
-			if 0<=a<2560:
-				bc += loadconst(0)
-				bc += loadmkconst(a)
-				bc += subscr
-			else:bc += loadmkconst(0)
+			bc += loadconst(0)
+			bc += loadmkconst((b,a))
+			bc += subscr
 			bc += swap
 		elif a is not None:
 			if not self.dep:sguard(bc, 1)
 			bc += swap
-			if 0<=a<25:
-				bc += loadmkconst(5)
-				bc += lshift
-				if a:
-					bc += loadmkconst(a)
-					bc += bor
-				return emit10h(bc)
-			else:
-				bc += pop
-				bc += loadmkconst(0)
-				bc += swap
+			bc += loadmkconst(a)
+			return emit10h(bc)
 		else:
 			bc += swap
-			if 0<=b<80:
-				if b:
-					bc += loadmkconst(b<<5)
-					bc += bor
-				return emit10h(bc)
-			else:
-				bc += pop
-				bc += loadmkconst(0)
-				bc += swap
+			bc += loadmkconst(b)
+			bc += swap
+			return emit10h(bc)
 	def wmem(arg):
 		def f(s):
 			pro.clear()
@@ -367,27 +343,7 @@ def main(pro):
 			bc += loadmkconst(-3)
 			bc += add
 			bc += rot3
-			bc += swap
-			bc += loadmkconst(5)
-			bc += lshift
-			bc += bor
-			bc += dup
-			bc += loadmkconst(0)
-			bc += cmplt
-			j1 = len(bc)+1
-			bc += jumpif
-			bc += dup
-			bc += loadmkconst(2560)
-			bc += cmpgte
-			j2 = len(bc)+1
-			bc += jumpif
-			bc += dup
-			bc += loadmkconst(31)
-			bc += band
-			bc += loadmkconst(25)
-			bc += cmpgte
-			j3 = len(bc)+1
-			bc += jumpif
+			bc += tuple2
 			bc += swap
 			bc += rot3
 			bc += dup
@@ -401,21 +357,18 @@ def main(pro):
 			bc += jumpifnot
 			bc += loadmkconst(wmem(self.arg))
 			emit11ret(bc)
-			bc[j1],bc[j1+1]=bc[j2],bc[j2+1]=bc[j3],bc[j3+1]=len(bc).to_bytes(2,"little")
-			bc += pop
 			bc[j4],bc[j4+1]=len(bc).to_bytes(2,"little")
 		elif a is not None and b is not None:
-			a|=b<<5
+			a=b,a
 			if c is not None:
-				if 0<=a<2560:
-					bc += loadmkconst(c)
-					bc += loadconst(0)
-					bc += loadmkconst(a)
-					bc += stscr
-					if a in pro:
-						bc += loadmkconst(wmem(self.arg))
-						return emit11ret(bc)
-			elif 0<=a<2560:
+				bc += loadmkconst(c)
+				bc += loadconst(0)
+				bc += loadmkconst(a)
+				bc += stscr
+				if a in pro:
+					bc += loadmkconst(wmem(self.arg))
+					return emit11ret(bc)
+			else:
 				if not self.dep:sguard(bc, 1)
 				bc += loadmkconst(-1)
 				bc += add
@@ -426,7 +379,6 @@ def main(pro):
 				if a in pro:
 					bc += loadmkconst(wmem(self.arg))
 					return emit11ret(bc)
-			else:emit3(self, bc)
 		else:
 			if c is not None:
 				if not self.dep:sguard(bc, 1)
@@ -437,29 +389,11 @@ def main(pro):
 			bc += add
 			bc += swap
 			if b is None:
-				bc += loadmkconst(5)
-				bc += lshift
 				bc += loadmkconst(a)
 			else:
-				bc += loadmkconst(b<<5)
-			bc += bor
-			bc += dup
-			bc += loadmkconst(0)
-			bc += cmplt
-			j1 = len(bc)+1
-			bc += jumpif
-			bc += dup
-			bc += loadmkconst(2560)
-			bc += cmpgte
-			j2 = len(bc)+1
-			bc += jumpif
-			bc += dup
-			bc += loadmkconst(31)
-			bc += band
-			bc += loadmkconst(25)
-			bc += cmpgte
-			j3 = len(bc)+1
-			bc += jumpif
+				bc += loadmkconst(b)
+				bc += swap
+			bc += tuple2
 			bc += swap
 			bc += rot3
 			bc += dup
@@ -476,8 +410,6 @@ def main(pro):
 			bc += jumpifnot
 			bc += loadmkconst(wmem(self.arg))
 			emit11ret(bc)
-			bc[j1],bc[j1+1]=bc[j2],bc[j2+1]=bc[j3],bc[j3+1]=len(bc).to_bytes(2,"little")
-			if c is None:bc += pop
 			bc[j4],bc[j4+1]=len(bc).to_bytes(2,"little")
 	def emit12(self, bc):
 		bc += loadmkconst(getrandbits)
@@ -572,7 +504,7 @@ def main(pro):
 		head=inst=Inst()
 		pist=[]
 		while True:
-			i=mv(i)
+			i=mv(*i)
 			imv=i,mv
 			if imv in pg:
 				i2=pg[imv]
@@ -608,7 +540,7 @@ def main(pro):
 					mv=mvH
 				elif i2==29:
 					while True:
-						i=mv(i)
+						i=mv(*i)
 						pro.add(i)
 						i2=ps[i]
 						if i2==34:break
@@ -616,7 +548,7 @@ def main(pro):
 				elif i2==30:
 					emit(14)
 					return head
-				elif i2==31:i=mv(i)
+				elif i2==31:i=mv(*i)
 				elif i2==32:mv=mvL
 				elif i2==33:mv=mvK
 				elif i2==34:mv=mvH
@@ -688,6 +620,7 @@ def main(pro):
 				if ir.sd:return
 				op=ir.op
 				if not op:
+					if len(ir.si)>1:cst.clear()
 					cst.append((ir, ir.arg))
 					break
 				elif op==13:
@@ -734,7 +667,6 @@ def main(pro):
 							calcvar(ir, cst)
 							ir.remove()
 							ir=ir.n
-							ir.dep=len(cst)
 							continue
 						elif op==4:
 							ir.sd=True
@@ -743,16 +675,13 @@ def main(pro):
 							ir.arg=c
 							ir.var=()
 							a=ir.n
-							ir.n=b=Inst(0, c)
+							b=ir.n=Inst(0, c)
 							b.si.add(ir)
 							b.n=a
 							a.si.remove(ir)
 							a.si.add(b)
 							cst += (ir, c), (b, c)
-							calcvar(b, cst)
-							ir=b.n
-							ir.dep=len(cst)
-							continue
+							ir=b
 						elif op==5:
 							c,x=ir.var
 							ir.sd=True
@@ -760,17 +689,15 @@ def main(pro):
 							ir.arg=x
 							a=ir.n
 							ir.n=b=Inst(0, c)
+							b.sd=True
 							b.si.add(ir)
 							b.n=a
 							a.si.remove(ir)
 							a.si.add(b)
 							cst += (ir, x), (b, c)
 							ir.var=()
-							calcvar(b, cst)
-							ir=b.n
-							ir.dep=len(cst)
-							continue
-						elif op in (6,7):
+							ir=b
+						else:
 							ir.op=15
 							ir.arg=("%d " if op==6 else "%c")%ir.var
 							ir.var=()
@@ -798,7 +725,7 @@ def main(pro):
 			ir=ir.n
 	empty={}
 	root=Inst()
-	root.n=ir=compile(2528,mvL)
+	root.n=ir=compile((X1,0),mvL)
 	ir.si.add(root)
 	bc=bytearray()
 	while True:
@@ -809,7 +736,15 @@ def main(pro):
 		f=FunctionType(CodeType(0,0,0,65536,0,bytes(bc),tuple(constl),(),(),"","",0,b""),empty)()
 		if f is None:return
 		bc.clear()
-		ir=tail=compile(f[0], f[1])
+		ir=X0,Y0=X1,Y1=f[0]
+		for x,y in ps.keys():
+			X0=min(X0,x)
+			X1=max(X1,x)
+			Y0=min(Y0,y)
+			Y1=max(Y1,y)
+		WID=X1-X0+1
+		HEI=Y1-Y0+1
+		ir=tail=compile(ir, f[1])
 		for x in range(2,len(f)):
 			ir=Inst(0, f[x])
 			tail.si.add(ir)
