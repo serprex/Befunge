@@ -712,7 +712,25 @@ def main(pro):
 				siop=ir.var.count(None)
 				if not siop:
 					if op<8:
-						if op==3:
+						if op==1:
+							ir.op=0
+							c=ir.arg
+							a,b=ir.var
+							a=ir.arg=(b+a if c is add else
+								b-a if c is subtract else
+								b*a if c is multiply else
+								b>a if c is cmpgt else
+								0 if not a else
+								b//a if c is floordivide else b%a)
+							ir.var=()
+							cst.append((ir, a))
+						elif op==2:
+							ir.op=0
+							a,=ir.var
+							a=ir.arg=not a
+							ir.var=()
+							cst.append((ir, a))
+						elif op==3:
 							calcvar(ir, cst)
 							ir.remove()
 							ir=ir.n
@@ -756,13 +774,6 @@ def main(pro):
 							ir.op=15
 							ir.arg=("%d " if op==6 else "%c")%ir.var
 							ir.var=()
-						else:
-							x=[]
-							ir.eval(x)
-							ir.op=0
-							ir.arg=x[0]
-							ir.var=()
-							cst.append((ir, ir.arg))
 						break
 				elif len(ir.si)>1:
 					cst.clear()
