@@ -77,10 +77,9 @@ def main(pro):
 			return a
 	ps = defaultdict(lambda:32)
 	X1=Y1=X0=Y0=0
-	for y,line in enumerate(pro):
-		Y1=y
+	for Y1,line in enumerate(pro):
 		for x,c in enumerate(line):
-			if c!=32:ps[x,y]=c
+			if c!=32:ps[x,Y1]=c
 		X1=max(X1,x)
 	WID=X1+1
 	HEI=Y1+1
@@ -686,15 +685,14 @@ def main(pro):
 							c,x=ir.var
 							ir.sd=True
 							ir.op=0
-							ir.arg=x
+							ir.arg=c
 							a=ir.n
-							ir.n=b=Inst(0, c)
-							b.sd=True
+							ir.n=b=Inst(0, x)
 							b.si.add(ir)
 							b.n=a
 							a.si.remove(ir)
 							a.si.add(b)
-							cst += (ir, x), (b, c)
+							cst += (ir, c), (b, x)
 							ir.var=()
 							ir=b
 						else:
