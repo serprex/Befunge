@@ -186,7 +186,7 @@ def main(pro):
 		bc += swap
 	def emit1(self, bc):
 		a,b=self.var
-		if a is None and b is None:
+		if a is b is None:
 			if self.dep<2:sguard(bc, 2)
 			bc += loadmkconst(-1)
 			bc += add
@@ -229,7 +229,7 @@ def main(pro):
 		bc += swap
 	def emit5(self, bc):
 		a,b=self.var
-		if a is None and b is None:
+		if a is b is None:
 			if self.dep<2:sguard(bc, 2)
 			bc += rot3
 			bc += swap
@@ -290,7 +290,7 @@ def main(pro):
 		bc += swap
 	def emit10(self, bc):
 		a,b = self.var
-		if a is None and b is None:
+		if a is b is None:
 			if self.dep<2:sguard(bc, 2)
 			bc += loadmkconst(-1)
 			bc += add
@@ -337,7 +337,7 @@ def main(pro):
 		return ...
 	def emit11(self, bc):
 		a,b,c=self.var
-		if a is None and b is None and c is None:
+		if a is b is c is None:
 			if self.dep<3:sguard(bc, 3)
 			bc += loadmkconst(-3)
 			bc += add
@@ -361,47 +361,39 @@ def main(pro):
 			a=b,a
 			if c is not None:
 				bc += loadmkconst(c)
-				bc += loadconst(0)
-				bc += loadmkconst(a)
-				bc += stscr
-				if a in pro:
-					bc += loadmkconst(wmem(self.arg))
-					return emit11ret(bc)
 			else:
 				if not self.dep:sguard(bc, 1)
 				bc += loadmkconst(-1)
 				bc += add
 				bc += swap
-				bc += loadconst(0)
-				bc += loadmkconst(a)
-				bc += stscr
-				if a in pro:
-					bc += loadmkconst(wmem(self.arg))
-					return emit11ret(bc)
+			bc += loadconst(0)
+			bc += loadmkconst(a)
+			bc += stscr
+			if a in pro:
+				bc += loadmkconst(wmem(self.arg))
+				return emit11ret(bc)
 		else:
 			if c is not None:
 				if not self.dep:sguard(bc, 1)
 				bc += loadmkconst(-1)
-			elif self.dep<2:
-				sguard(bc, 2)
+			else:
+				if self.dep<2:sguard(bc, 2)
 				bc += loadmkconst(-2)
 			bc += add
-			bc += swap
+			bc += rot3 if c is None else swap
 			if b is None:
 				bc += loadmkconst(a)
 			else:
 				bc += loadmkconst(b)
 				bc += swap
 			bc += tuple2
-			bc += swap
-			bc += rot3
 			bc += dup
-			bc += rot3
-			bc += loadconst(0)
-			bc += swap
 			if c is not None:
 				bc += loadmkconst(c)
-				bc += rot3
+				bc += swap
+			else:bc += rot3
+			bc += loadconst(0)
+			bc += swap
 			bc += stscr
 			bc += loadconst(1)
 			bc += cmpin
@@ -513,6 +505,7 @@ def main(pro):
 					for i in inst.si:
 						i.n=i2
 						i2.si.add(i)
+				else:inst.n=inst
 				return head
 			pg[imv]=inst
 			pist.append(imv)
@@ -699,11 +692,12 @@ def main(pro):
 							ir.op=15
 							ir.arg=("%d " if op==6 else "%c")%ir.var
 							ir.var=()
-						break
-				elif len(ir.si)>1:
-					cst.clear()
-					ir.dep=0
-				cst[-siop:]=repeat((ir,None), so[op])
+					else:cst += repeat((ir, None), so[op])
+				else:
+					if len(ir.si)>1:
+						cst.clear()
+						ir.dep=0
+					cst[-siop:]=repeat((ir,None), so[op])
 				break
 			calcvar(ir, cst)
 			ir.sd=True
