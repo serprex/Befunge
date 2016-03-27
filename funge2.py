@@ -435,7 +435,6 @@ def main(pro):
 				sguard(bc, 2)
 				bc += loadmkconst(-2)
 			bc += add
-			bc += rot3
 			bc += swap
 			if b is None:
 				bc += loadmkconst(5)
