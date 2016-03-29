@@ -465,10 +465,8 @@ def main(pro):
 					bc += cmpgt
 					j1=len(bc)+1
 					bc += jumpif
-					bc += loadmkconst(1)
-					bc += add
-					bc += loadmkconst(0)
-					bc += swap
+					bc += _not
+					bc += loadmkconst(x+1)
 					bc[j1],bc[j1+1]=len(bc).to_bytes(2,"little")
 				else:
 					j1=len(bc)+1
