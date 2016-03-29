@@ -159,26 +159,6 @@ def main(pro):
 		return self.n
 	def op16(self, st):return self.n
 	ops = op0, op1, op2, op3, op4, op5, op6, op7, op8, op9, op10, op11, op12, op13, op14, op15, op16
-	def sguard(bc, x):
-		if x==1:
-			j1=len(bc)+1
-			bc += jumpiforpop
-			bc += loadmkconst(0)
-			bc += loadmkconst(1)
-			bc[j1],bc[j1+1]=len(bc).to_bytes(2,"little")
-		elif x:
-			j1=len(bc)+1
-			bc += jump
-			bc += loadmkconst(1)
-			bc += add
-			bc += loadmkconst(0)
-			bc += swap
-			bc[j1],bc[j1+1]=len(bc).to_bytes(2,"little")
-			bc += dup
-			bc += loadmkconst(x-1)
-			bc += cmpgt
-			bc += jumpifnot
-			bc[-2],bc[-1]=(j1+2).to_bytes(2,"little")
 	def emit0(self, bc):
 		bc += loadmkconst(1)
 		bc += add
@@ -187,7 +167,7 @@ def main(pro):
 	def emit1(self, bc):
 		a,b=self.var
 		if a is b is None:
-			if self.dep<2:sguard(bc, 2)
+			self.sguard(bc, 1)
 			bc += loadmkconst(-1)
 			bc += add
 			bc += rot3
@@ -195,7 +175,7 @@ def main(pro):
 			bc += swap
 		else:
 			if a is not None:
-				if not self.dep:sguard(bc, 1)
+				self.sguard(bc, 0)
 				bc += swap
 				bc += loadmkconst(a)
 			else:
@@ -205,7 +185,7 @@ def main(pro):
 			bc += self.arg
 			bc += swap
 	def emit2(self, bc):
-		if not self.dep:sguard(bc, 1)
+		self.sguard(bc, 0)
 		bc += swap
 		bc += _not
 		bc += swap
@@ -220,7 +200,7 @@ def main(pro):
 		bc += pop
 		if not self.dep:bc[jt],bc[jt+1]=len(bc).to_bytes(2,"little")
 	def emit4(self, bc):
-		if not self.dep:sguard(bc, 1)
+		self.sguard(bc, 0)
 		bc += loadmkconst(1)
 		bc += add
 		bc += swap
@@ -230,13 +210,13 @@ def main(pro):
 	def emit5(self, bc):
 		a,b=self.var
 		if a is b is None:
-			if self.dep<2:sguard(bc, 2)
+			self.sguard(bc, 1)
 			bc += rot3
 			bc += swap
 			bc += rot3
 			bc += rot3
 		elif a is not None:
-			if not self.dep:sguard(bc, 1)
+			self.sguard(bc, 0)
 			bc += loadmkconst(1)
 			bc += add
 			bc += loadmkconst(a)
@@ -247,7 +227,7 @@ def main(pro):
 			bc += loadmkconst(b)
 			bc += swap
 	def emit6(self, bc):
-		if not self.dep:sguard(bc, 1)
+		self.sguard(bc, 0)
 		bc += loadmkconst(-1)
 		bc += add
 		bc += swap
@@ -259,7 +239,7 @@ def main(pro):
 		bc += call1
 		bc += pop
 	def emit7(self, bc):
-		if not self.dep:sguard(bc, 1)
+		self.sguard(bc, 0)
 		bc += loadmkconst(-1)
 		bc += add
 		bc += swap
@@ -291,7 +271,7 @@ def main(pro):
 	def emit10(self, bc):
 		a,b = self.var
 		if a is b is None:
-			if self.dep<2:sguard(bc, 2)
+			self.sguard(bc, 1)
 			bc += loadmkconst(-1)
 			bc += add
 			bc += rot3
@@ -304,7 +284,7 @@ def main(pro):
 			bc += subscr
 			bc += swap
 		elif a is not None:
-			if not self.dep:sguard(bc, 1)
+			self.sguard(bc, 0)
 			bc += swap
 			bc += loadmkconst(a)
 			return emit10h(bc)
@@ -338,7 +318,7 @@ def main(pro):
 	def emit11(self, bc):
 		a,b,c=self.var
 		if a is b is c is None:
-			if self.dep<3:sguard(bc, 3)
+			self.sguard(bc, 2)
 			bc += loadmkconst(-3)
 			bc += add
 			bc += rot3
@@ -362,7 +342,7 @@ def main(pro):
 			if c is not None:
 				bc += loadmkconst(c)
 			else:
-				if not self.dep:sguard(bc, 1)
+				self.sguard(bc, 0)
 				bc += loadmkconst(-1)
 				bc += add
 				bc += swap
@@ -374,10 +354,10 @@ def main(pro):
 				return emit11ret(bc)
 		else:
 			if c is not None:
-				if not self.dep:sguard(bc, 1)
+				self.sguard(bc, 0)
 				bc += loadmkconst(-1)
 			else:
-				if self.dep<2:sguard(bc, 2)
+				self.sguard(bc, 1)
 				bc += loadmkconst(-2)
 			bc += add
 			bc += rot3 if c is None else swap
@@ -470,6 +450,39 @@ def main(pro):
 			return "%d"%id(self) if self.op is None else "%s\t%s\t%s"%(names[self.op],blut[self.arg] if self.op==1 else self.arg,self.var)
 		def eval(self, st):return ops[self.op](self, st, *((c if c is not None else st.pop() if st else 0) for c in self.var))
 		def emit(self, bc):return emits[self.op](self, bc)
+		def sguard(self, bc, x):
+			dep=self.dep
+			if dep<=x:
+				if not x:
+					j1=len(bc)+1
+					bc += jumpiforpop
+					bc += loadmkconst(0)
+					bc += loadmkconst(1)
+					bc[j1],bc[j1+1]=len(bc).to_bytes(2,"little")
+				elif x==dep:
+					bc += dup
+					bc += loadmkconst(x)
+					bc += cmpgt
+					j1=len(bc)+1
+					bc += jumpif
+					bc += loadmkconst(1)
+					bc += add
+					bc += loadmkconst(0)
+					bc += swap
+					bc[j1],bc[j1+1]=len(bc).to_bytes(2,"little")
+				else:
+					j1=len(bc)+1
+					bc += jump
+					bc += loadmkconst(1)
+					bc += add
+					bc += loadmkconst(0)
+					bc += swap
+					bc[j1],bc[j1+1]=len(bc).to_bytes(2,"little")
+					bc += dup
+					bc += loadmkconst(x)
+					bc += cmpgt
+					bc += jumpifnot
+					bc[-2],bc[-1]=(j1+2).to_bytes(2,"little")
 		def remove(self):
 			sn=self.n
 			sn.si.remove(self)
@@ -538,7 +551,8 @@ def main(pro):
 						if i2==34:break
 						emit(0, i2)
 				elif i2==30:
-					emit(14)
+					inst.op=14
+					inst.sd=True
 					return head
 				elif i2==31:i=mv(*i)
 				elif i2==32:mv=mvL
@@ -631,9 +645,6 @@ def main(pro):
 					ir=ir.n
 					cst.clear()
 					continue
-				elif op == 14:
-					ir.sd=True
-					return
 				siop=ir.var.count(None)
 				if not siop:
 					if op<8:
