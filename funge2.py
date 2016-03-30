@@ -321,16 +321,25 @@ def main(pro):
 		return ...
 	def emit11(self, bc):
 		a,b,c=self.var
-		if a is b is c is None:
-			self.sguard(bc, 2)
-			bc += loadmkconst(-3)
+		if a is b is None:
+			if c is None:
+				self.sguard(bc, 2)
+				bc += loadmkconst(-3)
+			else:
+				self.sguard(bc, 1)
+				bc += loadmkconst(-2)
 			bc += add
 			bc += rot3
 			bc += tuple2
-			bc += swap
-			bc += rot3
-			bc += dup
-			bc += rot3
+			if c is None:
+				bc += swap
+				bc += rot3
+				bc += dup
+				bc += rot3
+			else:
+				bc += dup
+				bc += loadmkconst(c)
+				bc += swap
 			bc += loadconst(0)
 			bc += swap
 			bc += stscr
