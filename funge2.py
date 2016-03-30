@@ -293,27 +293,31 @@ def main(pro):
 			bc += loadmkconst(b)
 			bc += swap
 			return emit10h(bc)
+	ret11pos = None
 	def wmem(arg):
 		def f(s):
-			pro.clear()
-			consts.clear()
-			del constl[2:]
+			nonlocal ret11pos
+			ret11pos=None
 			return iter(repeat(s,s)),[*arg]
 		return f
 	def emit11ret(bc):
-		bc += swap
-		bc += call1
-		bc += unpack2
-		j1 = len(bc).to_bytes(2,"little")
-		bc += fiter(10)
-		bc += pop
-		bc += rot3
-		bc += swap
-		bc += lappend1
-		bc += swap
-		bc += jump
-		bc[-2],bc[-1]=j1
-		bc += ret
+		nonlocal ret11pos
+		if ret11pos is None:
+			ret11pos = len(bc)
+			bc += swap
+			bc += call1
+			bc += unpack2
+			j1 = len(bc).to_bytes(2,"little")
+			bc += fiter(10)
+			bc += pop
+			bc += rot3
+			bc += swap
+			bc += lappend1
+			bc += swap
+			bc += jump
+			bc[-2],bc[-1]=j1
+			bc += ret
+		else:bc += jumpabs(ret11pos)
 		return ...
 	def emit11(self, bc):
 		a,b,c=self.var
@@ -643,6 +647,7 @@ def main(pro):
 					ir=ir.n
 					cst.clear()
 					continue
+				elif op==11:cst.clear()
 				siop=ir.var.count(None)
 				if not siop:
 					if op<8:
@@ -726,17 +731,21 @@ def main(pro):
 			ir=ir.n
 	empty={}
 	root=Inst()
-	root.n=ir=compile((X1,0),mvL)
-	ir.si.add(root)
+	ir=compile((X1,0),mvL)
 	bc=bytearray()
 	while True:
 		pg.clear()
+		root.n=ir
+		ir.si.add(root)
 		peephole(ir)
 		bc += loadmkconst(0)
 		compile2(ir, bc)
 		f=FunctionType(CodeType(0,0,0,65536,0,bytes(bc),tuple(constl),(),(),"","",0,b""),empty)()
 		if f is None:return
 		bc.clear()
+		pro.clear()
+		consts.clear()
+		del constl[2:]
 		ir=X0,Y0=X1,Y1=f[0]
 		for x,y in ps.keys():
 			X0=min(X0,x)
@@ -748,11 +757,9 @@ def main(pro):
 		ir=tail=compile(ir, f[1])
 		for x in range(2,len(f)):
 			ir=Inst(0, f[x])
-			tail.si.add(ir)
 			ir.n=tail
+			tail.si.add(ir)
 			tail=ir
-		root.n=ir
-		ir.si.add(root)
 if __name__ == "__main__":
 	from sys import argv
 	main(open(argv[1],"rb"))
