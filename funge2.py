@@ -656,7 +656,19 @@ def main(pro):
 					ir=ir.n
 					cst.clear()
 					continue
-				elif op==11:cst.clear()
+				elif op==11:
+					a,b,c=ir.var
+					if a is not None and b is not None:
+						if (b,a) in pro:
+							ir.sd=True
+							ir.n.si.remove(ir)
+							ir.n=None
+							return
+					else:cst.clear()
+					calcvar(ir, cst)
+					ir.sd=True
+					ir=ir.n
+					continue
 				siop=ir.var.count(None)
 				if not siop:
 					if op<8:
