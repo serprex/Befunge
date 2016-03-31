@@ -262,12 +262,7 @@ def main(pro):
 		bc += loadmkconst(intput)
 		bc += call0
 		bc += swap
-	def emit10h(bc):
-		bc += tuple2
-		bc += loadconst(0)
-		bc += swap
-		bc += subscr
-		bc += swap
+	emit10h = tuple2 + loadconst(0) + swap + subscr + swap
 	def emit10(self, bc):
 		a,b = self.var
 		if a is b is None:
@@ -275,7 +270,7 @@ def main(pro):
 			bc += loadmkconst(-1)
 			bc += add
 			bc += rot3
-			return emit10h(bc)
+			bc += emit10h
 		elif a is not None and b is not None:
 			bc += loadmkconst(1)
 			bc += add
@@ -287,19 +282,14 @@ def main(pro):
 			self.sguard(bc, 0)
 			bc += swap
 			bc += loadmkconst(a)
-			return emit10h(bc)
+			bc += emit10h
 		else:
 			bc += swap
 			bc += loadmkconst(b)
 			bc += swap
-			return emit10h(bc)
+			bc += emit10h
 	ret11pos = None
-	def wmem(arg):
-		def f(s):
-			nonlocal ret11pos
-			ret11pos=None
-			return iter(repeat(s,s)),[*arg]
-		return f
+	wmem = lambda arg:lambda s:(iter(repeat(s,s)),[*arg])
 	def emit11ret(bc):
 		nonlocal ret11pos
 		if ret11pos is None:
@@ -307,7 +297,7 @@ def main(pro):
 			bc += swap
 			bc += call1
 			bc += unpack2
-			j1 = len(bc).to_bytes(2,"little")
+			j1 = (ret11pos+7).to_bytes(2,"little")
 			bc += fiter(10)
 			bc += pop
 			bc += rot3
@@ -562,8 +552,11 @@ def main(pro):
 						if i2==34:break
 						emit(0, i2)
 				elif i2==30:
-					inst.op=14
-					inst.sd=True
+					for i in pist:pg[i]=node14
+					if inst is head:return node14
+					for i in inst.si:
+						i.n=node14
+						node14.si.add(i)
 					return head
 				elif i2==31:i=mv(*i)
 				elif i2==32:mv=mvL
@@ -769,6 +762,8 @@ def main(pro):
 			ir=ir.n
 	empty={}
 	root=Inst()
+	node14=Inst(14)
+	node14.sd=True
 	ir=compile((X1,0),mvL)
 	bc=bytearray()
 	while True:
@@ -780,6 +775,9 @@ def main(pro):
 		compile2(ir, bc)
 		f=FunctionType(CodeType(0,0,0,65536,0,bytes(bc),tuple(constl),(),(),"","",0,b""),empty)()
 		if f is None:return
+		ret11pos = None
+		node14.sd = True
+		node14.si.clear()
 		bc.clear()
 		pro.clear()
 		consts.clear()
