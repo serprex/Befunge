@@ -575,7 +575,7 @@ def main(pro):
 		def calcvarhelper():
 			a=-1
 			b=-len(cst)
-			for x in range(siop):
+			for x in range(si[ir.op]):
 				x=a-x
 				if x<=a+b:yield None
 				else:
@@ -592,8 +592,7 @@ def main(pro):
 			ir=lir.n=ir.n
 			ir.si.add(lir)
 		if not cst:return
-		siop=ir.var.count(None)
-		if not siop:
+		if not ir.var:
 			ir.dep=len(cst)
 			return
 		if ir.op==13:
@@ -610,16 +609,34 @@ def main(pro):
 				return calcvar(lir, cst)
 			elif len(ir.si)==1:ir.dep=len(cst)
 			return
-		elif ir.op==4 and ir.n.op in (3,5):
-			opn=ir.n.op
-			ir.n.si.remove(ir)
-			ir.n=ir.n.n
-			ir.n.si.add(ir)
-			if opn==3:
-				ir.remove()
-				return calcvar(lir, cst)
+		elif ir.op==4:
+			if ir.n.op in (3,5):
+				opn=ir.n.op
+				ir.n.si.remove(ir)
+				ir.n=ir.n.n
+				ir.n.si.add(ir)
+				if opn==3:
+					ir.remove()
+					return calcvar(lir, cst)
+			else:
+				b=cst[-1][1]
+				if b is not None:
+					if len(ir.si)>1:
+						ir.si.remove(lir)
+						a=ir.n
+						lir.n=ir=Inst(0, b)
+						ir.si.add(lir)
+						ir.n=a
+						a.si.add(ir)
+						return
+					else:
+						ir.op=0
+						ir.arg=b
+						ir.var=()
+				elif len(ir.si)==1:ir.dep=len(cst)
+				return
 		if len(ir.si)>1:
-			if any(a is not None for a,a in cst[-siop:]):
+			if any(a is not None for a,a in cst[-si[ir.op]:]):
 				ir.si.remove(lir)
 				a=ir.n
 				lir.n=ir=Inst(ir.op, ir.arg)
