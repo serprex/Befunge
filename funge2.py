@@ -50,6 +50,7 @@ def main(pro):
 	lappend1 = mkemit("LIST_APPEND")(1)
 	blist1 = mkemit("BUILD_LIST_UNPACK")(1)
 	_not = mkemit("UNARY_NOT")
+	_neg = mkemit("UNARY_NEGATIVE")
 	ret = mkemit("RETURN_VALUE")
 	cmp = mkemit("COMPARE_OP")
 	cmplt = cmp(0)
@@ -68,6 +69,7 @@ def main(pro):
 	jumpifnotorpop = opmap["JUMP_IF_FALSE_OR_POP"].to_bytes(3,"little")
 	jumpif = opmap["POP_JUMP_IF_TRUE"].to_bytes(3,"little")
 	jumpifnot = opmap["POP_JUMP_IF_FALSE"].to_bytes(3,"little")
+	addply = add + multiply
 	def mkconst(c):
 		nonlocal constl
 		if c in consts:return consts[c]
@@ -111,7 +113,6 @@ def main(pro):
 			b-a if arg is subtract else
 			b*a if arg is multiply else
 			b>a if arg is cmpgt else
-			0 if not a else
 			b//a if arg is floordivide else b%a)
 		return self.n
 	def op2(self, st, a):
@@ -176,12 +177,16 @@ def main(pro):
 		else:
 			if a is not None:
 				self.sguard(bc, 0)
+				if not a and self.arg is subtract:
+					bc += _neg
+					bc += swap
+					return
 				bc += swap
 				bc += loadmkconst(a)
 			else:
 				bc += swap
 				bc += loadmkconst(b)
-				bc += swap
+				if self.arg not in addply:bc += swap
 			bc += self.arg
 			bc += swap
 	def emit2(self, bc):
