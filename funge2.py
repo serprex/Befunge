@@ -26,6 +26,7 @@ def main(pro):
 	from sys import stdout
 	from collections import defaultdict
 	sowrite = stdout.write
+	intput=lambda:int(input())
 	def mkemit(op):
 		op = opmap[op]
 		return op.to_bytes(1,"little") if op<HAVE_ARGUMENT else lambda a:(op|a<<8).to_bytes(3,"little")
@@ -104,15 +105,15 @@ def main(pro):
 	bins = add, subtract, multiply, floordivide, modulo, cmpgt
 	class Inst:
 		__slots__ = "n", "arg", "var", "sd", "dep", "si"
-		def __init__(self, arg=None):
-			self.arg = self.n = None
+		def __init__(self, arg):
+			self.n = None
+			self.arg = arg
 			self.var = self.novar
 			self.sd = False
 			self.dep = 0
 			self.si = set()
-		def __str__(self, names=("ld","bin","not","pop","dup","swp","pui","puc","gc","gi","ldm","stm","rj","jz","ret","pus","nop"),
-			blut={add:"+", subtract:"-", multiply:"*", floordivide:"/", modulo:"%", cmpgt:">"}):
-			return "%s\t%s\t%s"%(names[self.op],blut[self.arg] if self.op==1 else self.arg,self.var)
+		def __str__(self, blut= {add:"+", subtract:"-", multiply:"*", floordivide:"/", modulo:"%", cmpgt:">"}):
+			return "%s\t%s\t%s"%(self.name,blut[self.arg] if self.op==1 else self.arg,self.var)
 		def eval(self, st):return self.eva(st, *((c if c is not None else st.pop() if st else 0) for c in self.var))
 		def sguard(self, bc, x):
 			dep=self.dep
@@ -155,19 +156,18 @@ def main(pro):
 				elif s.op == 12:
 					for sa in 0,1,2:
 						if s.arg[sa] is self:s.arg[sa]=sn
+	def mkin(op, siop, so, name):
+		def f(cls):
+			cls.op = op
+			cls.siop = siop
+			cls.so = so
+			cls.name = name
+			cls.novar = ((), (None,), (None, None), (None, None, None))[siop]
+			return cls
+		return f
+	@mkin(0, 0, 1, "ld")
 	class Op0(Inst):
 		__slots__ = ()
-		op=0
-		siop=0
-		so=1
-		novar=()
-		def __init__(self, arg):
-			self.n = None
-			self.arg = arg
-			self.var = ()
-			self.sd = False
-			self.dep = 0
-			self.si = set()
 		def emit(self, bc):
 			bc += loadmkconst(1)
 			bc += add
@@ -176,19 +176,9 @@ def main(pro):
 		def eva(self, st):
 			st.append(self.arg)
 			return self.n
+	@mkin(1, 2, 1, "bin")
 	class Op1(Inst):
 		__slots__ = ()
-		op=1
-		siop=2
-		so=1
-		novar=(None, None)
-		def __init__(self, arg):
-			self.n = None
-			self.arg = arg
-			self.var = self.novar
-			self.sd = False
-			self.dep = 0
-			self.si = set()
 		def emit(self, bc):
 			a,b=self.var
 			if a is b is None:
@@ -221,12 +211,9 @@ def main(pro):
 				b>a if arg is cmpgt else
 				b//a if arg is floordivide else b%a)
 			return self.n
+	@mkin(2, 1, 1, "not")
 	class Op2(Inst):
 		__slots__ = ()
-		op=2
-		si=1
-		so=1
-		novar=(None,)
 		def emit(self, bc):
 			self.sguard(bc, 0)
 			bc += swap
@@ -235,12 +222,9 @@ def main(pro):
 		def eva(self, st, a):
 			st.append(not a)
 			return self.n
+	@mkin(3, 1, 0, "pop")
 	class Op3(Inst):
 		__slots__ = ()
-		op=3
-		siop=1
-		so=0
-		novar=(None,)
 		def emit(self, bc):
 			if not self.dep:
 				bc += dup
@@ -252,12 +236,9 @@ def main(pro):
 			bc += pop
 			if not self.dep:bc[jt],bc[jt+1]=len(bc).to_bytes(2,"little")
 		def eva(self, st, a):return self.n
+	@mkin(4, 1, 2, "dup")
 	class Op4(Inst):
 		__slots__ = ()
-		op=4
-		siop=1
-		so=2
-		novar=(None,)
 		def emit(self, bc):
 			self.sguard(bc, 0)
 			bc += loadmkconst(1)
@@ -270,12 +251,9 @@ def main(pro):
 			st.append(a)
 			st.append(a)
 			return self.n
+	@mkin(5, 2, 2, "swp")
 	class Op5(Inst):
 		__slots__ = ()
-		op=5
-		siop=2
-		so=2
-		novar=(None, None)
 		def emit(self, bc):
 			a,b=self.var
 			if a is b is None:
@@ -299,71 +277,45 @@ def main(pro):
 			st.append(a)
 			st.append(b)
 			return self.n
+	@mkin(6, 1, 0, "pr")
 	class Op6(Inst):
 		__slots__ = ()
-		op=6
-		siop=1
-		so=0
-		novar=(None,)
-		def __init__(self, arg):
-			self.n = None
-			self.arg = arg
-			self.var = (None,)
-			self.sd = False
-			self.dep = 0
-			self.si = set()
 		def emit(self, bc):
-			self.sguard(bc, 0)
-			bc += loadmkconst(-1)
-			bc += add
-			bc += swap
-			bc += loadmkconst(self.arg)
-			bc += swap
-			bc += modulo
-			bc += loadmkconst(sowrite)
-			bc += swap
+			a, = self.var
+			if a is None:
+				self.sguard(bc, 0)
+				bc += loadmkconst(-1)
+				bc += add
+				bc += swap
+				bc += loadmkconst(self.arg)
+				bc += swap
+				bc += modulo
+				bc += loadmkconst(sowrite)
+				bc += swap
+			else:
+				bc += loadmkconst(sowrite)
+				bc += loadmkconst(self.arg%a)
 			bc += call1
 			bc += pop
 		def eva(self, st, a):
 			sowrite(self.arg%a)
 			return self.n
+	@mkin(8, 0, 1, "get")
 	class Op8(Inst):
 		__slots__ = ()
-		op=8
-		siop=0
-		so=1
-		novar=()
 		def emit(self, bc):
 			bc += loadmkconst(1)
 			bc += add
-			bc += loadmkconst(getch)
+			bc += loadmkconst(self.arg)
 			bc += call0
 			bc += swap
 		def eva(self, st):
-			st.append(getch())
-			return self.n
-	class Op9(Inst):
-		__slots__ = ()
-		op=9
-		siop=0
-		so=1
-		novar=()
-		def emit(self, bc, intput=lambda:int(input())):
-			bc += loadmkconst(1)
-			bc += add
-			bc += loadmkconst(intput)
-			bc += call0
-			bc += swap
-		def eva(self, st):
-			st.append(int(input()))
+			st.append(self.arg())
 			return self.n
 	emit10h = tuple2 + loadconst(0) + swap + subscr + swap
+	@mkin(10, 2, 1, "rem")
 	class Op10(Inst):
 		__slots__ = ()
-		op=10
-		siop=2
-		so=1
-		novar=(None, None)
 		def emit(self, bc):
 			a,b = self.var
 			if a is b is None:
@@ -414,12 +366,9 @@ def main(pro):
 			bc += ret
 		else:bc += jumpabs(ret11pos)
 		return ...
+	@mkin(11, 3, 0, "wem")
 	class Op11(Inst):
 		__slots__ = ()
-		op=11
-		siop=3
-		so=0
-		novar=(None, None, None)
 		def emit(self, bc):
 			a,b,c=self.var
 			if a is b is None:
@@ -503,19 +452,9 @@ def main(pro):
 				pro.clear()
 				return [*self.arg,*reversed(st)]
 			return self.n
+	@mkin(12, 0, 0, "jr")
 	class Op12(Inst):
 		__slots__ = ()
-		op=12
-		siop=0
-		so=0
-		novar=()
-		def __init__(self, arg):
-			self.n = None
-			self.arg = arg
-			self.var = self.novar
-			self.sd = False
-			self.dep = 0
-			self.si = set()
 		def emit(self, bc):
 			bc += loadmkconst(getrandbits)
 			bc += loadmkconst(2)
@@ -546,19 +485,9 @@ def main(pro):
 		def eva(self, st):
 			c=getrandbits(2)
 			return self.n if c==3 else self.arg[c]
+	@mkin(13, 1, 0, "jz")
 	class Op13(Inst):
 		__slots__ = ()
-		op=13
-		siop=1
-		so=0
-		novar=(None,)
-		def __init__(self, arg):
-			self.n = None
-			self.arg = arg
-			self.var = self.novar
-			self.sd = False
-			self.dep = 0
-			self.si = set()
 		def emit(self, bc):
 			j1 = len(bc)+1
 			bc += jumpiforpop
@@ -575,65 +504,32 @@ def main(pro):
 			compile2(self.arg, bc)
 			bc[j2],bc[j2+1]=len(bc).to_bytes(2,"little")
 		def eva(self, st, a):return self.n if a else self.arg
+	@mkin(14, 0, 0, "ret")
 	class Op14(Inst):
 		__slots__ = ()
-		op=14
-		siop=0
-		so=0
-		novar=()
 		def emit(self, bc):
 			bc += loadmkconst(None)
 			bc += ret
 			return ...
 		def eva(self, st):return
-	class Op15(Inst):
-		__slots__ = ()
-		op=15
-		siop=0
-		so=0
-		novar=()
-		def __init__(self, arg):
-			self.n = None
-			self.arg = arg
-			self.var = self.novar
-			self.sd = False
-			self.dep = 0
-			self.si = set()
-		def emit(self, bc):
-			bc += loadmkconst(sowrite)
-			bc += loadmkconst(self.arg)
-			bc += call1
-			bc += pop
-		def eva(self, st):
-			sowrite(self.arg)
-			return self.n
+	@mkin(16, 0, 0, "nop")
 	class Op16(Inst):
 		__slots__ = ()
-		op=16
-		siop=0
-		so=0
-		novar=()
-		def __init__(self):
-			self.n = None
-			self.sd = False
-			self.dep = 0
-			self.si = set()
 		def emit(self, bc):return
 		def eva(self, st):return self.n
-	emits = Op0, Op1, Op2, Op3, Op4, Op5, Op6, None, Op8, Op9, Op10, Op11, Op12, Op13, Op14, Op15, Op16
 	def compile(i,mv):
 		def emit(op, arg=None):
 			nonlocal inst
 			pist.clear()
 			tail=inst
-			inst=Op16()
+			inst=Op16(None)
 			tail.__class__=op
 			tail.n=inst
 			tail.arg=arg
 			tail.var=tail.novar
 			inst.si.add(tail)
 			return tail
-		head=inst=Op16()
+		head=inst=Op16(None)
 		pist=[]
 		while True:
 			i=mv(*i)
@@ -656,41 +552,43 @@ def main(pro):
 				i2=b'\x10\x1d\x1f\x11\x0e\x17$$$\x0c\n\x15\x0b\x14\r\0\1\2\3\4\5\6\7\x08\t\x12$"$ \x1a\x1e$$$$$$$$$$$$$$$$$$$$$$$$$$$\x13$!\x1c\x0f$$$$$$\x18$$$$$$$$\x19$$$$$#$$$$$\x1b$\x16'[i2-33]
 				if i2<10:emit(Op0, i2)
 				elif i2<16:emit(Op1, bins[i2-10])
-				elif i2 in (20,21):emit(Op6, ("%c" if i2==21 else "%d "))
-				elif i2<25:emit(emits[i2-14])
-				elif i2==36:continue
+				elif i2>28:
+					if i2==31:i=mv(*i)
+					elif i2==36:continue
+					elif i2>31:mv = mvL if i2==32 else mvK if i2==33 else mvH if i2==34 else mvJ
+					elif i2==29:
+						while True:
+							i=mv(*i)
+							pro.add(i)
+							i2=ps[i]
+							if i2==34:break
+							emit(Op0, i2)
+					elif i2==30:
+						for i in pist:pg[i]=node14
+						if inst is head:return node14
+						for i in inst.si:
+							i.n=node14
+							node14.si.add(i)
+						return head
+				elif i2<24:
+					if i2<20:emit(Op2 if i2==16 else Op3 if i2==17 else Op4 if i2==18 else Op5)
+					elif i2<22:emit(Op6, ("%c" if i2==21 else "%d "))
+					else:emit(Op8, (intput if i2==23 else getch))
+				elif i2>26:
+					if i2==27:
+						i2=mvJ
+						mv=mvK
+					else:
+						i2=mvL
+						mv=mvH
+					i2=emit(Op13, compile(i,i2))
+					i2.arg.si.add(i2)
+				elif i2==24:emit(Op10)
 				elif i2==25:emit(Op11, imv)
 				elif i2==26:
 					i2=emit(Op12, (compile(i,mvL), compile(i,mvK), compile(i,mvH)))
 					for mv in i2.arg:mv.si.add(i2)
 					mv=mvJ
-				elif i2==27:
-					i2=emit(Op13, compile(i,mvJ))
-					i2.arg.si.add(i2)
-					mv=mvK
-				elif i2==28:
-					i2=emit(Op13, compile(i,mvL))
-					i2.arg.si.add(i2)
-					mv=mvH
-				elif i2==29:
-					while True:
-						i=mv(*i)
-						pro.add(i)
-						i2=ps[i]
-						if i2==34:break
-						emit(Op0, i2)
-				elif i2==30:
-					for i in pist:pg[i]=node14
-					if inst is head:return node14
-					for i in inst.si:
-						i.n=node14
-						node14.si.add(i)
-					return head
-				elif i2==31:i=mv(*i)
-				elif i2==32:mv=mvL
-				elif i2==33:mv=mvK
-				elif i2==34:mv=mvH
-				else:mv=mvJ
 	def calcvar(lir, cst):
 		if not cst:return
 		ir=lir.n
@@ -732,11 +630,11 @@ def main(pro):
 			return
 		elif ir.op==4:
 			if ir.n.op in (3,5):
-				opn=ir.n.op
+				a=ir.n.op
 				ir.n.si.remove(ir)
 				ir.n=ir.n.n
 				ir.n.si.add(ir)
-				if opn==3:
+				if a==3:
 					ir.remove()
 					return calcvar(lir, cst)
 			else:
@@ -810,7 +708,7 @@ def main(pro):
 					continue
 				siop=ir.var.count(None)
 				if not siop:
-					if op<8:
+					if op<6:
 						if op==1:
 							ir.__class__=Op0
 							c=ir.arg
@@ -862,16 +760,12 @@ def main(pro):
 							cst += (ir, c), (b, x)
 							ir.var=()
 							ir=b
-						else:
-							ir.arg%=ir.var
-							ir.__class__=Op15
-							ir.var=()
 					else:cst += repeat((ir, None), ir.so)
-				else:
-					if len(ir.si)>1:
-						cst.clear()
-						ir.dep=0
-					cst[-siop:]=repeat((ir,None), ir.so)
+				elif len(ir.si)>1:
+					ir.dep=0
+					cst.clear()
+					cst += repeat((ir, None), ir.so)
+				else:cst[-siop:]=repeat((ir,None), ir.so)
 				break
 			calcvar(ir, cst)
 			ir.sd=True
@@ -890,12 +784,12 @@ def main(pro):
 			if ir.emit(bc) is ...:return
 			ir=ir.n
 	empty={}
-	root=Op16()
-	node14=Op14()
+	root=Op16(None)
+	node14=Op14(None)
 	ir=compile((X1,0),mvL)
 	bc=bytearray()
 	while True:
-		node14.sd = True
+		node14.sd=True
 		pg.clear()
 		root.n=ir
 		ir.si.add(root)
