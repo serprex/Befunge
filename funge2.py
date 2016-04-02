@@ -113,7 +113,7 @@ def main(pro):
 			self.dep = 0
 			self.si = set()
 		def __str__(self, blut= {add:"+", subtract:"-", multiply:"*", floordivide:"/", modulo:"%", cmpgt:">"}):
-			return "%s\t%s\t%s"%(self.name,blut[self.arg] if self.op==1 else self.arg,self.var)
+			return "%s\t%s\t%s"%(self.name,blut[self.arg] if self.op is 1 else self.arg,self.var)
 		def eval(self, st):return self.eva(st, *((c if c is not None else st.pop() if st else 0) for c in self.var))
 		def sguard(self, bc, x):
 			dep=self.dep
@@ -124,7 +124,7 @@ def main(pro):
 					bc += loadmkconst(0)
 					bc += loadmkconst(1)
 					bc[j1],bc[j1+1]=len(bc).to_bytes(2,"little")
-				elif x==dep:
+				elif x is dep:
 					bc += dup
 					bc += loadmkconst(x)
 					bc += cmpgt
@@ -153,7 +153,7 @@ def main(pro):
 				sn.si.add(s)
 				if s.n is self:s.n=sn
 				if s.arg is self:s.arg=sn
-				elif s.op == 12:
+				elif s.op is 12:
 					for sa in 0,1,2:
 						if s.arg[sa] is self:s.arg[sa]=sn
 	def mkin(op, siop, so, name):
@@ -484,7 +484,7 @@ def main(pro):
 			bc += pop
 		def eva(self, st):
 			c=getrandbits(2)
-			return self.n if c==3 else self.arg[c]
+			return self.n if c is 3 else self.arg[c]
 	@mkin(13, 1, 0, "jz")
 	class Op13(Inst):
 		__slots__ = ()
@@ -553,17 +553,17 @@ def main(pro):
 				if i2<10:emit(Op0, i2)
 				elif i2<16:emit(Op1, bins[i2-10])
 				elif i2>28:
-					if i2==31:i=mv(*i)
-					elif i2==36:continue
-					elif i2>31:mv = mvL if i2==32 else mvK if i2==33 else mvH if i2==34 else mvJ
-					elif i2==29:
+					if i2 is 31:i=mv(*i)
+					elif i2 is 36:continue
+					elif i2>31:mv = mvL if i2 is 32 else mvK if i2 is 33 else mvH if i2 is 34 else mvJ
+					elif i2 is 29:
 						while True:
 							i=mv(*i)
 							pro.add(i)
 							i2=ps[i]
-							if i2==34:break
+							if i2 is 34:break
 							emit(Op0, i2)
-					elif i2==30:
+					elif i2 is 30:
 						for i in pist:pg[i]=node14
 						if inst is head:return node14
 						for i in inst.si:
@@ -571,11 +571,11 @@ def main(pro):
 							node14.si.add(i)
 						return head
 				elif i2<24:
-					if i2<20:emit(Op2 if i2==16 else Op3 if i2==17 else Op4 if i2==18 else Op5)
-					elif i2<22:emit(Op6, ("%c" if i2==21 else "%d "))
-					else:emit(Op8, (intput if i2==23 else getch))
+					if i2<20:emit(Op2 if i2 is 16 else Op3 if i2 is 17 else Op4 if i2 is 18 else Op5)
+					elif i2<22:emit(Op6, ("%c" if i2 is 21 else "%d "))
+					else:emit(Op8, (intput if i2 is 23 else getch))
 				elif i2>26:
-					if i2==27:
+					if i2 is 27:
 						i2=mvJ
 						mv=mvK
 					else:
@@ -583,9 +583,9 @@ def main(pro):
 						mv=mvH
 					i2=emit(Op13, compile(i,i2))
 					i2.arg.si.add(i2)
-				elif i2==24:emit(Op10)
-				elif i2==25:emit(Op11, imv)
-				elif i2==26:
+				elif i2 is 24:emit(Op10)
+				elif i2 is 25:emit(Op11, imv)
+				elif i2 is 26:
 					i2=emit(Op12, (compile(i,mvL), compile(i,mvK), compile(i,mvH)))
 					for mv in i2.arg:mv.si.add(i2)
 					mv=mvJ
@@ -606,7 +606,7 @@ def main(pro):
 						c0.__class__ = Op16
 						c0.var=()
 						a+=1
-		while ir.op == 16:
+		while ir.op is 16:
 			if lir is ir:return
 			ir.si.remove(lir)
 			ir=lir.n=ir.n
@@ -614,7 +614,7 @@ def main(pro):
 		if not ir.var:
 			ir.dep=len(cst)
 			return
-		if ir.op==13:
+		if ir.op is 13:
 			if cst[-1][1] is not None:
 				c0,c1=cst.pop()
 				c0.__class__=Op16
@@ -626,15 +626,15 @@ def main(pro):
 					ir.n.si.remove(ir)
 					ir.arg.si.remove(ir)
 				return calcvar(lir, cst)
-			elif len(ir.si)==1:ir.dep=len(cst)
+			elif len(ir.si) is 1:ir.dep=len(cst)
 			return
-		elif ir.op==4:
+		elif ir.op is 4:
 			if ir.n.op in (3,5):
 				a=ir.n.op
 				ir.n.si.remove(ir)
 				ir.n=ir.n.n
 				ir.n.si.add(ir)
-				if a==3:
+				if a is 3:
 					ir.remove()
 					return calcvar(lir, cst)
 			else:
@@ -652,7 +652,7 @@ def main(pro):
 						ir.__class__=Op0
 						ir.arg=b
 						ir.var=()
-				elif len(ir.si)==1:ir.dep=len(cst)
+				elif len(ir.si) is 1:ir.dep=len(cst)
 				return
 		if len(ir.si)>1:
 			if any(a is not None for a,a in cst[-ir.siop:]):
@@ -676,7 +676,7 @@ def main(pro):
 					if len(ir.si)>1:cst.clear()
 					cst.append((ir, ir.arg))
 					break
-				elif op==13:
+				elif op is 13:
 					if ir.n is ir.arg:
 						op=3
 						ir.__class__=Op3
@@ -687,13 +687,13 @@ def main(pro):
 						ir=ir.n
 						cst.clear()
 						continue
-				elif op==12:
+				elif op is 12:
 					ir.sd=True
 					for a in ir.arg:peephole(a)
 					ir=ir.n
 					cst.clear()
 					continue
-				elif op==11:
+				elif op is 11:
 					a,b,c=ir.var
 					if a is not None and b is not None:
 						if (b,a) in pro:
@@ -709,7 +709,7 @@ def main(pro):
 				siop=ir.var.count(None)
 				if not siop:
 					if op<6:
-						if op==1:
+						if op is 1:
 							ir.__class__=Op0
 							c=ir.arg
 							a,b=ir.var
@@ -721,18 +721,18 @@ def main(pro):
 								b//a if c is floordivide else b%a)
 							ir.var=()
 							cst.append((ir, a))
-						elif op==2:
+						elif op is 2:
 							ir.__class__=Op0
 							a,=ir.var
 							a=ir.arg=not a
 							ir.var=()
 							cst.append((ir, a))
-						elif op==3:
+						elif op is 3:
 							calcvar(ir, cst)
 							ir.remove()
 							ir=ir.n
 							continue
-						elif op==4:
+						elif op is 4:
 							ir.sd=True
 							c,=ir.var
 							ir.__class__=Op0
@@ -746,7 +746,7 @@ def main(pro):
 							a.si.add(b)
 							cst += (ir, c), (b, c)
 							ir=b
-						elif op==5:
+						elif op is 5:
 							c,x=ir.var
 							ir.sd=True
 							ir.__class__=Op0
