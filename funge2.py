@@ -66,7 +66,7 @@ def main(pro):
 	call2 = call(2)
 	loadconst = mkemit("LOAD_CONST")
 	jumpabs = mkemit("JUMP_ABSOLUTE")
-	jump = jumpabs(0)
+	jump = b"q\0\0"
 	jumpiforpop = opmap["JUMP_IF_TRUE_OR_POP"].to_bytes(3,"little")
 	jumpifnotorpop = opmap["JUMP_IF_FALSE_OR_POP"].to_bytes(3,"little")
 	jumpif = opmap["POP_JUMP_IF_TRUE"].to_bytes(3,"little")
@@ -146,7 +146,7 @@ def main(pro):
 					bc += loadmkconst(x)
 					bc += cmpgt
 					bc += jumpifnot
-					bc[-2],bc[-1]=(j1+2).to_bytes(2,"little")
+					bc[-2:]=(j1+2).to_bytes(2,"little")
 		def remove(self):
 			sn=self.n
 			sn.si.remove(self)
@@ -366,7 +366,7 @@ def main(pro):
 			bc += lappend1
 			bc += swap
 			bc += jump
-			bc[-2],bc[-1]=j1
+			bc[-2:]=j1
 			bc += ret
 		else:bc += jumpabs(ret11pos)
 		return ...
@@ -495,6 +495,7 @@ def main(pro):
 				compile2(self.arg[2], bc)
 			if self.n.sd is not True and bc[self.n.sd-1] is 1:
 				bc[j3],bc[j3+1]=(self.n.sd-1).to_bytes(2,"little")
+				return ...
 			else:
 				bc[j3],bc[j3+1]=len(bc).to_bytes(2,"little")
 				bc += pop
@@ -514,13 +515,15 @@ def main(pro):
 			bc += loadmkconst(-1)
 			bc += add
 			bc += swap
-			j2 = len(bc)+1
-			bc += jumpif
 			if self.arg.sd is True:
+				j2 = len(bc)+1
+				bc += jumpif
 				bc[j3],bc[j3+1]=len(bc).to_bytes(2,"little")
 				compile2(self.arg, bc)
-			else:bc[j3],bc[j3+1]=self.arg.sd.to_bytes(2,"little")
-			bc[j2],bc[j2+1]=len(bc).to_bytes(2,"little")
+				bc[j2],bc[j2+1]=len(bc).to_bytes(2,"little")
+			else:
+				bc += jumpifnot
+				bc[-2:]=bc[j3],bc[j3+1]=self.arg.sd.to_bytes(2,"little")
 		def eva(self, st, a):return self.n if a else self.arg
 	@mkin(14, 0, 0, "ret")
 	class Op14(Inst):
@@ -684,6 +687,13 @@ def main(pro):
 		else:
 			ir.var=(*calcvarhelper(),)
 			ir.dep=len(cst)
+	def weakhole(ir):
+		while not ir.sd:
+			ir.sd=True
+			if ir.op is 13:weakhole(ir.arg)
+			elif ir.op is 12:
+				for a in ir.arg:weakhole(a)
+			ir=ir.n
 	def peephole(ir):
 		cst=[]
 		while True:
