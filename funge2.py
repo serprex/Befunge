@@ -47,6 +47,7 @@ def main(pro):
 	stscr = mkemit("STORE_SUBSCR")
 	unpack2 = mkemit("UNPACK_SEQUENCE")(2)
 	tuple2 = mkemit("BUILD_TUPLE")(2)
+	giter = mkemit("GET_ITER")
 	fiter = mkemit("FOR_ITER")
 	lappend1 = mkemit("LIST_APPEND")(1)
 	blist1 = mkemit("BUILD_LIST_UNPACK")(1)
@@ -62,6 +63,7 @@ def main(pro):
 	call = mkemit("CALL_FUNCTION")
 	call0 = call(0)
 	call1 = call(1)
+	call2 = call(2)
 	loadconst = mkemit("LOAD_CONST")
 	jumpabs = mkemit("JUMP_ABSOLUTE")
 	jump = jumpabs(0)
@@ -345,15 +347,18 @@ def main(pro):
 			st.append(ps[a])
 			return self.n
 	ret11pos = None
-	wmem = lambda arg:lambda s:(iter(repeat(s,s)),[*arg])
 	def emit11ret(bc):
 		nonlocal ret11pos
 		if ret11pos is None:
 			ret11pos = len(bc)
+			bc += blist1
 			bc += swap
-			bc += call1
-			bc += unpack2
-			j1 = (ret11pos+7).to_bytes(2,"little")
+			bc += loadmkconst(repeat)
+			bc += swap
+			bc += dup
+			bc += call2
+			bc += giter
+			j1 = (ret11pos+13).to_bytes(2,"little")
 			bc += fiter(10)
 			bc += pop
 			bc += rot3
@@ -396,7 +401,7 @@ def main(pro):
 				bc += cmpin
 				j4 = len(bc)+1
 				bc += jumpifnot
-				bc += loadmkconst(wmem(self.arg))
+				bc += loadmkconst(self.arg)
 				emit11ret(bc)
 				bc[j4],bc[j4+1]=len(bc).to_bytes(2,"little")
 			elif a is not None and b is not None:
@@ -412,7 +417,7 @@ def main(pro):
 				bc += loadmkconst(a)
 				bc += stscr
 				if a in pro:
-					bc += loadmkconst(wmem(self.arg))
+					bc += loadmkconst(self.arg)
 					return emit11ret(bc)
 			else:
 				if c is not None:
@@ -441,7 +446,7 @@ def main(pro):
 				bc += cmpin
 				j4 = len(bc)+1
 				bc += jumpifnot
-				bc += loadmkconst(wmem(self.arg))
+				bc += loadmkconst(self.arg)
 				emit11ret(bc)
 				bc[j4],bc[j4+1]=len(bc).to_bytes(2,"little")
 		def eva(self, st, a, b, c):
