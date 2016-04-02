@@ -164,6 +164,7 @@ def main(pro):
 			cls.so = so
 			cls.name = name
 			cls.novar = ((), (None,), (None, None), (None, None, None))[siop]
+			cls.new = lambda self:cls(self.arg)
 			return cls
 		return f
 	@mkin(0, 0, 1, "ld")
@@ -613,20 +614,7 @@ def main(pro):
 	def calcvar(lir, cst):
 		if not cst:return
 		ir=lir.n
-		def calcvarhelper():
-			a=-1
-			b=-len(cst)
-			for x in range(ir.siop):
-				x=a-x
-				if x<=a+b:yield None
-				else:
-					c0,c1=cst[x]
-					yield c1
-					if c1 is not None:
-						del cst[x]
-						c0.__class__ = Op16
-						c0.var=()
-						a+=1
+		if ir.sd:return
 		while ir.op is 16:
 			if lir is ir:return
 			ir.si.remove(lir)
@@ -679,12 +667,27 @@ def main(pro):
 			if any(a is not None for a,a in cst[-ir.siop:]):
 				ir.si.remove(lir)
 				a=ir.n
-				lir.n=ir=type(ir)(ir.arg)
+				lir.n=ir=ir.new()
 				ir.si.add(lir)
 				ir.n=a
 				a.si.add(ir)
 				return calcvar(lir, cst)
 		else:
+			def calcvarhelper():
+				b=len(cst)
+				a=min(ir.siop, b)
+				c=-a
+				x=-1
+				while x>=c:
+					c0,c1=cst[x]
+					yield c1
+					if c1 is not None:
+						del cst[x]
+						c0.__class__ = Op16
+						c0.var=()
+						c+=1
+					else:x-=1
+				if b is a:yield from repeat(None, ir.siop-b)
 			ir.var=(*calcvarhelper(),)
 			ir.dep=len(cst)
 	def weakhole(ir):
