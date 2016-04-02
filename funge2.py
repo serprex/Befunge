@@ -63,7 +63,6 @@ def main(pro):
 	call0 = call(0)
 	call1 = call(1)
 	loadconst = mkemit("LOAD_CONST")
-	loadmkconst = lambda a:b"d"+mkconst(a)
 	jumpabs = mkemit("JUMP_ABSOLUTE")
 	jump = jumpabs(0)
 	jumpiforpop = opmap["JUMP_IF_TRUE_OR_POP"].to_bytes(3,"little")
@@ -71,12 +70,12 @@ def main(pro):
 	jumpif = opmap["POP_JUMP_IF_TRUE"].to_bytes(3,"little")
 	jumpifnot = opmap["POP_JUMP_IF_FALSE"].to_bytes(3,"little")
 	addply = add + multiply
-	def mkconst(c):
+	def loadmkconst(c):
 		nonlocal constl
 		if c in consts:return consts[c]
 		else:
-			a=consts[c]=len(constl).to_bytes(2,"little")
-			constl += c,
+			a=consts[c]=(100|len(constl)<<8).to_bytes(3,"little")
+			constl.append(c)
 			return a
 	ps = defaultdict(lambda:32)
 	X1=Y1=X0=Y0=0
@@ -802,8 +801,6 @@ def main(pro):
 		node14.si.clear()
 		bc.clear()
 		pro.clear()
-		consts.clear()
-		del constl[2:]
 		ir=X0,Y0=X1,Y1=f[0]
 		for x,y in ps.keys():
 			X0=min(X0,x)
