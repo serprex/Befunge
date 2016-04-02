@@ -56,10 +56,10 @@ def main(pro):
 	ret = mkemit("RETURN_VALUE")
 	cmp = mkemit("COMPARE_OP")
 	cmplt = cmp(0)
-	cmpeq = cmp(2)
 	cmpgt = cmp(4)
 	cmpgte = cmp(5)
 	cmpin = cmp(6)
+	cmpis = cmp(8)
 	call = mkemit("CALL_FUNCTION")
 	call0 = call(0)
 	call1 = call(1)
@@ -468,24 +468,36 @@ def main(pro):
 			bc += jumpifnot
 			bc += dup
 			bc += loadmkconst(1)
-			bc += cmpeq
+			bc += cmpis
 			j2 = len(bc)+1
 			bc += jumpif
 			bc += dup
 			bc += loadmkconst(2)
-			bc += cmpeq
+			bc += cmpis
 			j3 = len(bc)+1
 			bc += jumpif
-			bc += pop
-			compile2(self.arg[0], bc)
-			bc[j1],bc[j1+1]=len(bc).to_bytes(2,"little")
-			bc += pop
-			compile2(self.arg[1], bc)
-			bc[j2],bc[j2+1]=len(bc).to_bytes(2,"little")
-			bc += pop
-			compile2(self.arg[2], bc)
-			bc[j3],bc[j3+1]=len(bc).to_bytes(2,"little")
-			bc += pop
+			if self.arg[0].sd is not True and bc[self.arg[0].sd-1] is 1:
+				bc += jumpabs(self.arg[0].sd-1)
+			else:
+				bc += pop
+				compile2(self.arg[0], bc)
+			if self.arg[1].sd is not True and bc[self.arg[1].sd-1] is 1:
+				bc[j1],bc[j1+1]=(self.arg[1].sd-1).to_bytes(2,"little")
+			else:
+				bc[j1],bc[j1+1]=len(bc).to_bytes(2,"little")
+				bc += pop
+				compile2(self.arg[1], bc)
+			if self.arg[2].sd is not True and bc[self.arg[2].sd-1] is 1:
+				bc[j2],bc[j2+1]=(self.arg[2].sd-1).to_bytes(2,"little")
+			else:
+				bc[j2],bc[j2+1]=len(bc).to_bytes(2,"little")
+				bc += pop
+				compile2(self.arg[2], bc)
+			if self.n.sd is not True and bc[self.n.sd-1] is 1:
+				bc[j3],bc[j3+1]=(self.n.sd-1).to_bytes(2,"little")
+			else:
+				bc[j3],bc[j3+1]=len(bc).to_bytes(2,"little")
+				bc += pop
 		def eva(self, st):
 			c=getrandbits(2)
 			return self.n if c is 3 else self.arg[c]
@@ -504,8 +516,10 @@ def main(pro):
 			bc += swap
 			j2 = len(bc)+1
 			bc += jumpif
-			bc[j3],bc[j3+1]=len(bc).to_bytes(2,"little")
-			compile2(self.arg, bc)
+			if self.arg.sd is True:
+				bc[j3],bc[j3+1]=len(bc).to_bytes(2,"little")
+				compile2(self.arg, bc)
+			else:bc[j3],bc[j3+1]=self.arg.sd.to_bytes(2,"little")
 			bc[j2],bc[j2+1]=len(bc).to_bytes(2,"little")
 		def eva(self, st, a):return self.n if a else self.arg
 	@mkin(14, 0, 0, "ret")
@@ -780,13 +794,12 @@ def main(pro):
 			while True:ir=ir.eval(st)
 		except:return ir
 	def compile2(ir, bc):
-		while True:
-			if ir.sd is not True and ir.sd is not False:
-				bc += jumpabs(ir.sd)
-				return
+		while ir.sd is True:
 			ir.sd=len(bc)
 			if ir.emit(bc) is ...:return
 			ir=ir.n
+		bc += jumpabs(ir.sd)
+		if bc[ir.sd] is 113:bc[-2:]=bc[ir.sd+1:ir.sd+3]
 	empty={}
 	root=Op16(None)
 	node14=Op14(None)
