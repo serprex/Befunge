@@ -626,11 +626,11 @@ def main(pro):
 			return
 		op=ir.op
 		if op is 13:
-			if cst[-1][1] is not None:
-				c0,c1=cst.pop()
+			if cst[-1] is not None:
+				c0=cst.pop()
 				c0.__class__=Op16
 				c0.var=()
-				lir.n = ir.n if c1 else ir.arg
+				lir.n = ir.n if c0.arg else ir.arg
 				lir.n.si.add(lir)
 				ir.si.remove(lir)
 				if not ir.si:
@@ -649,16 +649,16 @@ def main(pro):
 					ir.remove()
 					return calcvar(lir, cst)
 			else:
-				b=cst[-1][1]
+				b=cst[-1]
 				if b is not None:
 					if len(ir.si) is 1:
 						ir.__class__=Op0
-						ir.arg=b
+						ir.arg=b.arg
 						ir.var=()
 					else:
 						ir.si.remove(lir)
 						a=ir.n
-						lir.n=ir=Op0(b)
+						lir.n=ir=Op0(b.arg)
 						ir.si.add(lir)
 						ir.n=a
 						a.si.add(ir)
@@ -666,7 +666,7 @@ def main(pro):
 				elif len(ir.si) is 1:ir.dep=len(cst)
 				return
 		if len(ir.si) is not 1:
-			if any(a is not None for a,a in cst[-ir.siop:]):
+			if any(cst[-ir.siop:]):
 				ir.si.remove(lir)
 				a=ir.n
 				lir.n=ir=ir.new()
@@ -681,14 +681,16 @@ def main(pro):
 				c=-a
 				x=-1
 				while x>=c:
-					c0,c1=cst[x]
-					yield c1
-					if c1 is not None:
+					c0=cst[x]
+					if c0 is not None:
 						del cst[x]
 						c0.__class__ = Op16
 						c0.var=()
 						c+=1
-					else:x-=1
+						yield c0.arg
+					else:
+						x-=1
+						yield None
 				if b is a:yield from repeat(None, ir.siop-b)
 			ir.var=(*calcvarhelper(),)
 			ir.dep=len(cst)
@@ -762,7 +764,7 @@ def main(pro):
 				op=ir.op
 				if not op:
 					if len(ir.si) is not 1:cst.clear()
-					cst.append((ir, ir.arg))
+					cst.append(ir)
 					break
 				elif op is 13:
 					if ir.n is ir.arg:
@@ -797,8 +799,8 @@ def main(pro):
 				if len(ir.si) is not 1:
 					ir.dep=0
 					cst.clear()
-					cst += repeat((ir, None), ir.so)
-				else:cst[-ir.var.count(None):]=repeat((ir,None), ir.so)
+					cst += repeat(None, ir.so)
+				else:cst[-ir.var.count(None):]=repeat(None, ir.so)
 				break
 			calcvar(ir, cst)
 			ir.sd=True
