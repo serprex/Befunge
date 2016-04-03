@@ -103,7 +103,6 @@ def main(pro):
 	def mvJ(x,y):
 		y+=1
 		return x,(y-HEI if y>Y1 else y)
-	bins = add, subtract, multiply, floordivide, modulo, cmpgt
 	class Inst:
 		__slots__ = "n", "arg", "var", "sd", "dep", "si"
 		def __init__(self, arg):
@@ -113,7 +112,7 @@ def main(pro):
 			self.sd = False
 			self.dep = 0
 			self.si = set()
-		def __str__(self, blut= {add:"+", subtract:"-", multiply:"*", floordivide:"/", modulo:"%", cmpgt:">"}):
+		def __str__(self, blut={add:"+", subtract:"-", multiply:"*", floordivide:"/", modulo:"%", cmpgt:">", lshift:"lsh", rshift:"rsh", band:"&"}):
 			return "%s\t%s\t%s"%(self.name,blut[self.arg] if self.op is 1 else self.arg,self.var)
 		def eval(self, st):return self.eva(st, *((c if c is not None else st.pop() if st else 0) for c in self.var))
 		def sguard(self, bc, x):
@@ -211,7 +210,10 @@ def main(pro):
 				b-a if arg is subtract else
 				b*a if arg is multiply else
 				b>a if arg is cmpgt else
-				b//a if arg is floordivide else b%a)
+				b//a if arg is floordivide else
+				b%a if arg is modulo else
+				b<<a if arg is lshift else
+				b>>a if arg is rshift else b&a)
 			return self.n
 	@mkin(2, 1, 1, "not")
 	class Op2(Inst):
@@ -540,7 +542,12 @@ def main(pro):
 		__slots__ = ()
 		def emit(self, bc):return
 		def eva(self, st):return self.n
-	def compile(i,mv):
+	def compile(i,mv,
+		bins={37:modulo,42:multiply,43:add,45:subtract,47:floordivide,96:cmpgt},
+		raw={33:Op2,36:Op3,58:Op4,92:Op5,103:Op10},
+		mvs={60:mvH,62:mvL,94:mvK,118:mvJ},
+		ops={64:10,34:9,35:11,38:3,103:4,44:1,126:2,46:0,112:5,124:7,95:8,63:6}
+	):
 		def emit(op, arg=None):
 			nonlocal inst
 			pist.clear()
@@ -571,34 +578,33 @@ def main(pro):
 			pist.append(imv)
 			pro.add(i)
 			i2 = ps[i]
-			if 33<=i2<=126:
-				i2=b'\x10\x1d\x1f\x11\x0e\x17$$$\x0c\n\x15\x0b\x14\r\0\1\2\3\4\5\6\7\x08\t\x12$"$ \x1a\x1e$$$$$$$$$$$$$$$$$$$$$$$$$$$\x13$!\x1c\x0f$$$$$$\x18$$$$$$$$\x19$$$$$#$$$$$\x1b$\x16'[i2-33]
-				if i2<10:emit(Op0, i2)
-				elif i2<16:emit(Op1, bins[i2-10])
-				elif i2>28:
-					if i2 is 31:i=mv(*i)
-					elif i2 is 36:continue
-					elif i2>31:mv = mvL if i2 is 32 else mvK if i2 is 33 else mvH if i2 is 34 else mvJ
-					elif i2 is 29:
+			if 48<=i2<58:emit(Op0, i2-48)
+			elif i2 in mvs:mv=mvs[i2]
+			elif i2 in bins:emit(Op1, bins[i2])
+			elif i2 in raw:emit(raw[i2])
+			elif i2 in ops:
+				i2=ops[i2]
+				if i2>8:
+					if i2 is 11:i=mv(*i)
+					elif i2 is 9:
 						while True:
 							i=mv(*i)
 							pro.add(i)
 							i2=ps[i]
 							if i2 is 34:break
 							emit(Op0, i2)
-					elif i2 is 30:
+					elif i2 is 10:
 						for i in pist:pg[i]=node14
 						if inst is head:return node14
 						for i in inst.si:
 							i.n=node14
 							node14.si.add(i)
 						return head
-				elif i2<24:
-					if i2<20:emit(Op2 if i2 is 16 else Op3 if i2 is 17 else Op4 if i2 is 18 else Op5)
-					elif i2<22:emit(Op6, ("%c" if i2 is 21 else "%d "))
-					else:emit(Op8, (intput if i2 is 23 else getch))
-				elif i2>26:
-					if i2 is 27:
+				elif i2<4:
+					if i2<2:emit(Op6, ("%d ", "%c")[i2])
+					else:emit(Op8, (intput if i2 is 3 else getch))
+				elif i2>6:
+					if i2 is 7:
 						i2=mvJ
 						mv=mvK
 					else:
@@ -606,9 +612,8 @@ def main(pro):
 						mv=mvH
 					i2=emit(Op13, compile(i,i2))
 					i2.arg.si.add(i2)
-				elif i2 is 24:emit(Op10)
-				elif i2 is 25:emit(Op11, imv)
-				elif i2 is 26:
+				elif i2 is 5:emit(Op11, imv)
+				elif i2 is 6:
 					i2=emit(Op12, [compile(i,mvL), compile(i,mvK), compile(i,mvH)])
 					for mv in i2.arg:mv.si.add(i2)
 					mv=mvJ
@@ -718,37 +723,26 @@ def main(pro):
 							elif c is multiply:
 								ir.var = a.bit_length()-1, None
 								ir.arg = lshift
-				elif op is 3:
-					ir.remove()
-					return calcvar(lir, cst)
-				elif op is 4:
-					c,=ir.var
-					ir.__class__=Op0
-					ir.arg=c
-					ir.var=()
-					a=ir.n
-					b=ir.n=Op0(c)
-					b.si.add(ir)
-					b.n=a
-					a.si.remove(ir)
-					a.si.add(b)
-				elif op is 2:
-					ir.__class__=Op0
-					a,=ir.var
-					a=ir.arg=not a
-					ir.var=()
-				else:
-					c,op=ir.var
-					ir.sd=True
-					ir.__class__=Op0
-					ir.arg=c
-					ir.var=()
-					a=ir.n
-					b=ir.n=Op0(op)
-					b.si.add(ir)
-					b.n=a
-					a.si.remove(ir)
-					a.si.add(b)
+				elif None not in ir.var:
+					if op is 3:
+						ir.remove()
+						return calcvar(lir, cst)
+					elif op is 4:
+						c,=ir.var
+						ir.__class__=Op0
+						ir.arg=c
+						ir.var=()
+						a=ir.n
+						b=ir.n=Op0(c)
+						b.si.add(ir)
+						b.n=a
+						a.si.remove(ir)
+						a.si.add(b)
+					elif op is 2:
+						ir.__class__=Op0
+						a,=ir.var
+						a=ir.arg=not a
+						ir.var=()
 	def weakhole(ir):
 		while not ir.sd:
 			ir.sd=True
@@ -809,7 +803,7 @@ def main(pro):
 		st=[]
 		try:
 			while True:ir=ir.eval(st)
-		except:return ir
+		except AttributeError:return ir
 	def compile2(ir, bc):
 		while ir.sd is True:
 			ir.sd=len(bc)
