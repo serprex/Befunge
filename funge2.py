@@ -41,7 +41,7 @@ def main(pro):
 	floordivide = mkemit("BINARY_FLOOR_DIVIDE")
 	modulo = mkemit("BINARY_MODULO")
 	lshift = mkemit("BINARY_LSHIFT")
-	bor = mkemit("BINARY_OR")
+	rshift = mkemit("BINARY_RSHIFT")
 	band = mkemit("BINARY_AND")
 	subscr = mkemit("BINARY_SUBSCR")
 	stscr = mkemit("STORE_SUBSCR")
@@ -477,6 +477,7 @@ def main(pro):
 			bc += cmpis
 			j3 = len(bc)+1
 			bc += jumpif
+			self.arg.sort(lambda x:x.sd is not True)
 			if self.arg[0].sd is not True and bc[self.arg[0].sd-1] is 1:
 				bc += jumpabs(self.arg[0].sd-1)
 			else:
@@ -608,7 +609,7 @@ def main(pro):
 				elif i2 is 24:emit(Op10)
 				elif i2 is 25:emit(Op11, imv)
 				elif i2 is 26:
-					i2=emit(Op12, (compile(i,mvL), compile(i,mvK), compile(i,mvH)))
+					i2=emit(Op12, [compile(i,mvL), compile(i,mvK), compile(i,mvH)])
 					for mv in i2.arg:mv.si.add(i2)
 					mv=mvJ
 	def calcvar(lir, cst):
@@ -623,7 +624,8 @@ def main(pro):
 		if not ir.var:
 			ir.dep=len(cst)
 			return
-		if ir.op is 13:
+		op=ir.op
+		if op is 13:
 			if cst[-1][1] is not None:
 				c0,c1=cst.pop()
 				c0.__class__=Op16
@@ -637,7 +639,7 @@ def main(pro):
 				return calcvar(lir, cst)
 			elif len(ir.si) is 1:ir.dep=len(cst)
 			return
-		elif ir.op is 4:
+		elif op is 4:
 			if ir.n.op in (3,5):
 				a=ir.n.op
 				ir.n.si.remove(ir)
@@ -649,7 +651,11 @@ def main(pro):
 			else:
 				b=cst[-1][1]
 				if b is not None:
-					if len(ir.si)>1:
+					if len(ir.si) is 1:
+						ir.__class__=Op0
+						ir.arg=b
+						ir.var=()
+					else:
 						ir.si.remove(lir)
 						a=ir.n
 						lir.n=ir=Op0(b)
@@ -657,13 +663,9 @@ def main(pro):
 						ir.n=a
 						a.si.add(ir)
 						return
-					else:
-						ir.__class__=Op0
-						ir.arg=b
-						ir.var=()
 				elif len(ir.si) is 1:ir.dep=len(cst)
 				return
-		if len(ir.si)>1:
+		if len(ir.si) is not 1:
 			if any(a is not None for a,a in cst[-ir.siop:]):
 				ir.si.remove(lir)
 				a=ir.n
@@ -690,6 +692,61 @@ def main(pro):
 				if b is a:yield from repeat(None, ir.siop-b)
 			ir.var=(*calcvarhelper(),)
 			ir.dep=len(cst)
+			if op<6:
+				if op is 1:
+					a,b = ir.var
+					c = ir.arg
+					if a is not None:
+						if b is not None:
+							ir.__class__=Op0
+							ir.arg=(b+a if c is add else
+								b-a if c is subtract else
+								b*a if c is multiply else
+								b>a if c is cmpgt else
+								0 if not a else
+								b//a if c is floordivide else b%a)
+							ir.var=()
+						elif not a&(a-1) and a:
+							if c is modulo:
+								ir.var = a-1, None
+								ir.arg = band
+							elif c is floordivide:
+								ir.var = a.bit_length()-1, None
+								ir.arg = rshift
+							elif c is multiply:
+								ir.var = a.bit_length()-1, None
+								ir.arg = lshift
+				elif op is 3:
+					ir.remove()
+					return calcvar(lir, cst)
+				elif op is 4:
+					c,=ir.var
+					ir.__class__=Op0
+					ir.arg=c
+					ir.var=()
+					a=ir.n
+					b=ir.n=Op0(c)
+					b.si.add(ir)
+					b.n=a
+					a.si.remove(ir)
+					a.si.add(b)
+				elif op is 2:
+					ir.__class__=Op0
+					a,=ir.var
+					a=ir.arg=not a
+					ir.var=()
+				else:
+					c,op=ir.var
+					ir.sd=True
+					ir.__class__=Op0
+					ir.arg=c
+					ir.var=()
+					a=ir.n
+					b=ir.n=Op0(op)
+					b.si.add(ir)
+					b.n=a
+					a.si.remove(ir)
+					a.si.add(b)
 	def weakhole(ir):
 		while not ir.sd:
 			ir.sd=True
@@ -704,7 +761,7 @@ def main(pro):
 				if ir.sd:return
 				op=ir.op
 				if not op:
-					if len(ir.si)>1:cst.clear()
+					if len(ir.si) is not 1:cst.clear()
 					cst.append((ir, ir.arg))
 					break
 				elif op is 13:
@@ -737,66 +794,11 @@ def main(pro):
 					ir.sd=True
 					ir=ir.n
 					continue
-				siop=ir.var.count(None)
-				if not siop:
-					if op<6:
-						if op is 1:
-							ir.__class__=Op0
-							c=ir.arg
-							a,b=ir.var
-							a=ir.arg=(b+a if c is add else
-								b-a if c is subtract else
-								b*a if c is multiply else
-								b>a if c is cmpgt else
-								0 if not a else
-								b//a if c is floordivide else b%a)
-							ir.var=()
-							cst.append((ir, a))
-						elif op is 2:
-							ir.__class__=Op0
-							a,=ir.var
-							a=ir.arg=not a
-							ir.var=()
-							cst.append((ir, a))
-						elif op is 3:
-							calcvar(ir, cst)
-							ir.remove()
-							ir=ir.n
-							continue
-						elif op is 4:
-							ir.sd=True
-							c,=ir.var
-							ir.__class__=Op0
-							ir.arg=c
-							ir.var=()
-							a=ir.n
-							b=ir.n=Op0(c)
-							b.si.add(ir)
-							b.n=a
-							a.si.remove(ir)
-							a.si.add(b)
-							cst += (ir, c), (b, c)
-							ir=b
-						elif op is 5:
-							c,x=ir.var
-							ir.sd=True
-							ir.__class__=Op0
-							ir.arg=c
-							a=ir.n
-							ir.n=b=Op0(x)
-							b.si.add(ir)
-							b.n=a
-							a.si.remove(ir)
-							a.si.add(b)
-							cst += (ir, c), (b, x)
-							ir.var=()
-							ir=b
-					else:cst += repeat((ir, None), ir.so)
-				elif len(ir.si)>1:
+				if len(ir.si) is not 1:
 					ir.dep=0
 					cst.clear()
 					cst += repeat((ir, None), ir.so)
-				else:cst[-siop:]=repeat((ir,None), ir.so)
+				else:cst[-ir.var.count(None):]=repeat((ir,None), ir.so)
 				break
 			calcvar(ir, cst)
 			ir.sd=True
