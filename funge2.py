@@ -103,6 +103,13 @@ def main(pro):
 	def mvJ(x,y):
 		y+=1
 		return x,(y-HEI if y>Y1 else y)
+	class Block:
+		__slots__ = "xd", "dep", "head", "tail"
+		def __init__(self, head, xd=False, dep=0):
+			self.xd = xd
+			self.dep = dep
+			self.head = head
+			self.tail = None
 	class Inst:
 		__slots__ = "n", "arg", "var", "sd", "dep", "si"
 		def __init__(self, arg):
@@ -170,10 +177,7 @@ def main(pro):
 	class Op0(Inst):
 		__slots__ = ()
 		def emit(self, bc):
-			bc += loadmkconst(1)
-			bc += add
 			bc += loadmkconst(self.arg)
-			bc += swap
 		def eva(self, st):
 			st.append(self.arg)
 			return self.n
@@ -182,28 +186,15 @@ def main(pro):
 		__slots__ = ()
 		def emit(self, bc):
 			a,b=self.var
-			if a is b is None:
-				self.sguard(bc, 1)
-				bc += loadmkconst(-1)
-				bc += add
-				bc += rot3
-				bc += self.arg
-				bc += swap
-			else:
-				if a is not None:
-					self.sguard(bc, 0)
-					if not a and self.arg is subtract:
-						bc += _neg
-						bc += swap
-						return
-					bc += swap
-					bc += loadmkconst(a)
-				else:
-					bc += swap
-					bc += loadmkconst(b)
-					if self.arg not in addply:bc += swap
-				bc += self.arg
-				bc += swap
+			if a is not None:
+				if not a and self.arg is subtract:
+					bc += _neg
+					return
+				bc += loadmkconst(a)
+			elif b is not None:
+				bc += loadmkconst(b)
+				if self.arg not in addply:bc += swap
+			bc += self.arg
 		def eva(self, st, a, b):
 			arg = self.arg
 			st.append(b+a if arg is add else
@@ -219,10 +210,7 @@ def main(pro):
 	class Op2(Inst):
 		__slots__ = ()
 		def emit(self, bc):
-			self.sguard(bc, 0)
-			bc += swap
 			bc += _not
-			bc += swap
 		def eva(self, st, a):
 			st.append(not a)
 			return self.n
@@ -244,13 +232,7 @@ def main(pro):
 	class Op4(Inst):
 		__slots__ = ()
 		def emit(self, bc):
-			self.sguard(bc, 0)
-			bc += loadmkconst(1)
-			bc += add
-			bc += swap
 			bc += dup
-			bc += rot3
-			bc += swap
 		def eva(self, st, a):
 			st.append(a)
 			st.append(a)
@@ -261,22 +243,12 @@ def main(pro):
 		def emit(self, bc):
 			a,b=self.var
 			if a is b is None:
-				self.sguard(bc, 1)
-				bc += rot3
 				bc += swap
-				bc += rot3
-				bc += rot3
 			elif a is not None:
-				self.sguard(bc, 0)
-				bc += loadmkconst(1)
-				bc += add
 				bc += loadmkconst(a)
-				bc += rot3
-			else:
-				bc += loadmkconst(1)
-				bc += add
-				bc += loadmkconst(b)
 				bc += swap
+			else:
+				bc += loadmkconst(b)
 		def eva(self, st, a, b):
 			st.append(a)
 			st.append(b)
@@ -287,10 +259,6 @@ def main(pro):
 		def emit(self, bc):
 			a, = self.var
 			if a is None:
-				self.sguard(bc, 0)
-				bc += loadmkconst(-1)
-				bc += add
-				bc += swap
 				bc += loadmkconst(self.arg)
 				bc += swap
 				bc += modulo
@@ -308,40 +276,27 @@ def main(pro):
 	class Op8(Inst):
 		__slots__ = ()
 		def emit(self, bc):
-			bc += loadmkconst(1)
-			bc += add
 			bc += loadmkconst(self.arg)
 			bc += call0
-			bc += swap
 		def eva(self, st):
 			st.append(self.arg())
 			return self.n
-	emit10h = tuple2 + loadconst(0) + swap + subscr + swap
+	emit10h = tuple2 + loadconst(0) + swap + subscr
 	@mkin(10, 2, 1, "rem")
 	class Op10(Inst):
 		__slots__ = ()
 		def emit(self, bc):
 			a,b = self.var
 			if a is b is None:
-				self.sguard(bc, 1)
-				bc += loadmkconst(-1)
-				bc += add
-				bc += rot3
 				bc += emit10h
 			elif a is not None and b is not None:
-				bc += loadmkconst(1)
-				bc += add
 				bc += loadconst(0)
 				bc += loadmkconst((b,a))
 				bc += subscr
-				bc += swap
 			elif a is not None:
-				self.sguard(bc, 0)
-				bc += swap
 				bc += loadmkconst(a)
 				bc += emit10h
 			else:
-				bc += swap
 				bc += loadmkconst(b)
 				bc += swap
 				bc += emit10h
@@ -743,13 +698,41 @@ def main(pro):
 						a,=ir.var
 						a=ir.arg=not a
 						ir.var=()
-	def weakhole(ir):
+	def nohole(ir):
 		while not ir.sd:
 			ir.sd=True
-			if ir.op is 13:weakhole(ir.arg)
+			if ir.op is 13:nohole(ir.arg)
 			elif ir.op is 12:
-				for a in ir.arg:weakhole(a)
+				for a in ir.arg:nohole(a)
 			ir=ir.n
+	def weakhole(lir, ir, block, pastblocks):
+		dep=0
+		pastblocks.add(block)
+		while not ir.sd:
+			ir.sd=True
+			if len(ir.si) is not 1:
+				block.tail = lir
+				block=Block(ir, block.xd, block.dep+dep)
+				pastblocks.add(block)
+				dep=0
+			dep=ir.dep=dep-ir.siop+ir.so
+			ir.bb=block
+			if ir.op is 13:weakhole(ir, ir.arg, ir.arg.bb or Block(ir.arg, block.xd, block.dep+dep), pastblocks.copy())
+			elif ir.op is 12:
+				for a in ir.arg:weakhole(ir, a, a.bb or Block(a, block.xd, block.dep+dep), pastblocks.copy())
+			lir=ir
+			ir=ir.n
+		if all(i.bb for i in ir.si):
+			preloopdep = ir.bb.dep
+			preloopxd = ir.bb.xd
+			for i in ir.si:
+				if i.bb in pastblocks:
+					ir.bb.xd=False
+					if i.bb.dep<ir.bb.dep:
+						ir.bb.dep=0
+						break
+			dep = ir.bb.dep = min(i.bb.dep for i in ir.si)
+			ir.bb.xd = all(i.bb.xd and i.bb.dep == dep for i in ir.si)
 	def peephole(ir):
 		cst=[]
 		while True:
@@ -783,6 +766,11 @@ def main(pro):
 						if (b,a) in pro:
 							ir.sd=True
 							ir.n.si.remove(ir)
+							a=ir.n
+							while not a.si:
+								b=a.n
+								b.si.remove(a)
+								a=b
 							ir.n=None
 							return
 					else:cst.clear()
@@ -804,26 +792,71 @@ def main(pro):
 		try:
 			while True:ir=ir.eval(st)
 		except AttributeError:return ir
+	def compile2pre(ir, bc):
+		dep=0
+		while len(ir.si) is 1 and ir.op not in (11, 13, 3, 12):
+			siop = ir.var.count(None)
+			if siop:
+				dep -= siop
+				if dep<0:
+					irsi = ir.siop - siop
+					for dep in repeat((loadmkconst(0)+swap if irsi is 1 else loadmkconst(0)+rot3 if irsi is 2 else loadmkconst(0)), -dep):
+						bc += dep
+					dep=0
+			if ir.emit(bc) is ...:return
+			dep += ir.so
+			ir=ir.n
+		bc += loadmkconst(dep)
+		return compile2(ir, bc)
 	def compile2(ir, bc):
+		dep=0
 		while ir.sd is True:
-			ir.sd=len(bc)
+			siop=ir.var.count(None)
+			odep = dep
+			dep += ir.so-siop
+			ir.dep = min(i.dep-i.var.count(None)+i.so for i in ir.si)
+			if ir.op in (11, 13, 3, 12) or len(ir.si) is not 1 or dep>2 or odep<siop or ir.dep<siop:
+				dep=ir.so
+				if odep is 1:bc += swap
+				elif odep is 2:bc += rot3 + rot3
+				elif odep>2:assert False
+				adj=odep# if ir.op in (11, 13, 3, 12) else odep-siop
+				if adj:
+					bc += loadmkconst(adj)
+					bc += add
+				ir.sd=len(bc)
+				if siop and ir.op not in (11, 13, 3, 12):
+					ir.sguard(bc, siop-1)
+					if siop:
+						bc += loadmkconst(siop)
+						bc += subtract
+					if siop is 1:bc += swap
+					elif siop is 2:bc += rot3
+			else:
+				ir.sd=len(bc)
 			if ir.emit(bc) is ...:return
 			ir=ir.n
+		if dep is 1:bc += swap
+		elif dep is 2:bc += rot3 + rot3
+		adj=dep# if ir.op in (11, 13, 3, 12) else dep-ir.var.count(None)
+		if adj:
+			bc += loadmkconst(adj)
+			bc += add
 		bc += jumpabs(ir.sd)
 		if bc[ir.sd] is 113:bc[-2:]=bc[ir.sd+1:ir.sd+3]
 	empty={}
+	bc=bytearray()
 	root=Op16(None)
 	node14=Op14(None)
 	ir=compile((X1,0),mvL)
-	bc=bytearray()
 	while True:
 		node14.sd=True
 		pg.clear()
 		root.n=ir
 		ir.si.add(root)
 		peephole(ir)
-		bc += loadmkconst(0)
-		compile2(ir, bc)
+		pg.clear()
+		compile2pre(ir, bc)
 		f=FunctionType(CodeType(0,0,0,65536,0,bytes(bc),tuple(constl),(),(),"","",0,b""),empty)()
 		if f is None:return
 		ret11pos = None
