@@ -614,6 +614,14 @@ def main(pro):
 						return a.si.add(ir)
 				elif len(ir.si) is 1:ir.dep=len(cst)
 				return
+		elif op is 5 and cst[-1] is not None and len(cst)>1 and cst[-2] is not None:
+			cst[-1].arg,cst[-2].arg=cst[-2].arg,cst[-1].arg
+			lir.n=ir.n
+			if lir.n is ir:return
+			lir.n.si.add(lir)
+			ir.si.remove(lir)
+			if not ir.si:ir.n.si.remove(ir)
+			return calcvar(lir, cst)
 		if len(ir.si) is not 1:
 			if any(cst[-ir.siop:]):
 				ir.si.remove(lir)
@@ -643,7 +651,7 @@ def main(pro):
 				if b is a:yield from repeat(None, ir.siop-b)
 			ir.var=(*calcvarhelper(),)
 			ir.dep=len(cst)
-			if op<6:
+			if op<5:
 				if op is 1:
 					a,b = ir.var
 					c = ir.arg
