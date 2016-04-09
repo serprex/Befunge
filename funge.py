@@ -122,36 +122,24 @@ def main(pro):
 		def __str__(self, blut={add:"+", subtract:"-", multiply:"*", floordivide:"/", modulo:"%", cmpgt:">", lshift:"<<", rshift:">>", band:"&"}):
 			return "%s\t%s\t%s"%(self.name,blut[self.arg] if self.op is 1 else self.arg,self.var)
 		def eval(self, st):return self.eva(st, *((c if c is not None else st.pop() if st else 0) for c in self.var))
-		def sguard(self, bc, x, xoff=0):
+		def sguard(self, bc, x):
 			dep=self.dep
-			if dep<=x:
-				if not dep:
-					if xoff:
-						bc += dup
-						bc += loadmkconst(xoff)
-						bc += cmpis
-						j1=len(bc)+1
-						bc += jumpifnot
-						bc += dup
-						bc += _not
-						bc += swap
-						bc[j1],bc[j1+1]=(j1+5).to_bytes(2,"little")
-					else:
-						j1=len(bc)+1
-						bc += jumpiforpop
-						bc += loadmkconst(0)
-						bc += loadmkconst(1)
-						bc[j1],bc[j1+1]=(j1+8).to_bytes(2,"little")
-				if x is 1:
-					bc += dup
-					bc += loadmkconst(xoff+1)
-					bc += cmpis
-					j1=len(bc)+1
-					bc += jumpifnot
-					bc += dup
-					bc += _not
-					bc += rot3
-					bc[j1],bc[j1+1]=(j1+5).to_bytes(2,"little")
+			if not dep:
+				j1=len(bc)+1
+				bc += jumpiforpop
+				bc += loadmkconst(0)
+				bc += loadmkconst(1)
+				bc[j1],bc[j1+1]=(j1+8).to_bytes(2,"little")
+			if x and dep<2:
+				bc += dup
+				bc += loadmkconst(1)
+				bc += cmpis
+				j1=len(bc)+1
+				bc += jumpifnot
+				bc += dup
+				bc += _not
+				bc += rot3
+				bc[j1],bc[j1+1]=(j1+5).to_bytes(2,"little")
 		def remove(self):
 			sn=self.n
 			sn.si.remove(self)
@@ -335,7 +323,7 @@ def main(pro):
 			a,b,c=self.var
 			if a is b is None:
 				if c is None:
-					self.sguard(bc, 1)
+					self.sguard(bc, True)
 					bc += loadmkconst(2)
 					bc += cmpis
 					j1 = len(bc)+1
@@ -347,7 +335,7 @@ def main(pro):
 					bc += loadmkconst(3)
 					bc += subtract
 				else:
-					self.sguard(bc, 1)
+					self.sguard(bc, True)
 					bc += loadmkconst(2)
 					bc += subtract
 					bc += rot3
@@ -376,7 +364,7 @@ def main(pro):
 				if c is not None:
 					bc += loadmkconst(c)
 				else:
-					self.sguard(bc, 0)
+					self.sguard(bc, False)
 					bc += loadmkconst(1)
 					bc += subtract
 					bc += swap
@@ -388,10 +376,10 @@ def main(pro):
 					return emit11ret(bc)
 			else:
 				if c is not None:
-					self.sguard(bc, 0)
+					self.sguard(bc, False)
 					bc += loadmkconst(1)
 				else:
-					self.sguard(bc, 1)
+					self.sguard(bc, True)
 					bc += loadmkconst(2)
 				bc += subtract
 				bc += rot3 if c is None else swap
@@ -821,35 +809,31 @@ def main(pro):
 		bc += loadmkconst(dep)
 		return compile2(ir, bc)
 	def compile2(ir, bc):
-		dep=0
+		adj=dep=0
 		while ir.sd is True:
 			siop=ir.var.count(None)
 			odep = dep
 			dep += ir.so-siop
-			ir.dep = min(i.dep-i.var.count(None)+i.so for i in ir.si)
+			ir.dep = max(min(i.dep-i.var.count(None)+i.so for i in ir.si), 0)
 			if ir.op in (11, 13, 3, 12) or len(ir.si) is not 1 or dep>2 or odep<siop or ir.dep<siop:
 				dep=ir.so
 				if odep is 1:bc += swap
 				elif odep is 2:bc += rot3 + rot3
-				elif odep>2:assert False
-				adj=odep if ir.op in (11, 13, 3, 12) else odep-siop
-				if adj:
-					bc += loadmkconst(adj)
+				if odep != adj:
+					bc += loadmkconst(odep-adj)
 					bc += add
+				adj=ir.op not in (11, 13, 3, 12) and siop
 				ir.sd=len(bc)
 				if siop and ir.op not in (11, 13, 3, 12):
-					ir.sguard(bc, siop-1, siop)
+					ir.sguard(bc, siop is 2)
 					if siop is 1:bc += swap
-					elif siop is 2:bc += rot3
-			else:
-				ir.sd=len(bc)
+					else:bc += rot3
 			if ir.emit(bc) is ...:return
 			ir=ir.n
 		if dep is 1:bc += swap
 		elif dep is 2:bc += rot3 + rot3
-		adj=dep if ir.op in (11, 13, 3, 12) else dep-ir.var.count(None)
-		if adj:
-			bc += loadmkconst(adj)
+		if dep != adj:
+			bc += loadmkconst(dep-adj)
 			bc += add
 		bc += jumpabs(ir.sd)
 		if bc[ir.sd] is 113:bc[-2:]=bc[ir.sd+1:ir.sd+3]
