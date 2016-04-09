@@ -20,7 +20,7 @@ getch = getch()
 
 def main(pro):
 	from opcode import opmap,HAVE_ARGUMENT
-	from types import CodeType,FunctionType
+	from types import CodeType
 	from random import getrandbits
 	from itertools import repeat
 	from sys import stdout
@@ -119,40 +119,39 @@ def main(pro):
 			self.sd = False
 			self.dep = 0
 			self.si = set()
-		def __str__(self, blut={add:"+", subtract:"-", multiply:"*", floordivide:"/", modulo:"%", cmpgt:">", lshift:"lsh", rshift:"rsh", band:"&"}):
+		def __str__(self, blut={add:"+", subtract:"-", multiply:"*", floordivide:"/", modulo:"%", cmpgt:">", lshift:"<<", rshift:">>", band:"&"}):
 			return "%s\t%s\t%s"%(self.name,blut[self.arg] if self.op is 1 else self.arg,self.var)
 		def eval(self, st):return self.eva(st, *((c if c is not None else st.pop() if st else 0) for c in self.var))
-		def sguard(self, bc, x):
+		def sguard(self, bc, x, xoff=0):
 			dep=self.dep
 			if dep<=x:
-				if not x:
-					j1=len(bc)+1
-					bc += jumpiforpop
-					bc += loadmkconst(0)
-					bc += loadmkconst(1)
-					bc[j1],bc[j1+1]=len(bc).to_bytes(2,"little")
-				elif x is dep:
+				if not dep:
+					if xoff:
+						bc += dup
+						bc += loadmkconst(xoff)
+						bc += cmpis
+						j1=len(bc)+1
+						bc += jumpifnot
+						bc += dup
+						bc += _not
+						bc += swap
+						bc[j1],bc[j1+1]=(j1+5).to_bytes(2,"little")
+					else:
+						j1=len(bc)+1
+						bc += jumpiforpop
+						bc += loadmkconst(0)
+						bc += loadmkconst(1)
+						bc[j1],bc[j1+1]=(j1+8).to_bytes(2,"little")
+				if x is 1:
 					bc += dup
-					bc += loadmkconst(x)
-					bc += cmpgt
+					bc += loadmkconst(xoff+1)
+					bc += cmpis
 					j1=len(bc)+1
-					bc += jumpif
-					bc += _not
-					bc += loadmkconst(x+1)
-					bc[j1],bc[j1+1]=len(bc).to_bytes(2,"little")
-				else:
-					j1=len(bc)+1
-					bc += jump
-					bc += loadmkconst(1)
-					bc += add
-					bc += loadmkconst(0)
-					bc += swap
-					bc[j1],bc[j1+1]=len(bc).to_bytes(2,"little")
-					bc += dup
-					bc += loadmkconst(x)
-					bc += cmpgt
 					bc += jumpifnot
-					bc[-2:]=(j1+2).to_bytes(2,"little")
+					bc += dup
+					bc += _not
+					bc += rot3
+					bc[j1],bc[j1+1]=(j1+5).to_bytes(2,"little")
 		def remove(self):
 			sn=self.n
 			sn.si.remove(self)
@@ -161,8 +160,9 @@ def main(pro):
 				if s.n is self:s.n=sn
 				if s.arg is self:s.arg=sn
 				elif s.op is 12:
-					for sa in 0,1,2:
-						if s.arg[sa] is self:s.arg[sa]=sn
+					if s.arg[0] is self:s.arg[0]=sn
+					if s.arg[1] is self:s.arg[1]=sn
+					if s.arg[2] is self:s.arg[2]=sn
 	def mkin(op, siop, so, name):
 		def f(cls):
 			cls.op = op
@@ -222,8 +222,8 @@ def main(pro):
 				bc += dup
 				jt = len(bc)+1
 				bc += jumpifnot
-			bc += loadmkconst(-1)
-			bc += add
+			bc += loadmkconst(1)
+			bc += subtract
 			bc += swap
 			bc += pop
 			if not self.dep:bc[jt],bc[jt+1]=len(bc).to_bytes(2,"little")
@@ -335,14 +335,23 @@ def main(pro):
 			a,b,c=self.var
 			if a is b is None:
 				if c is None:
-					self.sguard(bc, 2)
-					bc += loadmkconst(-3)
+					self.sguard(bc, 1)
+					bc += loadmkconst(2)
+					bc += cmpis
+					j1 = len(bc)+1
+					bc += jumpifnot
+					bc += _not
+					bc += rot3
+					bc += loadmkconst(3)
+					bc[j1],bc[j1+1]=len(bc).to_bytes(2,"little")
+					bc += loadmkconst(3)
+					bc += subtract
 				else:
 					self.sguard(bc, 1)
-					bc += loadmkconst(-2)
-				bc += add
-				bc += rot3
-				bc += tuple2
+					bc += loadmkconst(2)
+					bc += subtract
+					bc += rot3
+					bc += tuple2
 				if c is None:
 					bc += swap
 					bc += rot3
@@ -368,8 +377,8 @@ def main(pro):
 					bc += loadmkconst(c)
 				else:
 					self.sguard(bc, 0)
-					bc += loadmkconst(-1)
-					bc += add
+					bc += loadmkconst(1)
+					bc += subtract
 					bc += swap
 				bc += loadconst(0)
 				bc += loadmkconst(a)
@@ -380,11 +389,11 @@ def main(pro):
 			else:
 				if c is not None:
 					self.sguard(bc, 0)
-					bc += loadmkconst(-1)
+					bc += loadmkconst(1)
 				else:
 					self.sguard(bc, 1)
-					bc += loadmkconst(-2)
-				bc += add
+					bc += loadmkconst(2)
+				bc += subtract
 				bc += rot3 if c is None else swap
 				if b is None:
 					bc += loadmkconst(a)
@@ -471,8 +480,8 @@ def main(pro):
 			j3 = len(bc)+1
 			bc += jump
 			bc[j1],bc[j1+1]=len(bc).to_bytes(2,"little")
-			bc += loadmkconst(-1)
-			bc += add
+			bc += loadmkconst(1)
+			bc += subtract
 			bc += swap
 			if self.arg.sd is True:
 				j2 = len(bc)+1
@@ -799,9 +808,12 @@ def main(pro):
 			if siop:
 				dep -= siop
 				if dep<0:
-					irsi = ir.siop - siop
-					for dep in repeat((loadmkconst(0)+swap if irsi is 1 else loadmkconst(0)+rot3 if irsi is 2 else loadmkconst(0)), -dep):
-						bc += dep
+					if siop is 1:
+						bc += loadmkconst(0)
+					elif siop is 2:
+						bc += loadmkconst(0)
+						if dep is -1:bc+=swap
+						elif dep is -2:bc+=dup
 					dep=0
 			if ir.emit(bc) is ...:return
 			dep += ir.so
@@ -820,16 +832,13 @@ def main(pro):
 				if odep is 1:bc += swap
 				elif odep is 2:bc += rot3 + rot3
 				elif odep>2:assert False
-				adj=odep# if ir.op in (11, 13, 3, 12) else odep-siop
+				adj=odep if ir.op in (11, 13, 3, 12) else odep-siop
 				if adj:
 					bc += loadmkconst(adj)
 					bc += add
 				ir.sd=len(bc)
 				if siop and ir.op not in (11, 13, 3, 12):
-					ir.sguard(bc, siop-1)
-					if siop:
-						bc += loadmkconst(siop)
-						bc += subtract
+					ir.sguard(bc, siop-1, siop)
 					if siop is 1:bc += swap
 					elif siop is 2:bc += rot3
 			else:
@@ -838,13 +847,12 @@ def main(pro):
 			ir=ir.n
 		if dep is 1:bc += swap
 		elif dep is 2:bc += rot3 + rot3
-		adj=dep# if ir.op in (11, 13, 3, 12) else dep-ir.var.count(None)
+		adj=dep if ir.op in (11, 13, 3, 12) else dep-ir.var.count(None)
 		if adj:
 			bc += loadmkconst(adj)
 			bc += add
 		bc += jumpabs(ir.sd)
 		if bc[ir.sd] is 113:bc[-2:]=bc[ir.sd+1:ir.sd+3]
-	empty={}
 	bc=bytearray()
 	root=Op16(None)
 	node14=Op14(None)
@@ -857,7 +865,7 @@ def main(pro):
 		peephole(ir)
 		pg.clear()
 		compile2pre(ir, bc)
-		f=FunctionType(CodeType(0,0,0,65536,0,bytes(bc),tuple(constl),(),(),"","",0,b""),empty)()
+		f=eval(CodeType(0,0,0,65536,0,bytes(bc),tuple(constl),(),(),"","",0,b""))
 		if f is None:return
 		ret11pos = None
 		node14.si.clear()

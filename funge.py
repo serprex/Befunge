@@ -20,7 +20,7 @@ getch = getch()
 
 def main(pro):
 	from opcode import opmap,HAVE_ARGUMENT
-	from types import CodeType,FunctionType
+	from types import CodeType
 	from random import getrandbits
 	from itertools import repeat
 	from sys import stdout
@@ -296,11 +296,10 @@ def main(pro):
 				if i2 is not None:
 					if i2 is ...:return
 					else:i,mv=i2
-	empty={}
 	compile((X1,0),mvL)
 	while True:
 		pg.clear()
-		f=FunctionType(CodeType(0,0,0,65536,0,bytes(r),(*constl,),(),(),"","",0,b""),empty)()
+		f=eval(CodeType(0,0,0,65536,0,bytes(r),(*constl,),(),(),"","",0,b""))
 		if f is None:return
 		for i,f in zip(range(len(f)*3-2,0,-3),f):
 			f=mkconst(f)
