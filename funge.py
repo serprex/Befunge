@@ -580,6 +580,7 @@ def main(pro):
 				c0.__class__=Op16
 				c0.var=()
 				lir.n = ir.n if c0.arg else ir.arg
+				if lir.n is ir:return
 				lir.n.si.add(lir)
 				ir.si.remove(lir)
 				if not ir.si:
@@ -610,8 +611,7 @@ def main(pro):
 						lir.n=ir=Op0(b.arg)
 						ir.si.add(lir)
 						ir.n=a
-						a.si.add(ir)
-						return
+						return a.si.add(ir)
 				elif len(ir.si) is 1:ir.dep=len(cst)
 				return
 		if len(ir.si) is not 1:
