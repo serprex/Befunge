@@ -68,7 +68,6 @@ def main(pro):
 	jumpabs = mkemit("JUMP_ABSOLUTE")
 	jump = b"q\0\0"
 	jumpiforpop = opmap["JUMP_IF_TRUE_OR_POP"].to_bytes(3,"little")
-	jumpifnotorpop = opmap["JUMP_IF_FALSE_OR_POP"].to_bytes(3,"little")
 	jumpif = opmap["POP_JUMP_IF_TRUE"].to_bytes(3,"little")
 	jumpifnot = opmap["POP_JUMP_IF_FALSE"].to_bytes(3,"little")
 	addply = add + multiply
@@ -128,8 +127,9 @@ def main(pro):
 				j1=len(bc)+1
 				bc += jumpiforpop
 				bc += loadmkconst(0)
-				bc += loadmkconst(1)
-				bc[j1],bc[j1+1]=(j1+8).to_bytes(2,"little")
+				bc += dup
+				bc += _not
+				bc[j1],bc[j1+1]=(j1+7).to_bytes(2,"little")
 			if x and dep<2:
 				bc += dup
 				bc += loadmkconst(1)
@@ -206,15 +206,7 @@ def main(pro):
 	class Op3(Inst):
 		__slots__ = ()
 		def emit(self, bc):
-			if not self.dep:
-				bc += dup
-				jt = len(bc)+1
-				bc += jumpifnot
-			bc += loadmkconst(1)
-			bc += subtract
-			bc += swap
 			bc += pop
-			if not self.dep:bc[jt],bc[jt+1]=len(bc).to_bytes(2,"little")
 		def eva(self, st, a):return self.n
 	@mkin(4, 1, 2, "dup")
 	class Op4(Inst):
@@ -431,7 +423,7 @@ def main(pro):
 			bc += cmpis
 			j3 = len(bc)+1
 			bc += jumpif
-			self.arg.sort(lambda x:x.sd is not True)
+			self.arg.sort(key=lambda x:x.sd is not True)
 			if self.arg[0].sd is not True and bc[self.arg[0].sd-1] is 1:
 				bc += jumpabs(self.arg[0].sd-1)
 			else:
@@ -791,7 +783,7 @@ def main(pro):
 		except AttributeError:return ir
 	def compile2pre(ir, bc):
 		dep=0
-		while len(ir.si) is 1 and ir.op not in (11, 13, 3, 12):
+		while len(ir.si) is 1 and ir.op not in (11, 13, 12):
 			siop = ir.var.count(None)
 			if siop:
 				dep -= siop
@@ -807,6 +799,7 @@ def main(pro):
 			dep += ir.so
 			ir=ir.n
 		bc += loadmkconst(dep)
+		ir.dep=dep
 		return compile2(ir, bc)
 	def compile2(ir, bc):
 		adj=dep=0
@@ -815,16 +808,16 @@ def main(pro):
 			odep = dep
 			dep += ir.so-siop
 			ir.dep = max(min(i.dep-i.var.count(None)+i.so for i in ir.si), 0)
-			if ir.op in (11, 13, 3, 12) or len(ir.si) is not 1 or dep>2 or odep<siop or ir.dep<siop:
+			if ir.op in (11, 13, 12) or len(ir.si) is not 1 or dep>2 or odep<siop or ir.dep<siop:
 				dep=ir.so
 				if odep is 1:bc += swap
 				elif odep is 2:bc += rot3 + rot3
 				if odep != adj:
 					bc += loadmkconst(odep-adj)
 					bc += add
-				adj=ir.op not in (11, 13, 3, 12) and siop
+				adj=ir.op not in (11, 13, 12) and siop
 				ir.sd=len(bc)
-				if siop and ir.op not in (11, 13, 3, 12):
+				if siop and ir.op not in (11, 13, 12):
 					ir.sguard(bc, siop is 2)
 					if siop is 1:bc += swap
 					else:bc += rot3
