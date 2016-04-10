@@ -316,6 +316,7 @@ def main(pro):
 			if a is b is None:
 				if c is None:
 					self.sguard(bc, True)
+					bc += dup
 					bc += loadmkconst(2)
 					bc += cmpis
 					j1 = len(bc)+1
@@ -326,18 +327,18 @@ def main(pro):
 					bc[j1],bc[j1+1]=len(bc).to_bytes(2,"little")
 					bc += loadmkconst(3)
 					bc += subtract
+					bc += rot3
+					bc += tuple2
+					bc += swap
+					bc += rot3
+					bc += dup
+					bc += rot3
 				else:
 					self.sguard(bc, True)
 					bc += loadmkconst(2)
 					bc += subtract
 					bc += rot3
 					bc += tuple2
-				if c is None:
-					bc += swap
-					bc += rot3
-					bc += dup
-					bc += rot3
-				else:
 					bc += dup
 					bc += loadmkconst(c)
 					bc += swap
