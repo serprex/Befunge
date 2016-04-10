@@ -121,6 +121,7 @@ def main(pro):
 		def __str__(self, blut={add:"+", subtract:"-", multiply:"*", floordivide:"/", modulo:"%", cmpgt:">", lshift:"<<", rshift:">>", band:"&"}):
 			return "%s\t%s\t%s"%(self.name,blut[self.arg] if self.op is 1 else self.arg,self.var)
 		def eval(self, st):return self.eva(st, *((c if c is not None else st.pop() if st else 0) for c in self.var))
+		def isseq(self):return len(self.si) is not 1
 		def sguard(self, bc, x):
 			dep=self.dep
 			if not dep:
@@ -311,6 +312,7 @@ def main(pro):
 	@mkin(11, 3, 0, "wem")
 	class Op11(Inst):
 		__slots__ = ()
+		def isseq(self):return len(ir.si) is not 1 or self.var[0] is None or self.var[1] is None or (self.var[1],self.var[0]) in pro
 		def emit(self, bc):
 			a,b,c=self.var
 			if a is b is None:
@@ -354,9 +356,8 @@ def main(pro):
 				bc[j4],bc[j4+1]=len(bc).to_bytes(2,"little")
 			elif a is not None and b is not None:
 				a=b,a
-				if c is not None:
-					bc += loadmkconst(c)
-				else:
+				if c is not None:bc += loadmkconst(c)
+				elif a in pro or len(ir.si) is not 1:
 					self.sguard(bc, False)
 					bc += loadmkconst(1)
 					bc += subtract
@@ -407,6 +408,7 @@ def main(pro):
 	@mkin(12, 0, 0, "jr")
 	class Op12(Inst):
 		__slots__ = ()
+		def isseq(self):return True
 		def emit(self, bc):
 			bc += loadmkconst(getrandbits)
 			bc += loadmkconst(2)
@@ -454,6 +456,7 @@ def main(pro):
 	@mkin(13, 1, 0, "jz")
 	class Op13(Inst):
 		__slots__ = ()
+		def isseq(self):return True
 		def emit(self, bc):
 			j1 = len(bc)+1
 			bc += jumpiforpop
@@ -792,7 +795,7 @@ def main(pro):
 		except AttributeError:return ir
 	def compile2pre(ir, bc):
 		dep=0
-		while len(ir.si) is 1 and ir.op not in (11, 13, 12):
+		while not ir.isseq():
 			siop = ir.var.count(None)
 			if siop:
 				dep -= siop
@@ -817,16 +820,20 @@ def main(pro):
 			odep = dep
 			dep += ir.so-siop
 			ir.dep = max(min(i.dep-i.var.count(None)+i.so for i in ir.si), 0)
-			if ir.op in (11, 13, 12) or len(ir.si) is not 1 or dep>2 or odep<siop or ir.dep<siop:
+			seq = ir.isseq()
+			if seq or dep>2 or odep<siop or ir.dep<siop:
 				dep=ir.so
 				if odep is 1:bc += swap
 				elif odep is 2:bc += rot3 + rot3
 				if odep != adj:
 					bc += loadmkconst(odep-adj)
 					bc += add
-				adj=ir.op not in (11, 13, 12) and siop
+				if seq:
+					seq=11<=ir.op<=13
+					adj=not seq and siop
+				else:adj=siop
 				ir.sd=len(bc)
-				if siop and ir.op not in (11, 13, 12):
+				if siop and not seq:
 					ir.sguard(bc, siop is 2)
 					if siop is 1:bc += swap
 					else:bc += rot3
