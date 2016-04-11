@@ -56,6 +56,7 @@ def main(pro):
 	ret = mkemit("RETURN_VALUE")
 	cmp = mkemit("COMPARE_OP")
 	cmplt = cmp(0)
+	cmpeq = cmp(2)
 	cmpgt = cmp(4)
 	cmpgte = cmp(5)
 	cmpin = cmp(6)
@@ -134,13 +135,15 @@ def main(pro):
 			if x and dep<2:
 				bc += dup
 				bc += loadmkconst(1)
-				bc += cmpis
+				bc += cmpeq
 				j1=len(bc)+1
 				bc += jumpifnot
 				bc += dup
 				bc += _not
 				bc += rot3
-				bc[j1],bc[j1+1]=(j1+5).to_bytes(2,"little")
+				bc += loadmkconst(1)
+				bc += add
+				bc[j1],bc[j1+1]=(j1+9).to_bytes(2,"little")
 		def remove(self):
 			sn=self.n
 			sn.si.remove(self)
@@ -458,24 +461,18 @@ def main(pro):
 		__slots__ = ()
 		def isseq(self):return True
 		def emit(self, bc):
-			j1 = len(bc)+1
-			bc += jumpiforpop
-			bc += loadmkconst(0)
-			j3 = len(bc)+1
-			bc += jump
-			bc[j1],bc[j1+1]=len(bc).to_bytes(2,"little")
+			self.sguard(bc, False)
 			bc += loadmkconst(1)
 			bc += subtract
 			bc += swap
 			if self.arg.sd is True:
 				j2 = len(bc)+1
 				bc += jumpif
-				bc[j3],bc[j3+1]=len(bc).to_bytes(2,"little")
 				compile2(self.arg, bc)
 				bc[j2],bc[j2+1]=len(bc).to_bytes(2,"little")
 			else:
 				bc += jumpifnot
-				bc[-2:]=bc[j3],bc[j3+1]=self.arg.sd.to_bytes(2,"little")
+				bc[-2:]=self.arg.sd.to_bytes(2,"little")
 		def eva(self, st, a):return self.n if a else self.arg
 	@mkin(14, 0, 0, "ret")
 	class Op14(Inst):
@@ -591,7 +588,13 @@ def main(pro):
 					ir.n.si.remove(ir)
 					ir.arg.si.remove(ir)
 				return calcvar(lir, cst)
-			elif len(ir.si) is 1:ir.dep=len(cst)
+			elif len(ir.si) is 1:
+				ir.dep=len(cst)
+				if lir.op is 2:
+					lir.__class__=Op16
+					lir.var=()
+					ir.dep=len(cst)
+					ir.n,ir.arg=ir.arg,ir.n
 			return
 		elif op is 4:
 			if ir.n.op in (3,5):
