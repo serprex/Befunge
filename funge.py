@@ -5,16 +5,21 @@ def getch():
 		from msvcrt import getch
 		return lambda:ord(getch())
 	from sys import stdin,stdout
+	from os import isatty
 	def getch():
 		stdout.flush()
 		fd=stdin.fileno()
-		oldset=tcgetattr(fd)
-		newset=oldset[:]
-		try:
-			newset[3]&=-11
-			tcsetattr(fd, TCSANOW, newset)
-			return ord(stdin.read(1))
-		finally:tcsetattr(fd, TCSANOW, oldset)
+		if isatty(fd):
+			oldset=tcgetattr(fd)
+			newset=oldset[:]
+			try:
+				newset[3]&=-11
+				tcsetattr(fd, TCSANOW, newset)
+				return ord(stdin.read(1))
+			finally:tcsetattr(fd, TCSANOW, oldset)
+		else:
+			fd=stdin.read(1)
+			return ord(fd) if fd else -1
 	return getch
 getch = getch()
 
@@ -103,13 +108,6 @@ def main(pro):
 	def mvJ(x,y):
 		y+=1
 		return x,(y-HEI if y>Y1 else y)
-	class Block:
-		__slots__ = "xd", "dep", "head", "tail"
-		def __init__(self, head, xd=False, dep=0):
-			self.xd = xd
-			self.dep = dep
-			self.head = head
-			self.tail = None
 	class Inst:
 		__slots__ = "n", "arg", "var", "sd", "dep", "si"
 		def __init__(self, arg):
@@ -709,34 +707,6 @@ def main(pro):
 			elif ir.op is 12:
 				for a in ir.arg:nohole(a)
 			ir=ir.n
-	def weakhole(lir, ir, block, pastblocks):
-		dep=0
-		pastblocks.add(block)
-		while not ir.sd:
-			ir.sd=True
-			if len(ir.si) is not 1:
-				block.tail = lir
-				block=Block(ir, block.xd, block.dep+dep)
-				pastblocks.add(block)
-				dep=0
-			dep=ir.dep=dep-ir.siop+ir.so
-			ir.bb=block
-			if ir.op is 13:weakhole(ir, ir.arg, ir.arg.bb or Block(ir.arg, block.xd, block.dep+dep), pastblocks.copy())
-			elif ir.op is 12:
-				for a in ir.arg:weakhole(ir, a, a.bb or Block(a, block.xd, block.dep+dep), pastblocks.copy())
-			lir=ir
-			ir=ir.n
-		if all(i.bb for i in ir.si):
-			preloopdep = ir.bb.dep
-			preloopxd = ir.bb.xd
-			for i in ir.si:
-				if i.bb in pastblocks:
-					ir.bb.xd=False
-					if i.bb.dep<ir.bb.dep:
-						ir.bb.dep=0
-						break
-			dep = ir.bb.dep = min(i.bb.dep for i in ir.si)
-			ir.bb.xd = all(i.bb.xd and i.bb.dep == dep for i in ir.si)
 	def peephole(ir):
 		cst=[]
 		while True:
