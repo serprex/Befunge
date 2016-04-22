@@ -10,7 +10,7 @@ if line('.') == 26
 endif
 while line('.') < 25
 	normal! o
-endwhile
+endw
 :%s/^.*$/\= (submatch(0) . repeat(' ', 80-len(submatch(0))))[:79]
 noh
 res 25
@@ -131,7 +131,7 @@ fu! s:str()
 	while l:ch != '"'
 		call add(b:stack, char2nr(l:ch))
 		let l:ch = BefungeMove()
-	endwhile
+	endw
 endfu
 fu! s:vif()
 	let b:dir = s:pop() ? 1 : 3
@@ -182,24 +182,25 @@ fu! s:befprequel()
 endfu
 fu! BefungeStep()
 	let l:ch = s:befprequel()
-	if !(has_key(s:ops, l:ch) && call(s:ops[l:ch],[]))
+	while !has_key(s:ops, l:ch)
 		let l:ch = BefungeMove()
-		call cursor(b:y+1, b:x+1)
+	endw
+	if !call(s:ops[l:ch],[])
+		let l:ch = BefungeMove()
 	endif
+	call cursor(b:y+1, b:x+1)
+	return l:ch
 endfu
 fu! BefungeJog()
-	let l:ch = s:befprequel()
-	while !(has_key(s:ops, l:ch) && call(s:ops[l:ch],[]))
-		let l:ch = BefungeMove()
-		call cursor(b:y+1, b:x+1)
+	while BefungeStep() != '@'
 		redr
-	endwhile
+	endw
 endfu
 fu! BefungeRun()
 	let l:ch = s:befprequel()
 	while !(has_key(s:ops, l:ch) && call(s:ops[l:ch],[]))
 		let l:ch = BefungeMove()
-	endwhile
+	endw
 	return cursor(b:y+1, b:x+1)
 endfu
 let s:ops = {0:'s:l0',1:'s:l1',2:'s:l2',3:'s:l3',4:'s:l4',5:'s:l5',6:'s:l6',7:'s:l7',8:'s:l8',9:'s:l9',
