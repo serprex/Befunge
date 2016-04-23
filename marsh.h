@@ -1,5 +1,5 @@
 	OP(p0)*++sp=0;
-	OP(nop)LOOP;
+	nop:LOOP;
 	OP(p1)*++sp=1;
 	LOOP;
 	OP(p2)*++sp=2;

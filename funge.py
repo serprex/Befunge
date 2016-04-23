@@ -177,11 +177,12 @@ def main(pro):
 		def emit(self, bc):
 			a,b=self.var
 			if a is not None:
-				if not a and self.arg is subtract:
-					bc += _neg
-					return
+				if not a and self.arg is subtract:return
 				bc += loadmkconst(a)
 			elif b is not None:
+				if not b and self.arg is subtract:
+					bc += _neg
+					return
 				bc += loadmkconst(b)
 				if self.arg not in addply:bc += swap
 			bc += self.arg
@@ -402,10 +403,7 @@ def main(pro):
 		def eva(self, st, a, b, c):
 			a=b,a
 			ps[a]=c
-			if a in pro:
-				pro.clear()
-				return [*self.arg,*reversed(st)]
-			return self.n
+			return [*self.arg,*reversed(st)] if a in pro else self.n
 	@mkin(12, 0, 0, "jr")
 	class Op12(Inst):
 		__slots__ = ()
@@ -829,7 +827,6 @@ def main(pro):
 		root.n=ir
 		ir.si.add(root)
 		peephole(ir)
-		pg.clear()
 		compile2pre(ir, bc)
 		f=eval(CodeType(0,0,0,65536,0,bytes(bc),tuple(constl),(),(),"","",0,b""))
 		if f is None:return

@@ -1,9 +1,9 @@
-:%y
+%y
 new
 blast
 setlocal cmdheight=4
-:0put
-:v/\_s*\S/d
+0put
+v/\_s*\S/d
 normal! 26gg
 if line('.') == 26
 	normal! dG
@@ -11,28 +11,28 @@ endif
 while line('.') < 25
 	normal! o
 endw
-:%s/^.*$/\= (submatch(0) . repeat(' ', 80-len(submatch(0))))[:79]
+%s/^.*$/\= (submatch(0) . repeat(' ', 80-len(submatch(0))))[:79]
 noh
 res 25
 vertical res 80
 normal! gg0
 let b:stack = []
 let b:data = {}
-fu! s:goeast()
+fu! s:e()
 	let b:x = b:x == 79 ? 0 : b:x + 1
 endfu
-fu! s:gonorth()
+fu! s:n()
 	let b:y = b:y == 0 ? 24 : b:y - 1
 	let b:curline = getline(b:y+1)
 endfu
-fu! s:gowest()
+fu! s:w()
 	let b:x = b:x == 0 ? 79 : b:x - 1
 endfu
-fu! s:gosouth()
+fu! s:s()
 	let b:y = b:y == 24 ? 0 : b:y + 1
 	let b:curline = getline(b:y+1)
 endfu
-let b:dir = 's:goeast'
+let b:dir = 's:e'
 let b:x = 0
 let b:y = 0
 fu! s:pop()
@@ -71,16 +71,16 @@ fu! s:l9()
 	call add(b:stack, 9)
 endfu
 fu! s:east()
-	let b:dir='s:goeast'
+	let b:dir='s:e'
 endfu
 fu! s:north()
-	let b:dir='s:gonorth'
+	let b:dir='s:n'
 endfu
 fu! s:west()
-	let b:dir='s:gowest'
+	let b:dir='s:w'
 endfu
 fu! s:south()
-	let b:dir='s:gosouth'
+	let b:dir='s:s'
 endfu
 fu! s:hop()
 	call call(b:dir,[])
@@ -144,10 +144,10 @@ fu! s:str()
 	endw
 endfu
 fu! s:vif()
-	let b:dir = s:pop() ? 's:gonorth' : 's:gosouth'
+	let b:dir = s:pop() ? 's:n' : 's:s'
 endfu
 fu! s:hif()
-	let b:dir = s:pop() ? 's:gowest' : 's:goeast'
+	let b:dir = s:pop() ? 's:w' : 's:e'
 endfu
 fu! s:swap()
 	let l:a = s:pop()
@@ -156,7 +156,7 @@ fu! s:swap()
 	call add(b:stack, l:b)
 endfu
 fu! s:rng()
-	let b:dir = ['s:gonorth', 's:gosouth', 's:gowest', 's:goeast'][reltime()[1]%4]
+	let b:dir = ['s:n', 's:s', 's:w', 's:e'][reltime()[1]%4]
 endfu
 fu! s:prnm()
 	echon s:pop() . ' '

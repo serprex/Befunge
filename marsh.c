@@ -5,9 +5,9 @@
 #endif
 #if WBIT==8
 	#ifdef UNSIGN
-	#define WORD uint8_t
+		#define WORD uint8_t
 	#else
-	#define WORD int8_t
+		#define WORD int8_t
 	#endif
 	#define WFMT "%d"
 #elif WBIT==16
@@ -90,30 +90,30 @@ int main(int argc,char**argv){
 	void*const df[]={&&ea,&&no,&&we,&&so};
 #else
 	#define FT(x) x
-	&&not0,&&stm0,&&hop0,&&pop0,&&mod0,&&iin0,&&nop0,&&nop0,&&nop0,&&mul0,&&add0,&&och0,&&sub0,&&oin0,&&dvi0,
-	&&p00,&&p10,&&p20,&&p30,&&p40,&&p50,&&p60,&&p70,&&p80,&&p90,&&dup0,&&nop0,&&gwe,&&nop0,&&gea,&&rnd0,
-	&&end,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,
-	&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&swp0,&&nop0,&&gno,
-	&&hif0,&&gt0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&get0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,
-	&&nop0,&&put0,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&gso,&&nop0,&&nop0,&&nop0,&&nop0,&&nop0,&&vif0,&&nop0,&&ich0,
-	&&not1,&&stm1,&&hop1,&&pop1,&&mod1,&&iin1,&&nop1,&&nop1,&&nop1,&&mul1,&&add1,&&och1,&&sub1,&&oin1,&&dvi1,
-	&&p01,&&p11,&&p21,&&p31,&&p41,&&p51,&&p61,&&p71,&&p81,&&p91,&&dup1,&&nop1,&&gwe,&&nop1,&&gea,&&rnd1,
-	&&end,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,
-	&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&swp1,&&nop1,&&gno,
-	&&hif1,&&gt1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&get1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,
-	&&nop1,&&put1,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&gso,&&nop1,&&nop1,&&nop1,&&nop1,&&nop1,&&vif1,&&nop1,&&ich1,
-	&&not2,&&stm2,&&hop2,&&pop2,&&mod2,&&iin2,&&nop2,&&nop2,&&nop2,&&mul2,&&add2,&&och2,&&sub2,&&oin2,&&dvi2,
-	&&p02,&&p12,&&p22,&&p32,&&p42,&&p52,&&p62,&&p72,&&p82,&&p92,&&dup2,&&nop2,&&gwe,&&nop2,&&gea,&&rnd2,
-	&&end,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,
-	&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&swp2,&&nop2,&&gno,
-	&&hif2,&&gt2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&get2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,
-	&&nop2,&&put2,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&gso,&&nop2,&&nop2,&&nop2,&&nop2,&&nop2,&&vif2,&&nop2,&&ich2,
-	&&not3,&&stm3,&&hop3,&&pop3,&&mod3,&&iin3,&&nop3,&&nop3,&&nop3,&&mul3,&&add3,&&och3,&&sub3,&&oin3,&&dvi3,
-	&&p03,&&p13,&&p23,&&p33,&&p43,&&p53,&&p63,&&p73,&&p83,&&p93,&&dup3,&&nop3,&&gwe,&&nop3,&&gea,&&rnd3,
-	&&end,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,
-	&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&swp3,&&nop3,&&gno,
-	&&hif3,&&gt3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&get3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,
-	&&nop3,&&put3,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&gso,&&nop3,&&nop3,&&nop3,&&nop3,&&nop3,&&vif3,&&nop3,&&ich3};
+	&&not0,&&stm0,&&hop0,&&pop0,&&mod0,&&iin0,&&gea,&&gea,&&gea,&&mul0,&&add0,&&och0,&&sub0,&&oin0,&&dvi0,
+	&&p00,&&p10,&&p20,&&p30,&&p40,&&p50,&&p60,&&p70,&&p80,&&p90,&&dup0,&&gea,&&gwe,&&gea,&&gea,&&rnd0,
+	&&end,&&gea,&&gea,&&gea,&&gea,&&gea,&&gea,&&gea,&&gea,&&gea,&&gea,&&gea,&&gea,&&gea,&&gea,
+	&&gea,&&gea,&&gea,&&gea,&&gea,&&gea,&&gea,&&gea,&&gea,&&gea,&&gea,&&gea,&&gea,&&swp0,&&gea,&&gno,
+	&&hif0,&&gt0,&&gea,&&gea,&&gea,&&gea,&&gea,&&gea,&&get0,&&gea,&&gea,&&gea,&&gea,&&gea,&&gea,&&gea,
+	&&gea,&&put0,&&gea,&&gea,&&gea,&&gea,&&gea,&&gso,&&gea,&&gea,&&gea,&&gea,&&gea,&&vif0,&&gea,&&ich0,
+	&&not1,&&stm1,&&hop1,&&pop1,&&mod1,&&iin1,&&gno,&&gno,&&gno,&&mul1,&&add1,&&och1,&&sub1,&&oin1,&&dvi1,
+	&&p01,&&p11,&&p21,&&p31,&&p41,&&p51,&&p61,&&p71,&&p81,&&p91,&&dup1,&&gno,&&gwe,&&gno,&&gea,&&rnd1,
+	&&end,&&gno,&&gno,&&gno,&&gno,&&gno,&&gno,&&gno,&&gno,&&gno,&&gno,&&gno,&&gno,&&gno,&&gno,
+	&&gno,&&gno,&&gno,&&gno,&&gno,&&gno,&&gno,&&gno,&&gno,&&gno,&&gno,&&gno,&&gno,&&swp1,&&gno,&&gno,
+	&&hif1,&&gt1,&&gno,&&gno,&&gno,&&gno,&&gno,&&gno,&&get1,&&gno,&&gno,&&gno,&&gno,&&gno,&&gno,&&gno,
+	&&gno,&&put1,&&gno,&&gno,&&gno,&&gno,&&gno,&&gso,&&gno,&&gno,&&gno,&&gno,&&gno,&&vif1,&&gno,&&ich1,
+	&&not2,&&stm2,&&hop2,&&pop2,&&mod2,&&iin2,&&gwe,&&gwe,&&gwe,&&mul2,&&add2,&&och2,&&sub2,&&oin2,&&dvi2,
+	&&p02,&&p12,&&p22,&&p32,&&p42,&&p52,&&p62,&&p72,&&p82,&&p92,&&dup2,&&gwe,&&gwe,&&gwe,&&gea,&&rnd2,
+	&&end,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,
+	&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&swp2,&&gwe,&&gno,
+	&&hif2,&&gt2,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&get2,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,
+	&&gwe,&&put2,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&gso,&&gwe,&&gwe,&&gwe,&&gwe,&&gwe,&&vif2,&&gwe,&&ich2,
+	&&not3,&&stm3,&&hop3,&&pop3,&&mod3,&&iin3,&&gso,&&gso,&&gso,&&mul3,&&add3,&&och3,&&sub3,&&oin3,&&dvi3,
+	&&p03,&&p13,&&p23,&&p33,&&p43,&&p53,&&p63,&&p73,&&p83,&&p93,&&dup3,&&gso,&&gwe,&&gso,&&gea,&&rnd3,
+	&&end,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,
+	&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&swp3,&&gso,&&gno,
+	&&hif3,&&gt3,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&get3,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,
+	&&gso,&&put3,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&gso,&&vif3,&&gso,&&ich3};
 #endif
 #ifdef STACK
 	WORD st[STACK
@@ -170,42 +170,45 @@ int main(int argc,char**argv){
 	#include "marsh.h"
 #else
 	goto*ft[*pt];
-	#define RND(x) switch(x){case 0:goto gea;case 1:goto gno;case 2:goto gwe;case 3:goto gso;}
+	#define RND(x) switch(x){case 0:goto gea;case 1:goto gno;case 2:goto gwe;case 3:goto gso;default:__builtin_unreachable();}
 	#define dir 0
+	#define nop gea
 	#define OP(x) x##0:
 	#define LOOP pt+=32;if(pt-pg>=2560)pt-=2560;goto*ft[*pt]
 	#define HOP pt+=64;if(pt-pg>=2560)pt-=2560;goto*ft[*pt]
-	gea:LOOP;
 	#include "marsh.h"
 	#undef dir
+	#undef nop
 	#undef OP
 	#undef LOOP
 	#undef HOP
 	#define dir 1
+	#define nop gno
 	#define OP(x) x##1:
 	#define LOOP if(!(pt-pg&31))pt+=25;pt--;goto*ft[94+*pt]
 	#define HOP if((pt-pg&31)<2)pt+=25;pt-=2;goto*ft[94+*pt]
-	gno:LOOP;
 	#include "marsh.h"
 	#undef dir
+	#undef nop
 	#undef OP
 	#undef LOOP
 	#undef HOP
 	#define dir 2
+	#define nop gwe
 	#define OP(x) x##2:
 	#define LOOP pt-=32;if(pt<pg)pt+=2560;goto*ft[188+*pt]
 	#define HOP pt-=64;if(pt<pg)pt+=2560;goto*ft[188+*pt]
-	gwe:LOOP;
 	#include "marsh.h"
 	#undef dir
+	#undef nop
 	#undef OP
 	#undef LOOP
 	#undef HOP
 	#define dir 3
+	#define nop gso
 	#define OP(x) x##3:
 	#define LOOP pt++;if(!(pt-pg&31))pt-=32;goto*ft[282+*pt]
 	#define HOP pt+=2;if((pt-pg&31)<2)pt-=32;goto*ft[282+*pt]
-	gso:LOOP;
 	#include "marsh.h"
 #endif
 	end:;
