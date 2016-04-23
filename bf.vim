@@ -86,9 +86,9 @@ fu! s:wmem()
 	let b:data[l:a+l:b*25] = l:c
 	call cursor(l:a+1, l:b+1)
 	if l:c<31 || l:c>127
-		exec 'normal! cl '
+		exec 'normal! r '
 	else
-		exec 'normal! cl' . nr2char(l:c)
+		exec 'normal! r' . nr2char(l:c)
 	endif
 endfu
 fu! s:rmem()
