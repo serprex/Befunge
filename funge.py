@@ -89,25 +89,15 @@ def main(pro):
 	for Y1,line in enumerate(pro):
 		for x,c in enumerate(line):
 			if c!=32:ps[x,Y1]=c
-		X1=max(X1,x)
-	WID=X1+1
-	HEI=Y1+1
+		X1=max(X1,x-(c == 10))
 	pg={}
 	consts={}
 	pro=set()
 	constl=[ps, pro]
-	def mvL(x,y):
-		x+=1
-		return (x-WID if x>X1 else x),y
-	def mvK(x,y):
-		y-=1
-		return x,(y+HEI if y<Y0 else y)
-	def mvH(x,y):
-		x-=1
-		return (x+WID if x<X0 else x),y
-	def mvJ(x,y):
-		y+=1
-		return x,(y-HEI if y>Y1 else y)
+	def mvL(x,y):return (X0 if x==X1 else x+1),y
+	def mvK(x,y):return x,(Y1 if y==Y0 else y-1)
+	def mvH(x,y):return (X1 if x==X0 else x-1),y
+	def mvJ(x,y):return x,(Y0 if y==Y1 else y+1)
 	class Inst:
 		__slots__ = "n", "arg", "var", "sd", "dep", "si"
 		def __init__(self, arg):
@@ -834,14 +824,12 @@ def main(pro):
 		node14.si.clear()
 		bc.clear()
 		pro.clear()
-		ir=X0,Y0=X1,Y1=f[0]
+		ir=f[0]
 		for x,y in ps.keys():
 			X0=min(X0,x)
 			X1=max(X1,x)
 			Y0=min(Y0,y)
 			Y1=max(Y1,y)
-		WID=X1-X0+1
-		HEI=Y1-Y0+1
 		ir=tail=compile(ir, f[1])
 		for x in range(2,len(f)):
 			ir=Op0(f[x])
