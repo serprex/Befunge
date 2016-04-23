@@ -18,7 +18,21 @@ vertical res 80
 normal! gg0
 let b:stack = []
 let b:data = {}
-let b:dir = 0
+fu! s:goeast()
+	let b:x = b:x == 79 ? 0 : b:x + 1
+endfu
+fu! s:gonorth()
+	let b:y = b:y == 0 ? 24 : b:y - 1
+	let b:curline = getline(b:y+1)
+endfu
+fu! s:gowest()
+	let b:x = b:x == 0 ? 79 : b:x - 1
+endfu
+fu! s:gosouth()
+	let b:y = b:y == 24 ? 0 : b:y + 1
+	let b:curline = getline(b:y+1)
+endfu
+let b:dir = 's:goeast'
 let b:x = 0
 let b:y = 0
 fu! s:pop()
@@ -57,19 +71,19 @@ fu! s:l9()
 	call add(b:stack, 9)
 endfu
 fu! s:east()
-	let b:dir=0
+	let b:dir='s:goeast'
 endfu
 fu! s:north()
-	let b:dir=1
+	let b:dir='s:gonorth'
 endfu
 fu! s:west()
-	let b:dir=2
+	let b:dir='s:gowest'
 endfu
 fu! s:south()
-	let b:dir=3
+	let b:dir='s:gosouth'
 endfu
 fu! s:hop()
-	call BefungeMove()
+	call call(b:dir,[])
 endfu
 fu! s:dup()
 	if ! empty(b:stack)
@@ -85,11 +99,7 @@ fu! s:wmem()
 	let l:c = s:pop()
 	let b:data[l:a+l:b*25] = l:c
 	call cursor(l:a+1, l:b+1)
-	if l:c<31 || l:c>127
-		exec 'normal! r '
-	else
-		exec 'normal! r' . nr2char(l:c)
-	endif
+	exec 'normal! r' . (l:c<31 || l:c>127 ? ' ' : nr2char(l:c))
 endfu
 fu! s:rmem()
 	let l:a = s:pop()
@@ -127,17 +137,17 @@ fu! s:not()
 	call add(b:stack, !s:pop())
 endfu
 fu! s:str()
-	let l:ch = BefungeMove()
-	while l:ch != '"'
-		call add(b:stack, char2nr(l:ch))
-		let l:ch = BefungeMove()
+	call call(b:dir,[])
+	while b:curline[b:x] != '"'
+		call add(b:stack, char2nr(b:curline[b:x]))
+		call call(b:dir,[])
 	endw
 endfu
 fu! s:vif()
-	let b:dir = s:pop() ? 1 : 3
+	let b:dir = s:pop() ? 's:gonorth' : 's:gosouth'
 endfu
 fu! s:hif()
-	let b:dir = s:pop() ? 2 : 0
+	let b:dir = s:pop() ? 's:gowest' : 's:goeast'
 endfu
 fu! s:swap()
 	let l:a = s:pop()
@@ -146,7 +156,7 @@ fu! s:swap()
 	call add(b:stack, l:b)
 endfu
 fu! s:rng()
-	let b:dir = reltime()[1]%4
+	let b:dir = ['s:gonorth', 's:gosouth', 's:gowest', 's:goeast'][reltime()[1]%4]
 endfu
 fu! s:prnm()
 	echon s:pop() . ' '
@@ -163,33 +173,21 @@ endfu
 fu! s:done()
 	return 1
 endfu
-fu! BefungeMove()
-	if b:dir == 0
-		let b:x = b:x == 79 ? 0 : b:x + 1
-	elseif b:dir == 1
-		let b:y = b:y == 0 ? 24 : b:y - 1
-	elseif b:dir == 2
-		let b:x = b:x == 0 ? 79 : b:x - 1
-	else
-		let b:y = b:y == 24 ? 0 : b:y + 1
-	endif
-	return getline(b:y+1)[b:x]
-endfu
 fu! s:befprequel()
 	let b:x = col('.')-1
 	let b:y = line('.')-1
-	return getline(b:y+1)[b:x]
+	let b:curline = getline(b:y+1)
 endfu
 fu! BefungeStep()
-	let l:ch = s:befprequel()
-	while !has_key(s:ops, l:ch)
-		let l:ch = BefungeMove()
+	call s:befprequel()
+	while !has_key(s:ops, b:curline[b:x])
+		call call(b:dir,[])
 	endw
-	if !call(s:ops[l:ch],[])
-		let l:ch = BefungeMove()
+	if !call(s:ops[b:curline[b:x]],[])
+		call call(b:dir,[])
 	endif
 	call cursor(b:y+1, b:x+1)
-	return l:ch
+	return b:curline[b:x]
 endfu
 fu! BefungeJog()
 	while BefungeStep() != '@'
@@ -197,16 +195,16 @@ fu! BefungeJog()
 	endw
 endfu
 fu! BefungeRun()
-	let l:ch = s:befprequel()
-	while !(has_key(s:ops, l:ch) && call(s:ops[l:ch],[]))
-		let l:ch = BefungeMove()
+	call s:befprequel()
+	while !(has_key(s:ops, b:curline[b:x]) && call(s:ops[b:curline[b:x]],[]))
+		call call(b:dir,[])
 	endw
 	return cursor(b:y+1, b:x+1)
 endfu
 let s:ops = {0:'s:l0',1:'s:l1',2:'s:l2',3:'s:l3',4:'s:l4',5:'s:l5',6:'s:l6',7:'s:l7',8:'s:l8',9:'s:l9',
 	\'>':'s:east','^':'s:north','<':'s:west','v':'s:south','#':'s:hop',':':'s:dup','$':'s:opop','p':'s:wmem','g':'s:rmem',
 	\'+':'s:add','-':'s:sub','*':'s:mul','/':'s:div','%':'s:rem','`':'s:cmp','!':'s:not','"':'s:str',
-	\"|":'s:vif',"_":'s:hif','\':'s:swap','?':'s:rng','.':'s:prnm',',':'s:prch','&':'s:getnm','~':'s:getch','@':'s:done'}
+	\'|':'s:vif','_':'s:hif','\':'s:swap','?':'s:rng','.':'s:prnm',',':'s:prch','&':'s:getnm','~':'s:getch','@':'s:done'}
 nnoremap <silent> <buffer> <F5> :call BefungeRun()<cr>
 nnoremap <silent> <buffer> <F6> :call BefungeJog()<cr>
 nnoremap <silent> <buffer> <F7> :echo b:stack<cr>
