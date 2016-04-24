@@ -786,13 +786,17 @@ def main(pro):
 				dep=ir.so
 				if odep is 1:bc += swap
 				elif odep is 2:bc += rot3 + rot3
-				if odep != adj:
-					bc += loadmkconst(odep-adj)
-					bc += add
-				if seq:
-					seq=11<=ir.op<=13
-					adj=not seq and siop
-				else:adj=siop
+				if not seq and ir.dep>=siop:
+					adj+=siop-odep
+				else:
+					if odep != adj:
+						bc += loadmkconst(odep-adj)
+						bc += add
+					if seq:
+						seq=11<=ir.op<=13
+						adj=not seq and siop
+					else:
+						adj=siop
 				ir.sd=len(bc)
 				if siop and not seq:
 					ir.sguard(bc, siop is 2)
