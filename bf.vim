@@ -1,6 +1,10 @@
 %y
 new
-blast
+let s:funbuf = winnr()
+vnew
+wincmd l
+let s:outbuf = winnr()
+exec s:funbuf . 'wincmd w'
 setlocal cmdheight=4
 0put
 v/\_s*\S/d
@@ -14,7 +18,7 @@ endw
 %s/^.*$/\= (submatch(0) . repeat(' ', 80-len(submatch(0))))[:79]
 noh
 res 25
-vertical res 80
+vert res 85
 normal! gg0
 let b:stack = []
 let b:data = {}
@@ -99,7 +103,10 @@ fu! s:wmem()
 	let l:c = s:pop()
 	let b:data[l:a+l:b*25] = l:c
 	call cursor(l:a+1, l:b+1)
-	exec 'normal! r' . (l:c<31 || l:c>127 ? ' ' : nr2char(l:c))
+	exec 'normal! r' . (l:c<33 || l:c>127 ? ' ' : nr2char(l:c))
+	if l:a == b:y
+		let b:curline = getline(b:y+1)
+	endif
 endfu
 fu! s:rmem()
 	let l:a = s:pop()
@@ -159,10 +166,17 @@ fu! s:rng()
 	let b:dir = ['s:n', 's:s', 's:w', 's:e'][reltime()[1]%4]
 endfu
 fu! s:prnm()
-	echon s:pop() . ' '
+	let l:cmd = 'normal! GA' . s:pop() . ' '
+	exec s:outbuf . 'wincmd w'
+	exec l:cmd
+	exec s:funbuf . 'wincmd w'
 endfu
 fu! s:prch()
-	echon nr2char(s:pop())
+	let l:cmd = s:pop()
+	let l:cmd = l:cmd == 10 ? 'normal! Go' : l:cmd<33 || l:cmd>126 ? 'normal! GA ' : 'normal! GA' . nr2char(l:cmd)
+	exec s:outbuf . 'wincmd w'
+	exec l:cmd
+	exec s:funbuf . 'wincmd w'
 endfu
 fu! s:getnm()
 	call add(b:stack, input('')+0)
@@ -201,6 +215,9 @@ fu! BefungeRun()
 	endw
 	return cursor(b:y+1, b:x+1)
 endfu
+fu! BefungeQuit()
+	exec s:funbuf . "wincmd c\n" . s:outbuf . 'wincmd c'
+endfu
 let s:ops = {0:'s:l0',1:'s:l1',2:'s:l2',3:'s:l3',4:'s:l4',5:'s:l5',6:'s:l6',7:'s:l7',8:'s:l8',9:'s:l9',
 	\'>':'s:east','^':'s:north','<':'s:west','v':'s:south','#':'s:hop',':':'s:dup','$':'s:opop','p':'s:wmem','g':'s:rmem',
 	\'+':'s:add','-':'s:sub','*':'s:mul','/':'s:div','%':'s:rem','`':'s:cmp','!':'s:not','"':'s:str',
@@ -210,6 +227,7 @@ nnoremap <silent> <buffer> <F6> :call BefungeJog()<cr>
 nnoremap <silent> <buffer> <F7> :echo b:stack<cr>
 nnoremap <silent> <buffer> <F8> :echo b:data<cr>
 nnoremap <silent> <buffer> <F10> :call BefungeStep()<cr>
+nnoremap <silent> <buffer> Quit :call BefungeQuit()<cr>
 setlocal colorcolumn=80
 setlocal cursorcolumn
 setlocal nu
