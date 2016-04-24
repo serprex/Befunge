@@ -5,6 +5,9 @@ vnew
 wincmd l
 let s:outbuf = winnr()
 exec s:funbuf . 'wincmd w'
+fu! s:prout(prefix)
+	exec 'fu! s:' . a:prefix . s:outbuf . "wincmd w\nexec l:a\n" . s:funbuf . "wincmd w\nendfu"
+endfu
 setlocal cmdheight=4
 0put
 v/\_s*\S/d
@@ -37,43 +40,14 @@ fu! s:s()
 	let b:curline = getline(b:y+1)
 endfu
 let b:dir = 's:e'
-let b:x = 0
-let b:y = 0
 fu! s:pop()
 	if ! empty(b:stack)
 		return remove(b:stack, -1)
 	endif
 endfu
-fu! s:l0()
-	call add(b:stack, 0)
-endfu
-fu! s:l1()
-	call add(b:stack, 1)
-endfu
-fu! s:l2()
-	call add(b:stack, 2)
-endfu
-fu! s:l3()
-	call add(b:stack, 3)
-endfu
-fu! s:l4()
-	call add(b:stack, 4)
-endfu
-fu! s:l5()
-	call add(b:stack, 5)
-endfu
-fu! s:l6()
-	call add(b:stack, 6)
-endfu
-fu! s:l7()
-	call add(b:stack, 7)
-endfu
-fu! s:l8()
-	call add(b:stack, 8)
-endfu
-fu! s:l9()
-	call add(b:stack, 9)
-endfu
+for b:x in range(10)
+	exec 'fu! s:l' . b:x . "()\ncall add(b:stack, " . b:x . ")\nendfu"
+endfor
 fu! s:east()
 	let b:dir='s:e'
 endfu
@@ -165,19 +139,8 @@ endfu
 fu! s:rng()
 	let b:dir = ['s:n', 's:s', 's:w', 's:e'][reltime()[1]%4]
 endfu
-fu! s:prnm()
-	let l:cmd = 'normal! GA' . s:pop() . ' '
-	exec s:outbuf . 'wincmd w'
-	exec l:cmd
-	exec s:funbuf . 'wincmd w'
-endfu
-fu! s:prch()
-	let l:cmd = s:pop()
-	let l:cmd = l:cmd == 10 ? 'normal! Go' : l:cmd<33 || l:cmd>126 ? 'normal! GA ' : 'normal! GA' . nr2char(l:cmd)
-	exec s:outbuf . 'wincmd w'
-	exec l:cmd
-	exec s:funbuf . 'wincmd w'
-endfu
+call s:prout("prnm()\nlet l:a='normal! GA' . s:pop() . ' '\n")
+call s:prout("prch()\nlet l:a=s:pop()\nlet l:a=l:a==10?'normal! Go':l:a<33||l:a>126?'normal! GA ':'normal! GA' . nr2char(l:a)\n")
 fu! s:getnm()
 	call add(b:stack, input('')+0)
 endfu
