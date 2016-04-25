@@ -618,6 +618,7 @@ def main(pro):
 		if len(ir.si) is not 1:
 			if any(cst[-ir.siop:]):
 				ir.si.remove(lir)
+				if not ir.si:ir.n.si.remove(ir)
 				a=ir.n
 				lir.n=ir=ir.new()
 				ir.si.add(lir)
@@ -669,10 +670,7 @@ def main(pro):
 								ir.var = a.bit_length()-1, None
 								ir.arg = lshift
 				elif None not in ir.var:
-					if op is 3:
-						ir.remove()
-						return calcvar(lir, cst)
-					elif op is 4:
+					if op is 4:
 						c,=ir.var
 						ir.__class__=Op0
 						ir.arg=c
@@ -682,7 +680,10 @@ def main(pro):
 						b.si.add(ir)
 						b.n=a
 						a.si.remove(ir)
-						a.si.add(b)
+						return a.si.add(b)
+					elif op is 3:
+						ir.remove()
+						return calcvar(lir, cst)
 					elif op is 2:
 						ir.__class__=Op0
 						a,=ir.var
@@ -744,7 +745,10 @@ def main(pro):
 					ir.dep=0
 					cst.clear()
 					cst += repeat(None, ir.so)
-				else:cst[-ir.var.count(None):]=repeat(None, ir.so)
+				else:
+					a=ir.var.count(None)
+					if a:cst[-a:]=repeat(None, ir.so)
+					elif ir.so:cst+=repeat(None, ir.so)
 				break
 			calcvar(ir, cst)
 			ir.sd=True
