@@ -21,7 +21,7 @@ endw
 %s/^.*$/\= (submatch(0) . repeat(' ', 80-len(submatch(0))))[:79]
 noh
 res 25
-vert res 85
+vert res 90
 normal! gg0
 let b:stack = []
 let b:data = {}
@@ -41,7 +41,7 @@ fu! s:s()
 endfu
 let b:dir = 's:e'
 fu! s:pop()
-	if ! empty(b:stack)
+	if !empty(b:stack)
 		return remove(b:stack, -1)
 	endif
 endfu
@@ -64,7 +64,7 @@ fu! s:hop()
 	call call(b:dir,[])
 endfu
 fu! s:dup()
-	if ! empty(b:stack)
+	if !empty(b:stack)
 		call add(b:stack, b:stack[-1])
 	endif
 endfu
@@ -110,9 +110,7 @@ fu! s:rem()
 	call add(b:stack, b%a)
 endfu
 fu! s:cmp()
-	let l:a = s:pop()
-	let l:b = s:pop()
-	call add(b:stack, b>a)
+	call add(b:stack, s:pop()<=s:pop())
 endfu
 fu! s:not()
 	call add(b:stack, !s:pop())

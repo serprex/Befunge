@@ -37,6 +37,7 @@ def main(pro):
 		return op.to_bytes(1,"little") if op<HAVE_ARGUMENT else lambda a:(op|a<<8).to_bytes(3,"little")
 	swap = mkemit("ROT_TWO")
 	rot3 = mkemit("ROT_THREE")
+	rot3_2 = rot3 + rot3
 	pop = mkemit("POP_TOP")
 	dup = mkemit("DUP_TOP")
 	iadd = mkemit("INPLACE_ADD")
@@ -659,7 +660,23 @@ def main(pro):
 								0 if not a else
 								b//a if c is floordivide else b%a)
 							ir.var=()
-						elif not a&(a-1) and a:
+						elif not a:
+							if c is add or c is subtract:
+								ir.__class__ = Op16
+								ir.arg = None
+								ir.var = ()
+							elif c is multiply:
+								ir.__class__ = Op3
+								ir.arg = None
+								ir.var = None,
+								a = Op0()
+								a.arg = 0
+								a.n = ir.n
+								ir.n = a
+								a.n.si.remove(ir)
+								a.n.si.add(a)
+								a.si.add(ir)
+						elif a>0 and not a&(a-1):
 							if c is modulo:
 								ir.var = a-1, None
 								ir.arg = band
@@ -789,7 +806,7 @@ def main(pro):
 			if seq or dep>2 or odep<siop or ir.dep<siop:
 				dep=ir.so
 				if odep is 1:bc += swap
-				elif odep is 2:bc += rot3 + rot3
+				elif odep is 2:bc += rot3_2
 				if not seq and ir.dep>=siop:
 					adj+=siop-odep
 				else:
@@ -809,7 +826,7 @@ def main(pro):
 			if ir.emit(bc) is ...:return
 			ir=ir.n
 		if dep is 1:bc += swap
-		elif dep is 2:bc += rot3 + rot3
+		elif dep is 2:bc += rot3_2
 		if dep != adj:
 			bc += loadmkconst(dep-adj)
 			bc += add
