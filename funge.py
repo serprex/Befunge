@@ -94,9 +94,9 @@ def main(pro):
 			if c!=32:ps[x,Y1]=c
 		X1=max(X1,x-(c == 10))
 	pg={}
-	consts={}
+	consts={0:b"\x64\2", 1:b"\x64\3", 3:b"\x64\4"}
 	pro=set()
-	constl=[ps, pro]
+	constl=[ps, pro, 0, 1, 3]
 	def mvL(x,y):return (X0 if x==X1 else x+1),y
 	def mvK(x,y):return x,(Y1 if y==Y0 else y-1)
 	def mvH(x,y):return (X1 if x==X0 else x-1),y
@@ -119,17 +119,15 @@ def main(pro):
 		def sguard(self, bc, x):
 			dep=self.dep
 			if not dep:
-				bc += jumpiforpop(getjoff(len(bc) + len(loadmkconst(0)) + 4))
+				bc += jumpiforpop(getjoff(len(bc) + 4))
 				bc += loadmkconst(0)
-				bc += dup
-				bc += _not
+				bc += loadmkconst(1)
 			if x and dep<2:
 				bc += dup
 				bc += loadmkconst(1)
 				bc += cmpeq
-				bc += jumpifnot(getjoff(len(bc) + len(loadmkconst(1)) + 8))
-				bc += dup
-				bc += _not
+				bc += jumpifnot(getjoff(len(bc) + 8))
+				bc += loadmkconst(0)
 				bc += rot3
 				bc += loadmkconst(1)
 				bc += add
@@ -313,7 +311,7 @@ def main(pro):
 					bc += dup
 					bc += loadmkconst(2)
 					bc += cmpis
-					bc += jumpifnot(getjoff(len(bc) + len(loadmkconst(3)) + 4))
+					bc += jumpifnot(getjoff(len(bc) + 6))
 					bc += _not
 					bc += rot3
 					bc += loadmkconst(3)
