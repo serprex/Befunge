@@ -34,7 +34,7 @@ def main(pro):
 	intput=lambda:int(input())
 	def mkemit(op):
 		op = opmap[op]
-		return op.to_bytes(1,"little") if op<HAVE_ARGUMENT else lambda a:(op|a<<8).to_bytes(3,"little")
+		return op.to_bytes(2,"little") if op<HAVE_ARGUMENT else lambda a:(op|a<<8).to_bytes(2,"little") if a<256 else (0x90|a&0xff00|op<<16|(a&0xff)<<24).to_bytes(4,"little")
 	swap = mkemit("ROT_TWO")
 	rot3 = mkemit("ROT_THREE")
 	rot3_2 = rot3 + rot3
@@ -73,16 +73,18 @@ def main(pro):
 	call2 = call(2)
 	loadconst = mkemit("LOAD_CONST")
 	jumpabs = mkemit("JUMP_ABSOLUTE")
-	jump = b"q\0\0"
-	jumpiforpop = opmap["JUMP_IF_TRUE_OR_POP"].to_bytes(3,"little")
-	jumpif = opmap["POP_JUMP_IF_TRUE"].to_bytes(3,"little")
-	jumpifnot = opmap["POP_JUMP_IF_FALSE"].to_bytes(3,"little")
+	jumpiforpop = mkemit("JUMP_IF_TRUE_OR_POP")
+	jumpif = mkemit("POP_JUMP_IF_TRUE")
+	jumpifnot = mkemit("POP_JUMP_IF_FALSE")
+	jumpiforpop0 = (0x90|opmap["JUMP_IF_TRUE_OR_POP"]<<16).to_bytes(4,"little")
+	jumpif0 = (0x90|opmap["POP_JUMP_IF_TRUE"]<<16).to_bytes(4,"little")
+	jumpifnot0 = (0x90|opmap["POP_JUMP_IF_FALSE"]<<16).to_bytes(4,"little")
 	addply = add + multiply
 	def loadmkconst(c):
 		nonlocal constl
 		if c in consts:return consts[c]
 		else:
-			a=consts[c]=(100|len(constl)<<8).to_bytes(3,"little")
+			a=consts[c]=loadconst(len(constl))
 			constl.append(c)
 			return a
 	ps = defaultdict(lambda:32)
@@ -99,6 +101,8 @@ def main(pro):
 	def mvK(x,y):return x,(Y1 if y==Y0 else y-1)
 	def mvH(x,y):return (X1 if x==X0 else x-1),y
 	def mvJ(x,y):return x,(Y0 if y==Y1 else y+1)
+	def getjoff(off):
+		return off+(2 if off<256 else 4)
 	class Inst:
 		__slots__ = "n", "arg", "var", "sd", "dep", "si"
 		def __init__(self, arg):
@@ -115,24 +119,20 @@ def main(pro):
 		def sguard(self, bc, x):
 			dep=self.dep
 			if not dep:
-				j1=len(bc)+1
-				bc += jumpiforpop
+				bc += jumpiforpop(getjoff(len(bc) + len(loadmkconst(0)) + 4))
 				bc += loadmkconst(0)
 				bc += dup
 				bc += _not
-				bc[j1],bc[j1+1]=(j1+7).to_bytes(2,"little")
 			if x and dep<2:
 				bc += dup
 				bc += loadmkconst(1)
 				bc += cmpeq
-				j1=len(bc)+1
-				bc += jumpifnot
+				bc += jumpifnot(getjoff(len(bc) + len(loadmkconst(1)) + 8))
 				bc += dup
 				bc += _not
 				bc += rot3
 				bc += loadmkconst(1)
 				bc += add
-				bc[j1],bc[j1+1]=(j1+9).to_bytes(2,"little")
 		def remove(self):
 			sn=self.n
 			sn.si.remove(self)
@@ -290,15 +290,14 @@ def main(pro):
 			bc += dup
 			bc += call2
 			bc += giter
-			j1 = (ret11pos+13).to_bytes(2,"little")
-			bc += fiter(10)
+			j1 = len(bc)
+			bc += fiter(10 + len(jumpabs(j1)))
 			bc += pop
 			bc += rot3
 			bc += swap
 			bc += lappend1
 			bc += swap
-			bc += jump
-			bc[-2:]=j1
+			bc += jumpabs(j1)
 			bc += ret
 		else:bc += jumpabs(ret11pos)
 		return ...
@@ -314,12 +313,10 @@ def main(pro):
 					bc += dup
 					bc += loadmkconst(2)
 					bc += cmpis
-					j1 = len(bc)+1
-					bc += jumpifnot
+					bc += jumpifnot(getjoff(len(bc) + len(loadmkconst(3)) + 4))
 					bc += _not
 					bc += rot3
 					bc += loadmkconst(3)
-					bc[j1],bc[j1+1]=len(bc).to_bytes(2,"little")
 					bc += loadmkconst(3)
 					bc += subtract
 					bc += rot3
@@ -343,10 +340,10 @@ def main(pro):
 				bc += loadconst(1)
 				bc += cmpin
 				j4 = len(bc)+1
-				bc += jumpifnot
+				bc += jumpifnot0
 				bc += loadmkconst(self.arg)
 				emit11ret(bc)
-				bc[j4],bc[j4+1]=len(bc).to_bytes(2,"little")
+				bc[j4+2],bc[j4]=len(bc).to_bytes(2,"little")
 			elif a is not None and b is not None:
 				a=b,a
 				if c is not None:bc += loadmkconst(c)
@@ -387,10 +384,10 @@ def main(pro):
 				bc += loadconst(1)
 				bc += cmpin
 				j4 = len(bc)+1
-				bc += jumpifnot
+				bc += jumpifnot0
 				bc += loadmkconst(self.arg)
 				emit11ret(bc)
-				bc[j4],bc[j4+1]=len(bc).to_bytes(2,"little")
+				bc[j4+2],bc[j4]=len(bc).to_bytes(2,"little")
 		def eva(self, st, a, b, c):
 			a=b,a
 			ps[a]=c
@@ -405,40 +402,40 @@ def main(pro):
 			bc += call1
 			bc += dup
 			j1 = len(bc)+1
-			bc += jumpifnot
+			bc += jumpifnot0
 			bc += dup
 			bc += loadmkconst(1)
 			bc += cmpis
 			j2 = len(bc)+1
-			bc += jumpif
+			bc += jumpif0
 			bc += dup
 			bc += loadmkconst(2)
 			bc += cmpis
 			j3 = len(bc)+1
-			bc += jumpif
+			bc += jumpif0
 			self.arg.sort(key=lambda x:x.sd is not True)
-			if self.arg[0].sd is not True and bc[self.arg[0].sd-1] is 1:
-				bc += jumpabs(self.arg[0].sd-1)
+			if self.arg[0].sd is not True and bc[self.arg[0].sd-2] is 1:
+				bc += jumpabs(self.arg[0].sd-2)
 			else:
 				bc += pop
 				compile2(self.arg[0], bc)
-			if self.arg[1].sd is not True and bc[self.arg[1].sd-1] is 1:
-				bc[j1],bc[j1+1]=(self.arg[1].sd-1).to_bytes(2,"little")
+			if self.arg[1].sd is not True and bc[self.arg[1].sd-2] is 1:
+				bc[j1+2],bc[j1]=(self.arg[1].sd-2).to_bytes(2,"little")
 			else:
-				bc[j1],bc[j1+1]=len(bc).to_bytes(2,"little")
+				bc[j1+2],bc[j1]=len(bc).to_bytes(2,"little")
 				bc += pop
 				compile2(self.arg[1], bc)
-			if self.arg[2].sd is not True and bc[self.arg[2].sd-1] is 1:
-				bc[j2],bc[j2+1]=(self.arg[2].sd-1).to_bytes(2,"little")
+			if self.arg[2].sd is not True and bc[self.arg[2].sd-2] is 1:
+				bc[j2+2],bc[j2]=(self.arg[2].sd-2).to_bytes(2,"little")
 			else:
-				bc[j2],bc[j2+1]=len(bc).to_bytes(2,"little")
+				bc[j2+2],bc[j2]=len(bc).to_bytes(2,"little")
 				bc += pop
 				compile2(self.arg[2], bc)
-			if self.n.sd is not True and bc[self.n.sd-1] is 1:
-				bc[j3],bc[j3+1]=(self.n.sd-1).to_bytes(2,"little")
+			if self.n.sd is not True and bc[self.n.sd-2] is 1:
+				bc[j3+2],bc[j3]=(self.n.sd-2).to_bytes(2,"little")
 				return ...
 			else:
-				bc[j3],bc[j3+1]=len(bc).to_bytes(2,"little")
+				bc[j3+2],bc[j3]=len(bc).to_bytes(2,"little")
 				bc += pop
 		def eva(self, st):
 			c=getrandbits(2)
@@ -454,12 +451,11 @@ def main(pro):
 			bc += swap
 			if self.arg.sd is True:
 				j2 = len(bc)+1
-				bc += jumpif
+				bc += jumpif0
 				compile2(self.arg, bc)
-				bc[j2],bc[j2+1]=len(bc).to_bytes(2,"little")
+				bc[j2+2],bc[j2]=len(bc).to_bytes(2,"little")
 			else:
-				bc += jumpifnot
-				bc[-2:]=self.arg.sd.to_bytes(2,"little")
+				bc += jumpifnot(self.arg.sd)
 		def eva(self, st, a):return self.n if a else self.arg
 	@mkin(14, 0, 0, "ret")
 	class Op14(Inst):
@@ -831,7 +827,6 @@ def main(pro):
 			bc += loadmkconst(dep-adj)
 			bc += add
 		bc += jumpabs(ir.sd)
-		if bc[ir.sd] is 113:bc[-2:]=bc[ir.sd+1:ir.sd+3]
 	bc=bytearray()
 	root=Op16(None)
 	node14=Op14(None)
