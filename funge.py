@@ -61,6 +61,7 @@ def main(pro):
 	_neg = mkemit("UNARY_NEGATIVE")
 	ret = mkemit("RETURN_VALUE")
 	cmp = mkemit("COMPARE_OP")
+	fmtval = mkemit("FORMAT_VALUE")
 	cmplt = cmp(0)
 	cmpeq = cmp(2)
 	cmpgt = cmp(4)
@@ -231,9 +232,14 @@ def main(pro):
 		def emit(self, bc):
 			a, = self.var
 			if a is None:
-				bc += loadmkconst(self.arg)
-				bc += swap
-				bc += modulo
+				if self.arg == "%d ":
+					bc += fmtval(2)
+					bc += loadmkconst(" ")
+					bc += add
+				else:
+					bc += loadmkconst(self.arg)
+					bc += swap
+					bc += modulo
 				bc += loadmkconst(sowrite)
 				bc += swap
 			else:
