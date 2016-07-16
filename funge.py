@@ -59,6 +59,7 @@ def main(pro):
 	blist1 = mkemit("BUILD_LIST_UNPACK")(1)
 	_not = mkemit("UNARY_NOT")
 	_neg = mkemit("UNARY_NEGATIVE")
+	_pos = mkemit("UNARY_POSITIVE")
 	ret = mkemit("RETURN_VALUE")
 	cmp = mkemit("COMPARE_OP")
 	fmtval = mkemit("FORMAT_VALUE")
@@ -233,6 +234,7 @@ def main(pro):
 			a, = self.var
 			if a is None:
 				if self.arg == "%d ":
+					bc += _pos
 					bc += fmtval(2)
 					bc += loadmkconst(" ")
 					bc += add
