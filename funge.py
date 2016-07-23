@@ -94,9 +94,9 @@ def main(pro):
 	ps = defaultdict(lambda:32)
 	X1=Y1=X0=Y0=0
 	for Y1,line in enumerate(pro):
-		for x,c in enumerate(line):
-			if c!=32:ps[x,Y1]=c
-		X1=max(X1,x-(c == 10))
+		for x,y in enumerate(line):
+			if y!=32:ps[x,Y1]=y
+		X1=max(X1,x-(y == 10))
 	pg={}
 	consts={0:b"\x64\2", 1:b"\x64\3", 3:b"\x64\4"}
 	pro=set()
@@ -297,14 +297,14 @@ def main(pro):
 			bc += dup
 			bc += call2
 			bc += giter
-			j1 = len(bc)
-			bc += fiter(10 + len(jumpabs(j1)))
+			j1 = jumpabs(len(bc))
+			bc += fiter(10 + len(j1))
 			bc += pop
 			bc += rot3
 			bc += swap
 			bc += lappend1
 			bc += swap
-			bc += jumpabs(j1)
+			bc += j1
 			bc += ret
 		else:bc += jumpabs(ret11pos)
 		return ...
@@ -846,20 +846,19 @@ def main(pro):
 		peephole(ir)
 		compile2pre(ir, bc)
 		f=eval(CodeType(0,0,0,65536,0,bytes(bc),tuple(constl),(),(),"","",0,b""))
-		if f is None:return
+		if not f:return
+		f=iter(f)
 		ret11pos = None
 		node14.si.clear()
 		bc.clear()
 		pro.clear()
-		ir=f[0]
 		for x,y in ps.keys():
-			X0=min(X0,x)
-			X1=max(X1,x)
-			Y0=min(Y0,y)
-			Y1=max(Y1,y)
-		ir=tail=compile(ir, f[1])
-		for x in range(2,len(f)):
-			ir=Op0(f[x])
+			if x<X0:X0=x
+			elif x>X1:X1=x
+			if y<Y0:Y0=y
+			elif y>Y1:Y1=y
+		ir=tail=compile(next(f), next(f))
+		for ir in map(Op0,f):
 			ir.n=tail
 			tail.si.add(ir)
 			tail=ir
