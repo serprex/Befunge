@@ -63,6 +63,8 @@ def main(pro):
 	ret = mkemit("RETURN_VALUE")
 	cmp = mkemit("COMPARE_OP")
 	fmtval = mkemit("FORMAT_VALUE")
+	fmtval2 = fmtval(2)
+	fmtval4 = fmtval(4)
 	cmplt = cmp(0)
 	cmpeq = cmp(2)
 	cmpgt = cmp(4)
@@ -115,7 +117,7 @@ def main(pro):
 			self.dep = 0
 			self.si = set()
 		def __str__(self, blut={add:"+", subtract:"-", multiply:"*", floordivide:"/", modulo:"%", cmpgt:">", lshift:"<<", rshift:">>", band:"&"}):
-			return "%s\t%s\t%s"%(self.name,blut[self.arg] if self.op is 1 else self.arg,self.var)
+			return f"{self.name}\t{blut[self.arg] if self.op is 1 else self.arg}\t{self.var}"
 		def eval(self, st):return self.eva(st, *((c if c is not None else st.pop() if st else 0) for c in self.var))
 		def isseq(self):return len(self.si) is not 1
 		def sguard(self, bc, x):
@@ -233,24 +235,23 @@ def main(pro):
 		def emit(self, bc):
 			a, = self.var
 			if a is None:
-				if self.arg == "%d ":
+				if self.arg:
+					bc += loadmkconst("c")
+					bc += fmtval4
+				else:
 					bc += _pos
-					bc += fmtval(2)
+					bc += fmtval2
 					bc += loadmkconst(" ")
 					bc += add
-				else:
-					bc += loadmkconst(self.arg)
-					bc += swap
-					bc += modulo
 				bc += loadmkconst(sowrite)
 				bc += swap
 			else:
 				bc += loadmkconst(sowrite)
-				bc += loadmkconst(self.arg%a)
+				bc += loadmkconst(f'{a:c}' if self.arg else f'{+a!r}'+' ')
 			bc += call1
 			bc += pop
 		def eva(self, st, a):
-			sowrite(self.arg%a)
+			sowrite(f'{a:c}' if self.arg else f'{+a!r}'+' ')
 			return self.n
 	@mkin(8, 0, 1, "get")
 	class Op8(Inst):
@@ -535,7 +536,7 @@ def main(pro):
 							node14.si.add(i)
 						return head
 				elif i2<4:
-					if i2<2:emit(Op6, ("%d ", "%c")[i2])
+					if i2<2:emit(Op6, i2)
 					else:emit(Op8, (intput if i2 is 3 else getch))
 				elif i2>6:
 					if i2 is 7:
