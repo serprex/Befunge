@@ -40,11 +40,6 @@ fu! s:s()
 	let b:curline = getline(b:y+1)
 endfu
 let b:dir = 's:e'
-fu! s:pop()
-	if !empty(b:stack)
-		return remove(b:stack, -1)
-	endif
-endfu
 for b:x in range(10)
 	exec 'fu! s:l' . b:x . "()\ncall add(b:stack, " . b:x . ")\nendfu"
 endfor
@@ -68,13 +63,16 @@ fu! s:dup()
 		call add(b:stack, b:stack[-1])
 	endif
 endfu
-fu! s:opop()
-	call s:pop()
+
+fu! s:pop()
+	if !empty(b:stack)
+		call remove(b:stack, -1)
+	endif
 endfu
 fu! s:wmem()
-	let l:a = s:pop()
-	let l:b = s:pop()
-	let l:c = s:pop()
+	let l:a = empty(b:stack)?0:remove(b:stack, -1)
+	let l:b = empty(b:stack)?0:remove(b:stack, -1)
+	let l:c = empty(b:stack)?0:remove(b:stack, -1)
 	let b:data[l:a+l:b*25] = l:c
 	call cursor(l:a+1, l:b+1)
 	exec 'normal! r' . (l:c<33 || l:c>127 ? ' ' : nr2char(l:c))
@@ -83,37 +81,49 @@ fu! s:wmem()
 	endif
 endfu
 fu! s:rmem()
-	let l:a = s:pop()
-	let l:b = s:pop()
+	let l:a = empty(b:stack)?0:remove(b:stack, -1)
+	let l:b = empty(b:stack)?0:remove(b:stack, -1)
 	let l:c = l:a+l:b*25
 	call add(b:stack, has_key(b:data, l:c) ? b:data[l:c] : char2nr(getline(l:a+1)[l:b]))
 endfu
 fu! s:add()
-	call add(b:stack, s:pop()+s:pop())
+	if len(b:stack) > 1
+		let b:stack[-1] += remove(b:stack, -1)
+	endif
 endfu
 fu! s:sub()
-	let l:a = s:pop()
-	let l:b = s:pop()
+	let l:a = empty(b:stack)?0:remove(b:stack, -1)
+	let l:b = empty(b:stack)?0:remove(b:stack, -1)
 	call add(b:stack, b-a)
 endfu
 fu! s:mul()
-	call add(b:stack, s:pop()*s:pop())
+	if len(b:stack) > 1
+		let b:stack[-1] = remove(b:stack, -1) * b:stack[-1]
+	elseif !empty(b:stack)
+		call remove(b:stack, -1)
+	endif
 endfu
 fu! s:div()
-	let l:a = s:pop()
-	let l:b = s:pop()
+	let l:a = empty(b:stack)?0:remove(b:stack, -1)
+	let l:b = empty(b:stack)?0:remove(b:stack, -1)
 	call add(b:stack, b/a)
 endfu
 fu! s:rem()
-	let l:a = s:pop()
-	let l:b = s:pop()
+	let l:a = empty(b:stack)?0:remove(b:stack, -1)
+	let l:b = empty(b:stack)?0:remove(b:stack, -1)
 	call add(b:stack, b%a)
 endfu
 fu! s:cmp()
-	call add(b:stack, s:pop()<=s:pop())
+	if !empty(b:stack)
+		call add(b:stack, remove(b:stack, -1)<=(empty(b:stack)?0:remove(b:stack, -1)))
+	endif
 endfu
 fu! s:not()
-	call add(b:stack, !s:pop())
+	if empty(b:stack)
+		call add(b:stack, 1)
+	else
+		let b:stack[-1]=!b:stack[-1]
+	endif
 endfu
 fu! s:str()
 	call call(b:dir,[])
@@ -123,22 +133,22 @@ fu! s:str()
 	endw
 endfu
 fu! s:vif()
-	let b:dir = s:pop() ? 's:n' : 's:s'
+	let b:dir = !empty(b:stack) && remove(b:stack, -1) ? 's:n' : 's:s'
 endfu
 fu! s:hif()
-	let b:dir = s:pop() ? 's:w' : 's:e'
+	let b:dir = !empty(b:stack) && remove(b:stack, -1) ? 's:w' : 's:e'
 endfu
 fu! s:swap()
-	let l:a = s:pop()
-	let l:b = s:pop()
+	let l:a = empty(b:stack)?0:remove(b:stack, -1)
+	let l:b = empty(b:stack)?0:remove(b:stack, -1)
 	call add(b:stack, l:a)
 	call add(b:stack, l:b)
 endfu
 fu! s:rng()
 	let b:dir = ['s:n', 's:s', 's:w', 's:e'][reltime()[1]%4]
 endfu
-call s:prout("prnm()\nlet l:a='normal! GA' . s:pop() . ' '\n")
-call s:prout("prch()\nlet l:a=s:pop()\nlet l:a=l:a==10?'normal! Go':l:a<33||l:a>126?'normal! GA ':'normal! GA' . nr2char(l:a)\n")
+call s:prout("prnm()\nlet l:a='normal! GA'.(empty(b:stack)?0:remove(b:stack,-1)).' '\n")
+call s:prout("prch()\nlet l:a=empty(b:stack)?0:remove(b:stack,-1)\nlet l:a=l:a==10?'normal! Go':l:a<33||l:a>126?'normal! GA ':'normal! GA' . nr2char(l:a)\n")
 fu! s:getnm()
 	call add(b:stack, input('')+0)
 endfu
@@ -180,7 +190,7 @@ fu! BefungeQuit()
 	exec s:funbuf . "wincmd c\n" . s:outbuf . 'wincmd c'
 endfu
 let s:ops = {0:'s:l0',1:'s:l1',2:'s:l2',3:'s:l3',4:'s:l4',5:'s:l5',6:'s:l6',7:'s:l7',8:'s:l8',9:'s:l9',
-	\'>':'s:east','^':'s:north','<':'s:west','v':'s:south','#':'s:hop',':':'s:dup','$':'s:opop','p':'s:wmem','g':'s:rmem',
+	\'>':'s:east','^':'s:north','<':'s:west','v':'s:south','#':'s:hop',':':'s:dup','$':'s:pop','p':'s:wmem','g':'s:rmem',
 	\'+':'s:add','-':'s:sub','*':'s:mul','/':'s:div','%':'s:rem','`':'s:cmp','!':'s:not','"':'s:str',
 	\'|':'s:vif','_':'s:hif','\':'s:swap','?':'s:rng','.':'s:prnm',',':'s:prch','&':'s:getnm','~':'s:getch','@':'s:done'}
 nnoremap <silent> <buffer> <F5> :call BefungeRun()<cr>
