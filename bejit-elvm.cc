@@ -34,7 +34,7 @@ struct cell {
 		exec = false;
 	}
 
-	cell(int v){
+	cell(int32_t v){
 		joff[0] = -1;
 		joff[1] = -1;
 		joff[2] = -1;
@@ -66,11 +66,18 @@ int opc(int i){
 	return i<33||i>126?36:loc[i-33];
 }
 
-int pop() {
+int32_t pop() {
 	if (st.empty()) return 0;
-	int v = st.top();
+	int32_t v = st.top();
 	st.pop();
 	return v;
+}
+
+int32_t *top() {
+	if (st.empty()) {
+		st.push(0);
+	}
+	return &st.top();
 }
 
 size_t readsize(size_t offs){
@@ -168,39 +175,54 @@ struct cursor {
 				code.push_back(op);
 				switch(op){
 				default:__builtin_unreachable();
-				case(10)st.push(pop()+pop());
-				case(11){
-					int x=pop();
-					int y=pop();
-					st.push(y-x);
+				case(10)if(st.size()>1){
+					int32_t x = st.top();
+					st.pop();
+					*&st.top() += x;
 				}
-				case(12)st.push(pop()*pop());
+				case(11){
+					int32_t x=pop();
+					int32_t *yp=top();
+					*yp -= x;
+				}
+				case(12)if(!st.empty()){
+					if (st.size()==1)st.pop();
+					else {
+						int32_t x = st.top();
+						st.pop();
+						*&st.top() *= x;
+					}
+				}
 				case(13){
-					int x=pop();
-					int y=pop();
-					st.push(y/x);
+					int32_t x=pop();
+					int32_t *yp=top();
+					*yp /= x;
 				}
 				case(14){
-					int x=pop();
-					int y=pop();
-					st.push(y%x);
+					int32_t x=pop();
+					int32_t *yp=top();
+					*yp %= x;
 				}
 				case(15){
-					int x=pop();
-					int y=pop();
-					st.push(y>x);
+					int32_t x=pop();
+					int32_t *yp=top();
+					*yp = *yp>x;
 				}
-				case(16)st.push(!pop());
+				case(16)
+					if(st.empty()) st.push(1);
+					else {
+						int32_t *x = &st.top();
+						*x = !*x;
+					}
 				case(17)if(!st.empty())st.pop();
-				case(18){
-					int x = pop();
-					st.push(x);
-					st.push(x);
+				case(18)if(!st.empty()){
+					st.push(st.top());
 				}
 				case(19){
-					int x=pop();
-					int y=pop();
-					st.push(x);
+					int32_t x=pop();
+					int32_t *yp=top();
+					int32_t y = *yp;
+					*yp = x;
 					st.push(y);
 				}
 				case(20)printf("%d ",pop());
@@ -222,7 +244,7 @@ struct cursor {
 				coord putxy;
 				putxy.y=pop();
 				putxy.x=pop();
-				int z=pop();
+				int32_t z=pop();
 				cell*ch=&ps[putxy];
 				ch->val = z;
 				if (ch->exec){
@@ -310,46 +332,61 @@ int main(int,char**argv){
 		switch (code[pc++]) {
 		default:__builtin_unreachable();
 		case(0 ... 9) st.push(code[pc-1]);
-		case(10)st.push(pop()+pop());
-		case(11){
-			int x=pop();
-			int y=pop();
-			st.push(y-x);
+		case(10)if(st.size()>1){
+			int32_t x = st.top();
+			st.pop();
+			*&st.top() += x;
 		}
-		case(12)st.push(pop()*pop());
+		case(11){
+			int32_t x=pop();
+			int32_t *yp=top();
+			*yp -= x;
+		}
+		case(12)if(!st.empty()){
+			if (st.size()==1)st.pop();
+			else {
+				int32_t x = st.top();
+				st.pop();
+				*&st.top() *= x;
+			}
+		}
 		case(13){
-			int x=pop();
-			int y=pop();
-			st.push(y/x);
+			int32_t x=pop();
+			int32_t *yp=top();
+			*yp /= x;
 		}
 		case(14){
-			int x=pop();
-			int y=pop();
-			st.push(y%x);
+			int32_t x=pop();
+			int32_t *yp=top();
+			*yp %= x;
 		}
 		case(15){
-			int x=pop();
-			int y=pop();
-			st.push(y>x);
+			int32_t x=pop();
+			int32_t *yp=top();
+			*yp = *yp>x;
 		}
-		case(16)st.push(!pop());
+		case(16)
+			if(st.empty()) st.push(1);
+			else {
+				int32_t *x = &st.top();
+				*x = !*x;
+			}
 		case(17)if(!st.empty())st.pop();
-		case(18){
-			int x = pop();
-			st.push(x);
-			st.push(x);
+		case(18)if(!st.empty()){
+			st.push(st.top());
 		}
 		case(19){
-			int x=pop();
-			int y=pop();
-			st.push(x);
+			int32_t x=pop();
+			int32_t *yp=top();
+			int32_t y = *yp;
+			*yp = x;
 			st.push(y);
 		}
 		case(20)printf("%d ",pop());
 		case(21)putchar(pop());
 		case(22)st.push(getchar());
 		case(23){
-			int x;
+			int32_t x;
 			scanf("%d",&x);
 			st.push(x);
 		}
@@ -363,7 +400,7 @@ int main(int,char**argv){
 			coord putxy;
 			putxy.y=pop();
 			putxy.x=pop();
-			int z=pop();
+			int32_t z=pop();
 			cell*ch=&ps[putxy];
 			ch->val = z;
 			if (ch->exec){
