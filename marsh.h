@@ -18,33 +18,30 @@
 	LOOP;
 	OP(p9)*++sp=9;
 	LOOP;
-	OP(add)if(sp>st){sp--;*sp+=sp[1];}else if(sp<st)*++sp=0;
+	OP(add)if(sp>st){sp--;*sp+=sp[1];}
 	LOOP;
-	OP(sub)if(sp>st){sp--;*sp-=sp[1];}else if(sp==st)*sp*=-1;else*++sp=0;
+	OP(sub)if(sp>st){sp--;*sp-=sp[1];}else if(sp==st)*sp*=-1;
 	LOOP;
-	OP(mul)if(sp>st){sp--;*sp*=sp[1];}else*(sp=st)=0;
+	OP(mul)if(sp>st){sp--;*sp*=sp[1];}else sp=st-1;
 	LOOP;
 	OP(dvi)if(sp>st){sp--;
-		#ifdef FLOAT
-		*sp/=sp[1];
-		#else
 		if(sp[1])*sp/=sp[1];
-		#endif
-		}else*(sp=st)=0;
+		}else sp=st-1;
 	LOOP;
 	OP(mod)if(sp>st){sp--;
+		if(sp[1])
 		#ifdef FLOAT
 		*sp=fmod(*sp,sp[1]);
 		#else
-		if(sp[1])*sp%=sp[1];
+		*sp%=sp[1];
 		#endif
-		}else*(sp=st)=0;
+		}else sp=st-1;
 	LOOP;
 	OP(not)if(sp>=st)*sp=!*sp;else*(sp=st)=1;
 	LOOP;
-	OP(gt)if(sp>st){sp--;*sp=*sp>sp[1];}else*sp=sp==st&&0>*sp;
+	OP(gt)if(sp>st){sp--;*sp=*sp>sp[1];}else if(sp==st)*sp=0>*sp;
 	LOOP;
-	OP(dup)if(sp>=st){sp[1]=*sp;sp++;}else{sp=st+1;st[0]=st[1]=0;}
+	OP(dup)if(sp>=st){sp[1]=*sp;sp++;}
 	LOOP;
 	OP(pop)sp-=sp>=st;
 	LOOP;
@@ -55,7 +52,7 @@
 		WORD tmp=*sp;
 		*sp=sp[-1];
 		sp[-1]=tmp;
-	}else if(sp==st){sp[1]=*sp;*sp++=0;}else{sp=st+1;st[0]=st[1]=0;}
+	}else if(sp==st)*++sp=0;
 	LOOP;
 	OP(stm)switch(dir){
 	default:__builtin_unreachable();

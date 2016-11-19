@@ -44,12 +44,12 @@ int comp(int i){
 			rl++;
 			switch(op){
 			default:__builtin_unreachable();
-			case(10)if(sp>st){sp--;*sp+=sp[1];}else if(sp<st)*++sp=0;
-			case(11)if(sp>st){sp--;*sp-=sp[1];}else if(sp==st)*sp*=-1;else*++sp=0;
-			case(12)if(sp>st){sp--;*sp*=sp[1];}else*(sp=st)=0;
-			case(13)if(sp>st){sp--;if(sp[1])*sp/=sp[1];}else*(sp=st)=0;
-			case(14)if(sp>st){sp--;if(sp[1])*sp%=sp[1];}else*(sp=st)=0;
-			case(15)if(sp>st){sp--;*sp=*sp>sp[1];}else{st[0]=sp==st&&0>*sp;sp=st;}
+			case(10)if(sp>st){sp--;*sp+=sp[1];}
+			case(11)if(sp>st){sp--;*sp-=sp[1];}else if(sp==st)*sp*=-1;
+			case(12)if(sp>st){sp--;*sp*=sp[1];}else sp=st-1;
+			case(13)if(sp>st){sp--;if(sp[1])*sp/=sp[1];}else sp=st-1;
+			case(14)if(sp>st){sp--;if(sp[1])*sp%=sp[1];}else sp=st-1;
+			case(15)if(sp>st){sp--;*sp=*sp>sp[1];}else if(sp==st)*sp=0>*sp;
 			case(16)
 			if(sp>=st){
 				if(cl>3&&!r[ct[cl-4]]){
@@ -67,7 +67,7 @@ int comp(int i){
 				cl-=4;
 				sp--;
 			}else sp-=sp>=st;
-			case(18)if(sp>=st){sp[1]=*sp;sp++;}else{sp=st+1;st[0]=st[1]=0;}
+			case(18)if(sp>=st){sp[1]=*sp;sp++;}
 			case(19)
 			if(sp>st){
 				int32_t t=*sp;
@@ -81,7 +81,7 @@ int comp(int i){
 					*(int32_t*)(r+rl-4)=*sp;
 					*(int32_t*)(r+rl-9)=sp[-1];
 				}
-			}else if(sp==st){sp[1]=*sp;*sp++=0;}else{sp=st+1;st[0]=st[1]=0;}
+			}else if(sp==st)*++sp=0;
 			case(20)printf("%d ",sp>=st?*sp--:0);
 			case(21)putchar(sp>=st?*sp--:0);
 			case(22)*++sp=getchar();
@@ -276,21 +276,21 @@ int main(int argc,char**argv){
 		if(sp>=st)*sp+=*(int32_t*)op;else*(sp=st)=*(int32_t*)op;
 		op+=4;
 		LOOP;
-	OP10:if(sp>st){sp--;*sp+=sp[1];}else if(sp<st)*++sp=0;LOOP;
-	OP11:if(sp>st){sp--;*sp-=sp[1];}else if(sp==st)*sp*=-1;else*++sp=0;LOOP;
-	OP12:if(sp>st){sp--;*sp*=sp[1];}else*(sp=st)=0;LOOP;
-	OP13:if(sp>st){sp--;if(sp[1])*sp/=sp[1];}else*(sp=st)=0;LOOP;
-	OP14:if(sp>st){sp--;if(sp[1])*sp%=sp[1];}else*(sp=st)=0;LOOP;
-	OP15:if(sp>st){sp--;*sp=*sp>sp[1];}else{st[0]=sp==st&&0>*sp;sp=st;}LOOP;
+	OP10:if(sp>st){sp--;*sp+=sp[1];}LOOP;
+	OP11:if(sp>st){sp--;*sp-=sp[1];}else if(sp==st)*sp*=-1;LOOP;
+	OP12:if(sp>st){sp--;*sp*=sp[1];}else sp=st-1;LOOP;
+	OP13:if(sp>st){sp--;if(sp[1])*sp/=sp[1];}else sp=st-1;LOOP;
+	OP14:if(sp>st){sp--;if(sp[1])*sp%=sp[1];}else sp=st-1;LOOP;
+	OP15:if(sp>st){sp--;*sp=*sp>sp[1];}else if(sp==st)*sp=0>*sp;LOOP;
 	OP16:if(sp>=st)*sp=!*sp;else*(sp=st)=1;LOOP;
 	OP17:sp-=sp>=st;LOOP;
-	OP18:if(sp>=st){sp[1]=*sp;sp++;}else{sp=st+1;st[0]=st[1]=0;}LOOP;
+	OP18:if(sp>=st){sp[1]=*sp;sp++;}LOOP;
 	OP19:
 	if(sp>st){
 		int32_t t=*sp;
 		*sp=sp[-1];
 		sp[-1]=t;
-	}else if(sp==st){sp[1]=*sp;*sp++=0;}else{sp=st+1;st[0]=st[1]=0;}
+	}else if(sp==st){*++sp=0;}
 	LOOP;
 	OP20:printf("%d ",sp>=st?*sp--:0);LOOP;
 	OP21:putchar(sp>=st?*sp--:0);LOOP;
