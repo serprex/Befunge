@@ -12,6 +12,32 @@
 	#define __builtin_unreachable()
 #endif
 #define case(x) break;case x:;
+#define OP_MAXNUM 232
+#define OP_JMP 233
+#define OP_INT 234
+#define OP_ADD 235
+#define OP_SUB 236
+#define OP_MUL 237
+#define OP_DIV 238
+#define OP_MOD 239
+#define OP_CMP 240
+#define OP_NOT 241
+#define OP_POP 242
+#define OP_DUP 243
+#define OP_SWP 244
+#define OP_PRI 245
+#define OP_PRC 246
+#define OP_GI 247
+#define OP_GC 248
+#define OP_REM 249
+#define OP_WEM 250
+#define OP_RNG 251
+#define OP_VIF_TRUE 252
+#define OP_HIF_TRUE 253
+#define OP_VIF_FALSE 254
+#define OP_HIF_FALSE 255
+#define OP_IF_TRUE_RANGE 252 ... 253
+#define OP_IF_FALSE_RANGE 254 ... 255
 
 struct coord {
 	int32_t x, y;
@@ -159,7 +185,7 @@ struct cursor {
 				if (ch->joff[dir] == code.size()) {
 					while(true);
 				}
-				code.push_back(30);
+				code.push_back(OP_JMP);
 				pushsize(ch->joff[dir]);
 				return ch->joff[dir];
 			}
@@ -172,7 +198,7 @@ struct cursor {
 				code.push_back(op);
 				st.push(op);
 			case(10 ... 24)
-				code.push_back(op);
+				code.push_back((OP_ADD - 10) + op);
 				switch(op){
 				default:__builtin_unreachable();
 				case(10)if(st.size()>1){
@@ -257,30 +283,31 @@ struct cursor {
 						kv.second.exec = false;
 					}
 				} else {
-					code.push_back(25);
+					code.push_back(OP_WEM);
 					pushcurse();
 				}
 			}
 			case(26){
 				dir=rand()&3;
-				code.push_back(26);
+				code.push_back(OP_RNG);
 				pushcoord(xy);
-				size_t jo = code.size();
-				for (size_t i=0; i<sizeof(size_t)*4; i++){
-					code.push_back(-1);
+				for (int i=0; i<4; i++){
+					pushsize(i == dir ? code.size() : (size_t)-1);
 				}
-				writesize(jo + 8 + dir * sizeof(size_t), code.size());
 			}
 			case(27 ... 28){
 				int32_t x = pop();
-				dir=x?(op==27?1:2):(op==27?3:0);
-				code.push_back(op);
-				size_t jo = code.size();
-				pushcoord(xy);
-				for (size_t i=0; i<sizeof(size_t)*2; i++){
-					code.push_back(-1);
+				int opcode;
+				if (op==27){
+					opcode = OP_VIF_TRUE ^ (x?2:0);
+					dir = x?1:3;
+				}else {
+					opcode = OP_HIF_TRUE ^ (x?2:0);
+					dir = x?2:0;
 				}
-				writesize((x ? jo : jo+sizeof(size_t)) + 8, code.size());
+				code.push_back(opcode);
+				pushcoord(xy);
+				pushsize(-1);
 			}
 			case(29){
 				while(true){
@@ -289,8 +316,12 @@ struct cursor {
 					sch->exec=true;
 					if (sch->val == '"')break;
 					st.push(sch->val);
-					code.push_back(29);
-					pushint32(sch->val);
+					if (sch->val <= OP_MAXNUM) {
+						code.push_back(sch->val);
+					} else {
+						code.push_back(OP_INT);
+						pushint32(sch->val);
+					}
 				}
 			}
 			case(30)exit(0);
@@ -328,21 +359,26 @@ int main(int,char**argv){
 	curse.dir=0;
 	size_t pc = curse.compile();
 	while (true) {
-		//printf("%ld\t%d\t:%ld\n", pc, code[pc], st.size());
 		switch (code[pc++]) {
 		default:__builtin_unreachable();
-		case(0 ... 9) st.push(code[pc-1]);
-		case(10)if(st.size()>1){
+		case(0 ... OP_MAXNUM){
+			st.push(code[pc-1]);
+		}
+		case(OP_INT){
+			st.push(readint32(pc));
+			pc += 4;
+		}
+		case(OP_ADD)if(st.size()>1){
 			int32_t x = st.top();
 			st.pop();
 			*&st.top() += x;
 		}
-		case(11){
+		case(OP_SUB){
 			int32_t x=pop();
 			int32_t *yp=top();
 			*yp -= x;
 		}
-		case(12)if(!st.empty()){
+		case(OP_MUL)if(!st.empty()){
 			if (st.size()==1)st.pop();
 			else {
 				int32_t x = st.top();
@@ -350,53 +386,53 @@ int main(int,char**argv){
 				*&st.top() *= x;
 			}
 		}
-		case(13){
+		case(OP_DIV){
 			int32_t x=pop();
 			int32_t *yp=top();
 			*yp /= x;
 		}
-		case(14){
+		case(OP_MOD){
 			int32_t x=pop();
 			int32_t *yp=top();
 			*yp %= x;
 		}
-		case(15){
+		case(OP_CMP){
 			int32_t x=pop();
 			int32_t *yp=top();
 			*yp = *yp>x;
 		}
-		case(16)
+		case(OP_NOT)
 			if(st.empty()) st.push(1);
 			else {
 				int32_t *x = &st.top();
 				*x = !*x;
 			}
-		case(17)if(!st.empty())st.pop();
-		case(18)if(!st.empty()){
+		case(OP_POP)if(!st.empty())st.pop();
+		case(OP_DUP)if(!st.empty()){
 			st.push(st.top());
 		}
-		case(19){
+		case(OP_SWP){
 			int32_t x=pop();
 			int32_t *yp=top();
 			int32_t y = *yp;
 			*yp = x;
 			st.push(y);
 		}
-		case(20)printf("%d ",pop());
-		case(21)putchar(pop());
-		case(22)st.push(getchar());
-		case(23){
+		case(OP_PRI)printf("%d ",pop());
+		case(OP_PRC)putchar(pop());
+		case(OP_GC)st.push(getchar());
+		case(OP_GI){
 			int32_t x;
 			scanf("%d",&x);
 			st.push(x);
 		}
-		case(24){
+		case(OP_REM){
 			coord getxy;
 			getxy.y=pop();
 			getxy.x=pop();
 			st.push(ps[getxy].val);
 		}
-		case(25){
+		case(OP_WEM){
 			coord putxy;
 			putxy.y=pop();
 			putxy.x=pop();
@@ -419,37 +455,54 @@ int main(int,char**argv){
 				pc += 9;
 			}
 		}
-		case(26){
+		case(OP_RNG){
 			int dir=rand()&3;
-			size_t jo = readsize(pc + 8 + dir*sizeof(size_t));
-			if (jo == (size_t)-1){
+			pc = readsize(pc + 8 + dir*sizeof(size_t));
+			if (pc == (size_t)-1){
 				writesize(pc + 8 + dir*sizeof(size_t), code.size());
 				curse.xy = readcoord(pc);
 				curse.dir = dir;
 				curse.mv();
 				pc = curse.compile();
 			} else {
-				pc = jo;
+				pc += 8 + sizeof(size_t) * 4;
 			}
 		}
-		case(27 ... 28){
-			int32_t x = pop();
-			size_t jo = readsize((x?pc:pc+sizeof(size_t))+8);
-			if (jo == (size_t)-1){
-				writesize((x?pc:pc+sizeof(size_t))+8, code.size());
-				curse.xy = readcoord(pc);
-				curse.dir = x?(code[pc-1]==27?1:2):(code[pc-1]==27?3:0);
-				curse.mv();
-				pc = curse.compile();
+		case(OP_IF_TRUE_RANGE){
+			if (pop()) {
+				int ish = code[pc-1] == OP_HIF_TRUE;
+				size_t jo = readsize(pc+8);
+				if (jo == (size_t)-1){
+					writesize(pc+8, code.size());
+					curse.xy = readcoord(pc);
+					curse.dir = ish ? 2 : 1;
+					curse.mv();
+					pc = curse.compile();
+				} else {
+					pc = jo;
+				}
 			} else {
-				pc = jo;
+				pc += 8 + sizeof(size_t);
 			}
 		}
-		case(29){
-			st.push(readint32(pc));
-			pc += 4;
+		case(OP_IF_FALSE_RANGE){
+			if (!pop()) {
+				int ish = code[pc-1] == OP_HIF_FALSE;
+				size_t jo = readsize(pc+8);
+				if (jo == (size_t)-1){
+					writesize(pc+8, code.size());
+					curse.xy = readcoord(pc);
+					curse.dir = ish ? 0 : 3;
+					curse.mv();
+					pc = curse.compile();
+				} else {
+					pc = jo;
+				}
+			} else {
+				pc += 8 + sizeof(size_t);
+			}
 		}
-		case(30){
+		case(OP_JMP){
 			pc = readsize(pc);
 		}
 		}
