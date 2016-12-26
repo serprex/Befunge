@@ -244,7 +244,7 @@ struct cursor {
 					if(!st.empty())st.pop();
 					if (peep.size()>1 && code[peep[peep.size()-2].code]==OP_INT) {
 						*peep[peep.size()-1].joff = -1;
-						*peep[peep.size()-2].joff = -1;
+						if(peep[peep.size()-2].joff) *peep[peep.size()-2].joff = -1;
 						peep.resize(peep.size()-2);
 						code.resize(code.size()-6);
 					}
