@@ -118,7 +118,6 @@ def main(pro):
 			self.si = set()
 		def __str__(self, blut={add:"+", subtract:"-", multiply:"*", floordivide:"/", modulo:"%", cmpgt:">", lshift:"<<", rshift:">>", band:"&"}):
 			return f"{self.name}\t{blut[self.arg] if self.op is 1 else self.arg}\t{self.var}"
-		def eval(self, st):return self.eva(st, *((c if c is not None else st.pop() if st else 0) for c in self.var))
 		def isseq(self):return len(self.si) is not 1
 		def sguard(self, bc, x):
 			dep=self.dep
@@ -161,7 +160,7 @@ def main(pro):
 		__slots__ = ()
 		def emit(self, bc):
 			bc += loadmkconst(self.arg)
-		def eva(self, st):
+		def eval(self, st):
 			st.append(self.arg)
 			return self.n
 	@mkin(1, 2, 1, "bin")
@@ -179,7 +178,10 @@ def main(pro):
 				bc += loadmkconst(b)
 				if self.arg not in addply:bc += swap
 			bc += self.arg
-		def eva(self, st, a, b):
+		def eval(self, st):
+			a, b = self.var
+			a = a if a is not None else st.pop() if st else 0
+			b = b if b is not None else st.pop() if st else 0
 			arg = self.arg
 			st.append(b+a if arg is add else
 				b-a if arg is subtract else
@@ -195,21 +197,26 @@ def main(pro):
 		__slots__ = ()
 		def emit(self, bc):
 			bc += _not
-		def eva(self, st, a):
-			st.append(not a)
+		def eval(self, st):
+			a, = self.var
+			st.append(not a if a is not None else not st.pop() if st else 1)
 			return self.n
 	@mkin(3, 1, 0, "pop")
 	class Op3(Inst):
 		__slots__ = ()
 		def emit(self, bc):
 			bc += pop
-		def eva(self, st, a):return self.n
+		def eval(self, st):
+			if self.var[0] is None and st:st.pop()
+			return self.n
 	@mkin(4, 1, 2, "dup")
 	class Op4(Inst):
 		__slots__ = ()
 		def emit(self, bc):
 			bc += dup
-		def eva(self, st, a):
+		def eval(self, st):
+			a, = self.var
+			a = a if a is not None else st.pop() if st else 0
 			st.append(a)
 			st.append(a)
 			return self.n
@@ -225,7 +232,10 @@ def main(pro):
 				bc += swap
 			else:
 				bc += loadmkconst(b)
-		def eva(self, st, a, b):
+		def eval(self, st):
+			a, b = self.var
+			a = a if a is not None else st.pop() if st else 0
+			b = b if b is not None else st.pop() if st else 0
 			st.append(a)
 			st.append(b)
 			return self.n
@@ -250,7 +260,9 @@ def main(pro):
 				bc += loadmkconst(f'{a:c}' if self.arg else f'{+a!r}'+' ')
 			bc += call1
 			bc += pop
-		def eva(self, st, a):
+		def eval(self, st):
+			a, = self.var
+			a = a if a is not None else st.pop() if st else 0
 			sowrite(f'{a:c}' if self.arg else f'{+a!r}'+' ')
 			return self.n
 	@mkin(8, 0, 1, "get")
@@ -259,7 +271,7 @@ def main(pro):
 		def emit(self, bc):
 			bc += loadmkconst(self.arg)
 			bc += call0
-		def eva(self, st):
+		def eval(self, st):
 			st.append(self.arg())
 			return self.n
 	emit10h = tuple2 + loadconst(0) + swap + subscr
@@ -281,9 +293,11 @@ def main(pro):
 				bc += loadmkconst(b)
 				bc += swap
 				bc += emit10h
-		def eva(self, st, a, b):
-			a=b,a
-			st.append(ps[a])
+		def eval(self, st):
+			a, b = self.var
+			a = a if a is not None else st.pop() if st else 0
+			b = b if b is not None else st.pop() if st else 0
+			st.append(ps[b,a])
 			return self.n
 	ret11pos = None
 	def emit11ret(bc):
@@ -395,7 +409,11 @@ def main(pro):
 				bc += loadmkconst(self.arg)
 				emit11ret(bc)
 				bc[j4+2],bc[j4]=len(bc).to_bytes(2,"little")
-		def eva(self, st, a, b, c):
+		def eval(self, st):
+			a, b, c = self.var
+			a = a if a is not None else st.pop() if st else 0
+			b = b if b is not None else st.pop() if st else 0
+			c = c if c is not None else st.pop() if st else 0
 			a=b,a
 			ps[a]=c
 			return [*self.arg,*reversed(st)] if a in pro else self.n
@@ -444,9 +462,9 @@ def main(pro):
 			else:
 				bc[j3+2],bc[j3]=len(bc).to_bytes(2,"little")
 				bc += pop
-		def eva(self, st):
-			c=getrandbits(2)
-			return self.n if c is 3 else self.arg[c]
+		def eval(self, st):
+			st=getrandbits(2)
+			return self.n if st is 3 else self.arg[st]
 	@mkin(13, 1, 0, "jz")
 	class Op13(Inst):
 		__slots__ = ()
@@ -463,7 +481,9 @@ def main(pro):
 				bc[j2+2],bc[j2]=len(bc).to_bytes(2,"little")
 			else:
 				bc += jumpifnot(self.arg.sd)
-		def eva(self, st, a):return self.n if a else self.arg
+		def eval(self, st):
+			a, = self.var
+			return self.n if (a if a is not None else (st and st.pop())) else self.arg
 	@mkin(14, 0, 0, "ret")
 	class Op14(Inst):
 		__slots__ = ()
@@ -471,12 +491,12 @@ def main(pro):
 			bc += loadmkconst(None)
 			bc += ret
 			return ...
-		def eva(self, st):return
+		def eval(self, st):return
 	@mkin(16, 0, 0, "nop")
 	class Op16(Inst):
 		__slots__ = ()
 		def emit(self, bc):return
-		def eva(self, st):return self.n
+		def eval(self, st):return self.n
 	def compile(i,mv,
 		bins={37:modulo,42:multiply,43:add,45:subtract,47:floordivide,96:cmpgt},
 		raw={33:Op2,36:Op3,58:Op4,92:Op5,103:Op10},
@@ -779,24 +799,15 @@ def main(pro):
 			while True:ir=ir.eval(st)
 		except AttributeError:return ir
 	def compile2pre(ir, bc):
-		dep=0
+		st = []
 		while not ir.isseq():
-			siop = ir.var.count(None)
-			if siop:
-				dep -= siop
-				if dep<0:
-					if siop is 1:
-						bc += loadmkconst(0)
-					elif siop is 2:
-						bc += loadmkconst(0)
-						if dep is -1:bc+=swap
-						elif dep is -2:bc+=dup
-					dep=0
-			if ir.emit(bc) is ...:return
-			dep += ir.so
-			ir=ir.n
+			ir=ir.eval(st)
+			if not ir:return node14.emit(bc)
+		for dep in map(loadmkconst, st):
+			bc += dep
+		dep = len(st)
 		bc += loadmkconst(dep)
-		ir.dep=dep
+		ir.dep = dep
 		return compile2(ir, bc)
 	def compile2(ir, bc):
 		adj=dep=0
