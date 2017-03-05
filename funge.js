@@ -111,7 +111,7 @@ var Op7 = mkop(7, 0, 1, "get", (op, ctx) => {
 });
 var Op8 = mkop(8, 2, 1, "rem", (op, ctx) => {
 	var y = ctx.pop(), x = ctx.pop();
-	if (0 <= x && x <= 80 && 0 <= y && y <= 25) {
+	if (0 <= x && x < 80 && 0 <= y && y < 25) {
 		y=0xce00+((y|x<<5)<<2);
 		ctx.push(ctx.mem[y]|ctx.mem[y|1]<<8|ctx.mem[y|2]<<16|ctx.mem[y|3]<<24);
 	} else {
@@ -121,7 +121,7 @@ var Op8 = mkop(8, 2, 1, "rem", (op, ctx) => {
 });
 var Op9 = mkop(9, 3, 0, "wem", (op, ctx) => {
 	var y = ctx.pop(), x = ctx.pop(), z = ctx.pop();
-	if (0 <= x && x <= 80 && 0 <= y && y <= 25) {
+	if (0 <= x && x < 80 && 0 <= y && y < 25) {
 		y=(y|x<<5);
 		var proidx = 0xf600 + y;
 		y<<=2;
@@ -209,7 +209,6 @@ Tracer.prototype.trace = function(i) {
 		pist.push(i);
 		this.mem[0xf600+(i>>2)]=1;
 		var i2 = this.mem[0xce00+(i&~3)];
-		//console.log(i2);
 		if (this.mem[0xce01+(i&~3)] || this.mem[0xce02+(i&~3)] || this.mem[0xce03+(i&~3)]) {
 			continue;
 		}
@@ -301,38 +300,48 @@ function bfInterpret(mem, ir, sp) {
 	}
 }
 
+var r4 = () => Math.random()*4&3;
 var ini = () => prompt("Number", "")|0;
 var inc = () => prompt("Character", "").charCodeAt(0)|0;
-var pri = x => console.log(x);
-var prc = x => console.log(String.fromCharCode(x));
+var pri = x => prOut.textContent += x + " ";
+var prc = x => prOut.textContent += String.fromCharCode(x);
 function bfRun(mem, cursor, sp) {
 	var code = new Uint8Array(mem.buffer);
 	while (true) {
 		var tracer = new Tracer(code);
 		var ir = tracer.trace(cursor);
-		console.log(ir);
-		cursor = bfInterpret(code, ir, sp);
-		sp = cursor&65535;
-		cursor >>= 16;
-		console.log(cursor, code);
-		if (!~cursor) return;
-		/*bfCompile(ir).then(m => {
-			var f = new WebAssembly.Instance(m, {
-			"": {
-				pri: pri,
-				prc: prc,
-				ini: ini,
-				inc: inc,
-				mem: mem,
-			}});
-			MOD = f; console.log(f, f.exports.mem == mem);
-			var r = f.exports.f();
-			if (~r) return bfRun(f.exports.mem, step(r));
-		});*/
+		//console.log(ir);
+		if (false) {
+			cursor = bfInterpret(code, ir, sp);
+			if (!~cursor) return;
+			sp = cursor&65535;
+			cursor >>= 16;
+			//console.log(cursor, code);
+		} else {
+			return bfCompile(ir, sp).then(m => {
+				var f = new WebAssembly.Instance(m, {
+				"": {
+					pri: pri,
+					prc: prc,
+					ini: ini,
+					inc: inc,
+					r4: r4,
+					mem: mem,
+				}});
+				MOD = f; console.log(f, f.exports.mem == mem);
+				cursor = f.exports.f();
+				console.log(code);
+				if (~cursor) {
+					sp = cursor&65535;
+					cursor >>= 16;
+					return bfRun(mem, cursor, sp);
+				}
+			});
+		}
 	}
 }
 
-function bfCompile() {
+function bfCompile(ir, sp) {
 	var bc = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
 
 	// ////////////
@@ -357,7 +366,7 @@ function bfCompile() {
 	console.log("imp", bc.length);
 	bc.push(2);
 
-	var imp = [5];
+	var imp = [6];
 	varuint(imp, 0);
 	varuint(imp, 3);
 	pushString(imp, "pri");
@@ -377,6 +386,12 @@ function bfCompile() {
 	varuint(imp, 3);
 	pushString(imp, "inc");
 	imp.push(0, 1);
+
+	varuint(imp, 0);
+	varuint(imp, 2);
+	pushString(imp, "r4");
+	imp.push(0, 1);
+
 
 	varuint(imp, 0);
 	varuint(imp, 3);
@@ -429,7 +444,7 @@ function bfCompile() {
 	exports.push(1);
 	pushString(exports, "f");
 	exports.push(0);
-	exports.push(4);
+	exports.push(5);
 
 	exports.push(3);
 	pushString(exports, "mem");
@@ -453,26 +468,185 @@ function bfCompile() {
 
 	var body = [];
 
-	// local_count: number of local entries
-	varuint(body, 0);
-
-	/*body.push(0x20);
-	varuint(body, 0);
-	body.push(0x10);
-	varuint(body, 0);
-
-	body.push(0x20);
+	// locals
 	varuint(body, 1);
-	body.push(0x10);
-	varuint(body, 1);
+	varuint(body, 2);
+	body.push(0x7f);
 
-	body.push(0x20);
-	varuint(body, 0);
-	body.push(0x20);
-	varuint(body, 1);
-	body.push(0x6a);*/
 	body.push(0x41);
-	varint32(body, -1);
+	varint(body, sp);
+	body.push(0x21, 0);
+
+	var blocks = [], n = ir, ns = [];
+
+	do {
+		let block = [];
+		while (true) {
+			n.sd = true;
+			if (n.meta.op == 0) {
+				block.push(0x20, 0);
+				block.push(0x41);
+				varint(block, n.arg);
+				block.push(0x36, 0, 0);
+
+				block.push(0x20, 0, 0x41, 4, 0x6a, 0x21, 0);
+			} else if (n.meta.op == 1) {
+				block.push(0x20, 0, 0x04, 0x40);
+				switch (n.arg) {
+					case "+":
+						block.push(0x20, 0, 0x41, 4, 0x47, 0x04, 0x40);
+						block.push(0x20, 0, 0x41, 4, 0x6b, 0x21, 0);
+						block.push(0x20, 0, 0x41, 4, 0x6b);
+						block.push(0x20, 0, 0x28, 0, 0);
+						block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 0, 0);
+						block.push(0x6a, 0x36, 0, 0);
+						block.push(0x0b);
+						break;
+					case "-":
+						block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40);
+						// if sp == 4, *0 = -*0
+						block.push(0x41, 0, 0x41, 0, 0x41, 0, 0x28, 0, 0, 0x6b, 0x36, 0, 0);
+						block.push(0x05);
+						block.push(0x20, 0, 0x41, 4, 0x6b, 0x21, 0);
+						block.push(0x20, 0, 0x41, 4, 0x6b);
+						block.push(0x20, 0, 0x28, 0, 0);
+						block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 0, 0);
+						block.push(0x6b, 0x36, 0, 0);
+						block.push(0x0b);
+						break;
+					case "*":
+						block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40);
+						block.push(0x05);
+						block.push(0x0b);
+						break;
+					case "/":
+						block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40);
+						block.push(0x05);
+						block.push(0x0b);
+						break;
+					case "%":
+						block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40);
+						block.push(0x05);
+						block.push(0x0b);
+						break;
+					case ">":
+						block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40);
+						block.push(0x05);
+						block.push(0x0b);
+						break;
+				}
+				block.push(0x0b);
+			} else if (n.meta.op == 2) {
+				block.push(0x20, 0);
+				block.push(0x04, 0x40);
+				block.push(0x20, 0, 0x41, 4, 0x6b); // s-4
+				block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 0, 0, 0x45); // !*(s-4)
+				block.push(0x36, 0, 0);
+				block.push(0x05); // else *0=1, sp=4
+				block.push(0x41, 0, 0x41, 1, 0x36, 0, 0);
+				block.push(0x41, 4, 0x21, 0);
+				block.push(0x0b);
+			} else if (n.meta.op == 3) {
+				block.push(0x20, 0);
+				block.push(0x04, 0x40);
+				block.push(0x20, 0, 0x41, 4, 0x6b, 0x21, 0);
+				block.push(0x0b);
+			} else if (n.meta.op == 4) {
+				block.push(0x20, 0);
+				block.push(0x04, 0x40);
+				block.push(0x20, 0);
+				block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 0, 0); // *(s-4)
+				block.push(0x36, 0, 0);
+				block.push(0x20, 0, 0x41, 4, 0x6a, 0x21, 0);
+				block.push(0x0b);
+			} else if (n.meta.op == 5) {
+				block.push(0x20, 0); // if >0
+				block.push(0x04, 0x40);
+				block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40);
+				// if sp == 4, *4 = 0, sp = 8
+				block.push(0x41, 4, 0x41, 0, 0x36, 0, 0);
+				block.push(0x20, 0, 0x41, 8, 0x21, 0);
+				block.push(0x05); // else swap
+				block.push(0x20, 0, 0x41, 8, 0x6b); // sp-8
+				block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 0, 0); // *(sp-4)
+				block.push(0x20, 0, 0x41, 4, 0x6b); // sp-4
+				block.push(0x20, 0, 0x41, 8, 0x6b, 0x28, 0, 0); // *(sp-8)
+				block.push(0x36, 0, 0, 0x36, 0, 0);
+				block.push(0x0b, 0x0b);
+			} else if (n.meta.op == 6) {
+				block.push(0x20, 0); // if >0, pop
+				block.push(0x04, 0x7f);
+				block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x28, 0, 0); // *(s-=4) 
+				block.push(0x05, 0x41, 0); // else 0
+				block.push(0x0b);
+				block.push(0x10, n.arg?1:0);
+			} else if (n.meta.op == 7) {
+				block.push(0x20, 0, 0x10, n.arg?2:3, 0x36, 0, 0);
+				block.push(0x20, 0, 0x41, 4, 0x6a, 0x21, 0);
+			} else if (n.meta.op == 8) {
+			} else if (n.meta.op == 9) {
+			} else if (n.meta.op == 10) {
+				block.push(0x10, 4, 0x21, 1); // nextblock=r4()
+				block.push(0x20, 1, 0x45, 0x04, 0x7f, 0x41); // TODO possible to restructure to drop 0x45
+				varint(op.n); // TODO BLOCKID
+				block.push(0x05, 0x20, 1, 0x41, 1, 0x46, 0x04, 0x7f, 0x41);
+				varint(op.arg[0]);
+				block.push(0x05, 0x20, 1, 0x41, 2, 0x46, 0x04, 0x7f, 0x41);
+				varint(op.arg[1]);
+				block.push(0x05, 0x41);
+				varint(op.arg[2]);
+				block.push(0x0b, 0x0b, 0x0b, 0x21, 1);
+			} else if (n.meta.op == 11) { // TODO BLOCKID
+				block.push(0x20, 0, 0x04, 0x7f);
+				block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x28, 0, 0); // *(s-=4)
+				block.push(0x04, 0x7f, 0x41);
+				varint(op.n);
+				block.push(0x05, 0x41);
+				varint(op.arg);
+				block.push(0x0b);
+				block.push(0x05, 0x41, 0);
+				block.push(0x0b);
+			} else if (n.meta.op == 12) {
+				block.push(0x41);
+				varint(block, -1);
+				block.push(0x0f);
+				blocks.push(block);
+				break;
+			}
+			n = n.n;
+			if (n.sd) {
+				blocks.push(block);
+				break;
+			}
+			if (n.si.size > 1) {
+				blocks.push(block);
+				block = [];
+			}
+		}
+		n = ns.pop();
+	} while (n);
+	//debugger;
+	pushArray(body, blocks[0]);
+	/* Generate loop-switch
+	loop
+	bbloop
+	 bb0
+	 bb1
+	 bb2
+	 bbt
+	 load-bbid
+	 br_table
+	 end
+	 bb0
+	 set-bbid
+	 break
+	 end
+	 end
+	 end
+	 end
+	*/
+
+	body.push(0);
 	body.push(0x0b);
 
 	// body_size: size of function body to follow, in bytes
