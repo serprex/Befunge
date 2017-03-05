@@ -66,19 +66,20 @@ var Op0 = mkop(0, 0, 1, "ld", (op, ctx) => {
 	return op.n;
 });
 var Op1 = mkop(1, 2, 1, "bin", (op, ctx) => {
-	var a = ctx.pop()|0, b = ctx.pop()|0;
+	var a = ctx.pop(), b = ctx.pop();
 	switch (op.arg){
 	case "+":b+=a;break;
 	case "-":b-=a;break;
 	case "*":b*=a;break;
 	case "/":b/=a;break;
 	case "%":b%=a;break;
+	case ">":b=b>a;break;
 	}
 	ctx.push(b|0);
 	return op.n;
 });
 var Op2 = mkop(2, 1, 1, "not", (op, ctx) => {
-	ctx.push(!ctx.pop()|0);
+	ctx.push(!ctx.pop());
 	return op.n;
 });
 var Op3 = mkop(3, 1, 0, "pop", (op, ctx) => {
@@ -94,12 +95,14 @@ var Op4 = mkop(4, 1, 2, "dup", (op, ctx) => {
 	return op.n;
 });
 var Op5 = mkop(5, 2, 2, "swp", (op, ctx) => {
-	ctx.push(ctx.pop()|0, ctx.pop()|0);
+	var a = ctx.pop(), b = ctx.pop();
+	ctx.push(a);
+	ctx.push(b);
 	return op.n;
 });
 var Op6 = mkop(6, 1, 0, "pr", (op, ctx) => {
-	var a = ctx.pop()|0;
-	prOut.textContent += (op.arg ? String.fromCharCode(a) : a);
+	var a = ctx.pop();
+	prOut.textContent += (op.arg ? String.fromCharCode(a) : a + " ");
 	return op.n;
 });
 var Op7 = mkop(7, 0, 1, "get", (op, ctx) => {
@@ -107,8 +110,7 @@ var Op7 = mkop(7, 0, 1, "get", (op, ctx) => {
 	return op.n;
 });
 var Op8 = mkop(8, 2, 1, "rem", (op, ctx) => {
-	var y = ctx.pop()|0;
-	var x = ctx.pop()|0;
+	var y = ctx.pop(), x = ctx.pop();
 	if (0 <= x && x <= 80 && 0 <= y && y <= 25) {
 		y=0xce00+((y|x<<5)<<2);
 		ctx.push(ctx.mem[y]|ctx.mem[y|1]<<8|ctx.mem[y|2]<<16|ctx.mem[y|3]<<24);
@@ -118,17 +120,15 @@ var Op8 = mkop(8, 2, 1, "rem", (op, ctx) => {
 	return op.n;
 });
 var Op9 = mkop(9, 3, 0, "wem", (op, ctx) => {
-	var y = ctx.pop()|0;
-	var x = ctx.pop()|0;
-	var z = ctx.pop()|0;
+	var y = ctx.pop(), x = ctx.pop(), z = ctx.pop();
 	if (0 <= x && x <= 80 && 0 <= y && y <= 25) {
 		y=(y|x<<5);
 		var proidx = 0xf600 + y;
-		y=0xce00 + (y<<2);
-		ctx.mem[y]=z&255;
-		ctx.mem[y|1]=(z>>8)&255;
-		ctx.mem[y|2]=(z>>16)&255;
-		ctx.mem[y|3]=(z>>24)&255;
+		y<<=2;
+		ctx.mem[0xce00+y]=z;
+		ctx.mem[0xce01+y]=z>>8;
+		ctx.mem[0xce02+y]=z>>16;
+		ctx.mem[0xce03+y]=z>>24;
 		if (ctx.mem[proidx]) {
 			ctx.mem.fill(0, 0xf600, 0x10000);
 			return op.arg;
@@ -209,6 +209,7 @@ Tracer.prototype.trace = function(i) {
 		pist.push(i);
 		this.mem[0xf600+(i>>2)]=1;
 		var i2 = this.mem[0xce00+(i&~3)];
+		//console.log(i2);
 		if (this.mem[0xce01+(i&~3)] || this.mem[0xce02+(i&~3)] || this.mem[0xce03+(i&~3)]) {
 			continue;
 		}
@@ -295,7 +296,6 @@ Interpreter.prototype.push = function(x) {
 function bfInterpret(mem, ir) {
 	var ctx = new Interpreter(mem, 0);
 	while (true) {
-		//console.log(ir);
 		ir = ir.meta.eval(ir, ctx);
 		if (typeof ir == "number") return ir;
 	}
@@ -312,7 +312,8 @@ function bfRun(mem, cursor) {
 		var tracer = new Tracer(code);
 		var ir = tracer.trace(cursor);
 		console.log(ir);
-		cursor = bfInterpret(mem, ir);
+		cursor = bfInterpret(code, ir);
+		console.log(cursor, code);
 		if (!~cursor) return;
 		/*bfCompile(ir).then(m => {
 			var f = new WebAssembly.Instance(m, {
@@ -507,15 +508,23 @@ btnGo.addEventListener("click", (s, e) => {
 					for (x=0; x<80; x++) code[0xce00+((y|x<<5)<<2)] = 32;
 				break yout;
 			}
-			var ch = taBoard.value.charCodeAt(i++);
+			var ch = board.charCodeAt(i++);
 			if (ch == 10) {
 				for (;x<80; x++) code[0xce00+((y|x<<5)<<2)] = 32;
 				break;
 			}
 			code[0xce00+((y|x<<5)<<2)] = ch;
 		}
+		if (ch != 10) {
+			i=board.indexOf("\n", i)+1;
+			if (!i) {
+				for (y++; y<25; y++)
+					for (x=0; x<80; x++) code[0xce00+((y|x<<5)<<2)] = 32;
+				break;
+			}
+		}
 	}
-	console.log(mem, code);
+	prOut.textContent = "";
 	bfRun(mem, 10112);
 });
 })();
