@@ -772,7 +772,8 @@ def main(pro):
 							a=ir.n
 							while not a.si:
 								b=a.n
-								b.si.remove(a)
+								if b:b.si.remove(a)
+								else:break
 								a=b
 							ir.n=None
 							return

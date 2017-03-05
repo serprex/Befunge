@@ -131,7 +131,7 @@ var Op9 = mkop(9, 3, 0, "wem", (op, ctx) => {
 		ctx.mem[0xce03+y]=z>>24;
 		if (ctx.mem[proidx]) {
 			ctx.mem.fill(0, 0xf600, 0x10000);
-			return op.arg;
+			return op.arg<<16|ctx.sp;
 		}
 	}
 	return op.n;
@@ -293,8 +293,8 @@ Interpreter.prototype.push = function(x) {
 	this.sp += 4;
 }
 
-function bfInterpret(mem, ir) {
-	var ctx = new Interpreter(mem, 0);
+function bfInterpret(mem, ir, sp) {
+	var ctx = new Interpreter(mem, sp);
 	while (true) {
 		ir = ir.meta.eval(ir, ctx);
 		if (typeof ir == "number") return ir;
@@ -305,14 +305,15 @@ var ini = () => prompt("Number", "")|0;
 var inc = () => prompt("Character", "").charCodeAt(0)|0;
 var pri = x => console.log(x);
 var prc = x => console.log(String.fromCharCode(x));
-function bfRun(mem, cursor) {
+function bfRun(mem, cursor, sp) {
 	var code = new Uint8Array(mem.buffer);
-	var res;
 	while (true) {
 		var tracer = new Tracer(code);
 		var ir = tracer.trace(cursor);
 		console.log(ir);
-		cursor = bfInterpret(code, ir);
+		cursor = bfInterpret(code, ir, sp);
+		sp = cursor&65535;
+		cursor >>= 16;
 		console.log(cursor, code);
 		if (!~cursor) return;
 		/*bfCompile(ir).then(m => {
@@ -525,7 +526,7 @@ btnGo.addEventListener("click", (s, e) => {
 		}
 	}
 	prOut.textContent = "";
-	bfRun(mem, 10112);
+	bfRun(mem, 10112, 0);
 });
 })();
 var MOD;
