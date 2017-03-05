@@ -1,13 +1,8 @@
 (function(){"use strict";
-function signedLEB128 (v, value) {
+function varint (v, value) {
 	while (true) {
-
-		// get 7 least significant bits
 		var b = value & 127;
-		// left shift value 7 bits
 		value >>= 7;
-
-		// sign bit of byte is second high order bit
 		if ((value == 0 && ((b & 0x40) == 0)) || ((value == -1 && ((b & 0x40) == 0x40)))) {
 			return v.push(b);
 		}
@@ -15,15 +10,12 @@ function signedLEB128 (v, value) {
 			v.push(b | 128);
 		}
 	}
-
 	return v;
 }
 
 
-function unsignedLEB128 (v, value, padding) {
-	// no padding unless specified
+function varuint (v, value, padding) {
 	padding = padding || 0;
-
 	do {
 		var b = value & 127;
 		value = value >> 7;
@@ -33,52 +25,7 @@ function unsignedLEB128 (v, value, padding) {
 		v.push(b);
 		padding--;
 	} while (value != 0 || padding > -1);
-
 	return v;
-}
-
-// A Signed LEB128 variable-length integer, limited to int32 values.
-function varint32(v, n) {
-	if (n < -2147483648 || n > 2147483647) {
-		throw new Error('varint32 is limited to [-2147483648, 2147483647]')
-	}
-
-	return signedLEB128(v, n);
-}
-
-function varuint1(v, n) {
-	if (n < 0 || n > 1) {
-		throw new Error('varuint1 is limited to [0, 1]')
-	}
-
-	v.push(n);
-}
-
-// A LEB128 variable-length integer, limited to the values [0, 127]. varuint7 values may contain leading zeros.
-function varuint7(v, n) {
-	if (n < 0 || n > 127) {
-		throw new Error('varuint7 is limited to [0, 127]');
-	}
-
-	v.push(n);
-}
-
-// A LEB128 variable-length integer, limited to uint32 values. varuint32 values may contain leading zeros.
-function varuint32(v, n, padding) {
-	if (n < 0 || n > 0xFFFFFFFF) {
-		throw new Error('varuint32 is limited to [0, 4294967295]')
-	}
-
-	return unsignedLEB128(v, n, padding);
-}
-
-// A Signed LEB128 variable-length integer, limited to int64 values.
-function varint64(v, n) {
-	if (n < -9223372036854775808 || n > 9223372036854775807) {
-		throw new Error('varint64 is limited to [-9223372036854775808, 9223372036854775807]')
-	}
-
-	return signedLEB128(v, n);
 }
 
 function pushString(v, str) {
@@ -114,89 +61,92 @@ function mkop(op, siop, so, name, ev) {
 	metas[op] = meta;
 	return arg => new Op(arg, meta);
 }
-var Op0 = mkop(0, 0, 1, "ld", (op, st, mem) => {
-	st.push(this.arg);
+var Op0 = mkop(0, 0, 1, "ld", (op, ctx) => {
+	ctx.push(op.arg);
 	return op.n;
 });
-var Op1 = mkop(1, 2, 1, "bin", (op, st, mem) => {
-	var a = st.pop()|0, b = st.pop()|0;
-	switch (st.arg){
+var Op1 = mkop(1, 2, 1, "bin", (op, ctx) => {
+	var a = ctx.pop()|0, b = ctx.pop()|0;
+	switch (op.arg){
 	case "+":b+=a;break;
 	case "-":b-=a;break;
 	case "*":b*=a;break;
 	case "/":b/=a;break;
 	case "%":b%=a;break;
 	}
-	st.push(b|0);
+	ctx.push(b|0);
 	return op.n;
 });
-var Op2 = mkop(2, 1, 1, "not", (op, st, mem) => {
-	st.push(!st.pop()|0);
+var Op2 = mkop(2, 1, 1, "not", (op, ctx) => {
+	ctx.push(!ctx.pop()|0);
 	return op.n;
 });
-var Op3 = mkop(3, 1, 0, "pop", (op, st, mem) => {
-	st.pop();
+var Op3 = mkop(3, 1, 0, "pop", (op, ctx) => {
+	ctx.pop();
 	return op.n;
 });
-var Op4 = mkop(4, 1, 2, "dup", (op, st, mem) => {
-	if (st.length) {
-		st.push(st[st.length-1]);
+var Op4 = mkop(4, 1, 2, "dup", (op, ctx) => {
+	if (ctx.sp) {
+		var a = ctx.pop();
+		ctx.push(a);
+		ctx.push(a);
 	}
 	return op.n;
 });
-var Op5 = mkop(5, 2, 2, "swp", (op, st, mem) => {
-	st.push(st.pop()|0, st.pop()|0);
+var Op5 = mkop(5, 2, 2, "swp", (op, ctx) => {
+	ctx.push(ctx.pop()|0, ctx.pop()|0);
 	return op.n;
 });
-var Op6 = mkop(6, 1, 0, "pr", (op, st, mem) => {
-	var a = st.pop()|0;
-	console.log(this.arg ? String.fromCharCode(a) : a)
+var Op6 = mkop(6, 1, 0, "pr", (op, ctx) => {
+	var a = ctx.pop()|0;
+	prOut.textContent += (op.arg ? String.fromCharCode(a) : a);
 	return op.n;
 });
-var Op7 = mkop(7, 0, 1, "get", (op, st, mem) => {
-	st.push((this.arg ? ini : inc)());
+var Op7 = mkop(7, 0, 1, "get", (op, ctx) => {
+	ctx.push((op.arg ? ini : inc)());
 	return op.n;
 });
-var Op8 = mkop(8, 2, 1, "rem", (op, st, mem) => {
-	var y = st.pop()|0;
-	var x = st.pop()|0;
+var Op8 = mkop(8, 2, 1, "rem", (op, ctx) => {
+	var y = ctx.pop()|0;
+	var x = ctx.pop()|0;
 	if (0 <= x && x <= 80 && 0 <= y && y <= 25) {
 		y=0xce00+((y|x<<5)<<2);
-		st.push(mem[y]|mem[y|1]<<8|mem[y|2]<<16|mem[y|3]<<24);
+		ctx.push(ctx.mem[y]|ctx.mem[y|1]<<8|ctx.mem[y|2]<<16|ctx.mem[y|3]<<24);
 	} else {
-		st.push(0);
+		ctx.push(0);
 	}
 	return op.n;
 });
-var Op9 = mkop(9, 3, 0, "wem", (op, st, mem) => {
-	var y = st.pop()|0;
-	var x = st.pop()|0;
-	var z = st.pop()|0;
+var Op9 = mkop(9, 3, 0, "wem", (op, ctx) => {
+	var y = ctx.pop()|0;
+	var x = ctx.pop()|0;
+	var z = ctx.pop()|0;
 	if (0 <= x && x <= 80 && 0 <= y && y <= 25) {
 		y=(y|x<<5);
 		var proidx = 0xf600 + y;
 		y=0xce00 + (y<<2);
-		mem[y]=z&255;
-		mem[y|1]=(z>>8)&255;
-		mem[y|2]=(z>>16)&255;
-		mem[y|3]=(z>>24)&255;
-		if (mem[proidx]) {
+		ctx.mem[y]=z&255;
+		ctx.mem[y|1]=(z>>8)&255;
+		ctx.mem[y|2]=(z>>16)&255;
+		ctx.mem[y|3]=(z>>24)&255;
+		if (ctx.mem[proidx]) {
+			ctx.mem.fill(0, 0xf600, 0x10000);
 			return op.arg;
 		}
 	}
 	return op.n;
 });
-var Op10 = mkop(10, 0, 0, "jr", (op, st, mem) => {
+var Op10 = mkop(10, 0, 0, "jr", (op, ctx) => {
 	var a = Math.random()*4&3;
 	return a == 3 ? op.n : op.arg[a];
 });
-var Op11 = mkop(11, 1, 0, "jz", (op, st, mem) => {
-	return st.pop() ? op.n : op.arg;
+var Op11 = mkop(11, 1, 0, "jz", (op, ctx) => {
+	return ctx.pop() ? op.n : op.arg;
 }); 
-var Op12 = mkop(12, 0, 0, "ret", (op, st, mem) => {
-	return null;
+var Op12 = mkop(12, 0, 0, "ret", (op, ctx) => {
+	return -1;
 });
-var Op13 = mkop(13, 1, 0, "nop", (op, st, mem) => {
+var Op13 = mkop(13, 1, 0, "nop", (op, ctx) => {
 	return op.n;
 });
 
@@ -210,7 +160,7 @@ function mv(i) {
 }
 
 var bins={37:"%",42:"*",43:"+",45:"-",47:"/",96:">"};
-var raw={33:2,36:3,58:4,92:5,103:10};
+var raw={33:2,36:3,58:4,92:5,103:8};
 var mvs={60:2,62:0,94:1,118:3};
 var ops={64:10,34:9,35:11,38:3,103:4,44:1,126:2,46:0,112:5,124:7,95:8,63:6};
 function Tracer(mem){
@@ -235,11 +185,12 @@ Tracer.prototype.trace = function(i) {
 	var pist=[]
 	while (true) {
 		i=mv(i);
+		//console.log(i>>7, (i>>2)&31, "LKHJ"[i&3], i, i in this.pg);
 		if (i in this.pg){
 			let pgi=this.pg[i];
 			if (inst != pgi){
 				for (let pi of pist) {
-					pg[i]=pgi;
+					this.pg[pi]=pgi;
 				}
 				if (inst == head) {
 					return pgi;
@@ -252,30 +203,30 @@ Tracer.prototype.trace = function(i) {
 			else {
 				inst.n=inst;
 			}
-			return head
+			return head;
 		}
-		this.pg[i]=inst
-		pist.push(i)
+		this.pg[i]=inst;
+		pist.push(i);
 		this.mem[0xf600+(i>>2)]=1;
 		var i2 = this.mem[0xce00+(i&~3)];
 		if (this.mem[0xce01+(i&~3)] || this.mem[0xce02+(i&~3)] || this.mem[0xce03+(i&~3)]) {
 			continue;
 		}
 		else if (48<=i2 && i2<58) { emit(0, i2-48); }
-		else if (i2 in mvs) { i=i&~3|i2; }
+		else if (i2 in mvs) { i=i&~3|mvs[i2]; }
 		else if (i2 in bins) { emit(1, bins[i2]); }
 		else if (i2 in raw) { emit(raw[i2]); }
 		else if (i2 in ops) {
-			i2=ops[i2]
+			i2=ops[i2];
 			if (i2>8){
 				if (i2 == 11) {
-					i=mv(i)
+					i=mv(i);
 				}
 				else if (i2 == 9){
 					while (true) {
 						i=mv(i);
-						pro.add(i);
-						i2=ps[i];
+						this.mem[0xf600+(i>>2)]=1;
+						var i2 = this.mem[0xce00+(i&~3)]|this.mem[0xce01+(i&~3)]<<8|this.mem[0xce02+(i&~3)]<<16|this.mem[0xce03+(i&~3)]<<24;
 						if (i2 == 34) {
 							break;
 						}
@@ -290,9 +241,9 @@ Tracer.prototype.trace = function(i) {
 					}
 					for (let si of inst.si) {
 						si.n=this.node14;
+						this.node14.si.add(si);
 					}
-					this.node14.si.add(i);
-					return head
+					return head;
 				}
 			} else if (i2<4){
 				if (i2<2){
@@ -305,7 +256,7 @@ Tracer.prototype.trace = function(i) {
 				var other;
 				if (i2 == 7){
 					other=3;
-					mv=i&~3|1;
+					i=i&~3|1;
 				} else {
 					other=0;
 					i=i&~3|2;
@@ -324,28 +275,59 @@ Tracer.prototype.trace = function(i) {
 	}
 }
 
+function Interpreter(mem, sp){
+	this.mem = mem;
+	this.sp = sp;
+}
+Interpreter.prototype.pop = function() {
+	if (!this.sp) return 0;
+	this.sp -= 4;
+	return this.mem[this.sp]|this.mem[this.sp+1]<<8|this.mem[this.sp+2]<<16|this.mem[this.sp+3]<<24;
+}
+Interpreter.prototype.push = function(x) {
+	this.mem[this.sp]=x;
+	this.mem[this.sp+1]=x>>8;
+	this.mem[this.sp+2]=x>>16;
+	this.mem[this.sp+3]=x>>24;
+	this.sp += 4;
+}
+
+function bfInterpret(mem, ir) {
+	var ctx = new Interpreter(mem, 0);
+	while (true) {
+		//console.log(ir);
+		ir = ir.meta.eval(ir, ctx);
+		if (typeof ir == "number") return ir;
+	}
+}
+
 var ini = () => prompt("Number", "")|0;
 var inc = () => prompt("Character", "").charCodeAt(0)|0;
 var pri = x => console.log(x);
 var prc = x => console.log(String.fromCharCode(x));
 function bfRun(mem, cursor) {
 	var code = new Uint8Array(mem.buffer);
-	var tracer = new Tracer(code);
-	var ir = tracer.trace(cursor);
-	console.log(ir);
-	bfCompile(ir).then(m => {
-		var f = new WebAssembly.Instance(m, {
-		"": {
-			pri: pri,
-			prc: prc,
-			ini: ini,
-			inc: inc,
-			mem: mem,
-		}});
-		MOD = f; console.log(f, f.exports.mem == mem);
-		var r = f.exports.f();
-		if (~r) return bfRun(f.exports.mem, step(r));
-	});
+	var res;
+	while (true) {
+		var tracer = new Tracer(code);
+		var ir = tracer.trace(cursor);
+		console.log(ir);
+		cursor = bfInterpret(mem, ir);
+		if (!~cursor) return;
+		/*bfCompile(ir).then(m => {
+			var f = new WebAssembly.Instance(m, {
+			"": {
+				pri: pri,
+				prc: prc,
+				ini: ini,
+				inc: inc,
+				mem: mem,
+			}});
+			MOD = f; console.log(f, f.exports.mem == mem);
+			var r = f.exports.f();
+			if (~r) return bfRun(f.exports.mem, step(r));
+		});*/
+	}
 }
 
 function bfCompile() {
@@ -364,7 +346,7 @@ function bfCompile() {
 	// void -> i32
 	type.push(0x60, 0, 1, 0x7f);
 
-	varuint32(bc, type.length, 4);
+	varuint(bc, type.length, 4);
 	pushArray(bc, type);
 
 	// /////////
@@ -374,33 +356,33 @@ function bfCompile() {
 	bc.push(2);
 
 	var imp = [5];
-	varuint32(imp, 0);
-	varuint32(imp, 3);
+	varuint(imp, 0);
+	varuint(imp, 3);
 	pushString(imp, "pri");
 	imp.push(0, 0);
 
-	varuint32(imp, 0);
-	varuint32(imp, 3);
+	varuint(imp, 0);
+	varuint(imp, 3);
 	pushString(imp, "prc");
 	imp.push(0, 0);
 
-	varuint32(imp, 0);
-	varuint32(imp, 3);
+	varuint(imp, 0);
+	varuint(imp, 3);
 	pushString(imp, "ini");
 	imp.push(0, 1);
 
-	varuint32(imp, 0);
-	varuint32(imp, 3);
+	varuint(imp, 0);
+	varuint(imp, 3);
 	pushString(imp, "inc");
 	imp.push(0, 1);
 
-	varuint32(imp, 0);
-	varuint32(imp, 3);
+	varuint(imp, 0);
+	varuint(imp, 3);
 	pushString(imp, "mem");
 	imp.push(2, 0);
-	varuint32(imp, 1);
+	varuint(imp, 1);
 
-	varuint32(bc, imp.length, 4);
+	varuint(bc, imp.length, 4);
 	pushArray(bc, imp);
 
 	// ////////////////
@@ -413,9 +395,9 @@ function bfCompile() {
 	var functions = [1];
 
 	// types: sequence of indices into the type section
-	varuint32(functions, 1);
+	varuint(functions, 1);
 
-	varuint32(bc, functions.length, 4);
+	varuint(bc, functions.length, 4);
 	pushArray(bc, functions);
 
 	/*// ////////
@@ -425,9 +407,9 @@ function bfCompile() {
 	bc.push(5);
 
 	var mem = [1, 0];
-	varuint32(mem, 1);
+	varuint(mem, 1);
 
-	varuint32(bc, mem.length, 4);
+	varuint(bc, mem.length, 4);
 	pushArray(bc, mem);
 */
 	// //////////////
@@ -452,7 +434,7 @@ function bfCompile() {
 	exports.push(2);
 	exports.push(0);
 
-	varuint32(bc, exports.length, 4);
+	varuint(bc, exports.length, 4);
 	pushArray(bc, exports);
 
 	// ////////////
@@ -470,34 +452,34 @@ function bfCompile() {
 	var body = [];
 
 	// local_count: number of local entries
-	varuint32(body, 0);
+	varuint(body, 0);
 
 	/*body.push(0x20);
-	varuint32(body, 0);
+	varuint(body, 0);
 	body.push(0x10);
-	varuint32(body, 0);
+	varuint(body, 0);
 
 	body.push(0x20);
-	varuint32(body, 1);
+	varuint(body, 1);
 	body.push(0x10);
-	varuint32(body, 1);
+	varuint(body, 1);
 
 	body.push(0x20);
-	varuint32(body, 0);
+	varuint(body, 0);
 	body.push(0x20);
-	varuint32(body, 1);
+	varuint(body, 1);
 	body.push(0x6a);*/
 	body.push(0x41);
 	varint32(body, -1);
 	body.push(0x0b);
 
 	// body_size: size of function body to follow, in bytes
-	varuint32(code, body.length, 4);
+	varuint(code, body.length, 4);
 
 	// body
 	pushArray(code, body);
 
-	varuint32(bc, code.length, 4);
+	varuint(bc, code.length, 4);
 	pushArray(bc, code);
 
 	console.log(bc.length, bc);
@@ -507,6 +489,7 @@ function bfCompile() {
 
 var btnGo = document.getElementById("btnGo");
 var taBoard = document.getElementById("taBoard");
+var prOut = document.getElementById("prOut");
 btnGo.addEventListener("click", (s, e) => {
 	var board = taBoard.value;
 	var mem = new WebAssembly.Memory({ initial: 1 });
