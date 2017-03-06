@@ -15,7 +15,7 @@ function varint (v, value) {
 
 
 function varuint (v, value, padding) {
-	padding = padding || 0;
+	padding |= 0;
 	do {
 		var b = value & 127;
 		value = value >> 7;
@@ -45,7 +45,7 @@ function Op(arg, meta) {
 	this.n = null;
 	this.arg = arg;
 	this.vars = novars[meta.siop];
-	this.sd = false;
+	this.sd = -1;
 	this.dep = 0;
 	this.si = new Set();
 	this.meta = meta;
@@ -185,7 +185,6 @@ Tracer.prototype.trace = function(i) {
 	var pist=[]
 	while (true) {
 		i=mv(i);
-		//console.log(i>>7, (i>>2)&31, "LKHJ"[i&3], i, i in this.pg);
 		if (i in this.pg){
 			let pgi=this.pg[i];
 			if (inst != pgi){
@@ -310,13 +309,11 @@ function bfRun(mem, cursor, sp) {
 	while (true) {
 		var tracer = new Tracer(code);
 		var ir = tracer.trace(cursor);
-		//console.log(ir);
 		if (false) {
 			cursor = bfInterpret(code, ir, sp);
 			if (!~cursor) return;
 			sp = cursor&65535;
 			cursor >>= 16;
-			//console.log(cursor, code);
 		} else {
 			return bfCompile(ir, sp).then(m => {
 				var f = new WebAssembly.Instance(m, {
@@ -344,12 +341,8 @@ function bfRun(mem, cursor, sp) {
 function bfCompile(ir, sp) {
 	var bc = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
 
-	// ////////////
-	// Type section
+	bc.push(1); // Types
 
-	bc.push(1);
-
-	// count: number of type entries to follow
 	var type = [2];
 
 	// i32 -> void
@@ -360,11 +353,7 @@ function bfCompile(ir, sp) {
 	varuint(bc, type.length, 4);
 	pushArray(bc, type);
 
-	// /////////
-	// Import
-
-	console.log("imp", bc.length);
-	bc.push(2);
+	bc.push(2); // Imports
 
 	var imp = [6];
 	varuint(imp, 0);
@@ -402,13 +391,8 @@ function bfCompile(ir, sp) {
 	varuint(bc, imp.length, 4);
 	pushArray(bc, imp);
 
-	// ////////////////
-	// Function section
+	bc.push(3); // Funcs
 
-	console.log("func", bc.length);
-	bc.push(3);
-
-	// count: count of signature indices to follow
 	var functions = [1];
 
 	// types: sequence of indices into the type section
@@ -417,26 +401,8 @@ function bfCompile(ir, sp) {
 	varuint(bc, functions.length, 4);
 	pushArray(bc, functions);
 
-	/*// ////////
-	// Memory
+	bc.push(7); // Exports
 
-	console.log("mem", bc.length);
-	bc.push(5);
-
-	var mem = [1, 0];
-	varuint(mem, 1);
-
-	varuint(bc, mem.length, 4);
-	pushArray(bc, mem);
-*/
-	// //////////////
-	// Export section
-
-	console.log("ex", bc.length);
-
-	bc.push(7);
-
-	// count: count of export entries to follow
 	var exports = [2];
 
 	// entries: repeated export entries as described below
@@ -454,17 +420,9 @@ function bfCompile(ir, sp) {
 	varuint(bc, exports.length, 4);
 	pushArray(bc, exports);
 
-	// ////////////
-	// Code section
+	bc.push(10); // Codes
 
-	console.log("code", bc.length);
-
-	bc.push(10);
-
-	// count: count of function bodies to follow
 	var code = [1];
-
-	// bodies: sequence of function bodies
 
 	var body = [];
 
@@ -477,18 +435,32 @@ function bfCompile(ir, sp) {
 	varint(body, sp);
 	body.push(0x21, 0);
 
-	var blocks = [], n = ir, ns = [];
+	var blocks = [];
 
-	do {
-		let block = [];
+	function blockpile(blocks, n) {
+		var block = [];
 		while (true) {
-			n.sd = true;
+			if (~n.sd) {
+				block.push(0x41);
+				varint(block, n.sd);
+				block.push(0x21, 1);
+				blocks.push(block);
+				return;
+			}
+			if (n.si.size > 1) {
+				// TODO fallthrough rather than reloop in wasm
+				blocks.push(block);
+				block.push(0x41);
+				varint(block, blocks.length);
+				block.push(0x21, 1);
+				block = [];
+			}
+			n.sd = blocks.length;
 			if (n.meta.op == 0) {
 				block.push(0x20, 0);
 				block.push(0x41);
 				varint(block, n.arg);
 				block.push(0x36, 0, 0);
-
 				block.push(0x20, 0, 0x41, 4, 0x6a, 0x21, 0);
 			} else if (n.meta.op == 1) {
 				block.push(0x20, 0, 0x04, 0x40);
@@ -614,73 +586,76 @@ function bfCompile(ir, sp) {
 			} else if (n.meta.op == 8) {
 			} else if (n.meta.op == 9) {
 			} else if (n.meta.op == 10) {
-				block.push(0x10, 4, 0x21, 1); // nextblock=r4()
-				block.push(0x20, 1, 0x45, 0x04, 0x7f, 0x41); // TODO possible to restructure to drop 0x45
-				varint(op.n); // TODO BLOCKID
-				block.push(0x05, 0x20, 1, 0x41, 1, 0x46, 0x04, 0x7f, 0x41);
-				varint(op.arg[0]);
+				blocks.push(block);
+				blockpile(blocks, n.n);
+				blockpile(blocks, n.arg[0]);
+				blockpile(blocks, n.arg[1]);
+				blockpile(blocks, n.arg[2]);
+				block.push(0x10, 4, 0x22, 1, 0x04, 0x7f); // tee-if nextblock=r4()
+				block.push(0x20, 1, 0x41, 1, 0x46, 0x04, 0x7f, 0x41);
+				varint(block, n.arg[0].sd);
 				block.push(0x05, 0x20, 1, 0x41, 2, 0x46, 0x04, 0x7f, 0x41);
-				varint(op.arg[1]);
+				varint(block, n.arg[1].sd);
 				block.push(0x05, 0x41);
-				varint(op.arg[2]);
-				block.push(0x0b, 0x0b, 0x0b, 0x21, 1);
-			} else if (n.meta.op == 11) { // TODO BLOCKID
+				varint(block, n.arg[2].sd);
+				block.push(0x0b, 0x0b);
+				block.push(0x05, 0x41);
+				varint(block, n.n.sd);
+				block.push(0x0b, 0x21, 1);
+				return;
+			} else if (n.meta.op == 11) {
+				blocks.push(block);
+				blockpile(blocks, n.n);
+				blockpile(blocks, n.arg);
 				block.push(0x20, 0, 0x04, 0x7f);
 				block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x28, 0, 0); // *(s-=4)
 				block.push(0x04, 0x7f, 0x41);
-				varint(op.n);
+				varint(block, n.n.sd);
 				block.push(0x05, 0x41);
-				varint(op.arg);
+				varint(block, n.arg.sd);
 				block.push(0x0b);
-				block.push(0x05, 0x41, 0);
+				block.push(0x05, 0x41);
+				varint(block, n.arg.sd);
 				block.push(0x0b);
+				block.push(0x21, 1);
+				return;
 			} else if (n.meta.op == 12) {
 				block.push(0x41);
 				varint(block, -1);
 				block.push(0x0f);
 				blocks.push(block);
-				break;
+				return;
 			}
 			n = n.n;
-			if (n.sd) {
-				blocks.push(block);
-				break;
-			}
-			if (n.si.size > 1) {
-				blocks.push(block);
-				block = [];
-			}
 		}
-		n = ns.pop();
-	} while (n);
-	//debugger;
-	pushArray(body, blocks[0]);
-	/* Generate loop-switch
-	loop
-	bbloop
-	 bb0
-	 bb1
-	 bb2
-	 bbt
-	 load-bbid
-	 br_table
-	 end
-	 bb0
-	 set-bbid
-	 break
-	 end
-	 end
-	 end
-	 end
-	*/
+	}
+	blockpile(blocks, ir);
+
+	body.push(0x03, 0x40);
+	for (var i=0; i<blocks.length; i++) {
+		body.push(0x02, 0x40);
+	}
+	body.push(0x02, 0x40);
+	body.push(0x20, 1);
+	body.push(0x0e);
+	varint(body, blocks.length - 1);
+	for (var i=0; i<blocks.length; i++) {
+		body.push(i);
+	}
+	body.push(0x0b);
+	for (var i=0; i<blocks.length; i++) {
+		pushArray(body, blocks[i]);
+		body.push(0xc);
+		varuint(body, blocks.length - i);
+		body.push(0x0b);
+	}
+	body.push(0x0b);
 
 	body.push(0);
 	body.push(0x0b);
 
-	// body_size: size of function body to follow, in bytes
 	varuint(code, body.length, 4);
 
-	// body
 	pushArray(code, body);
 
 	varuint(bc, code.length, 4);
