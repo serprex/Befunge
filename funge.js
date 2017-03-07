@@ -18,7 +18,7 @@ function varuint (v, value, padding) {
 	padding |= 0;
 	do {
 		var b = value & 127;
-		value = value >> 7;
+		value >>= 7;
 		if (value != 0 || padding > 0) {
 			b |= 128;
 		}
@@ -325,7 +325,7 @@ function bfRun(mem, cursor, sp) {
 					r4: r4,
 					mem: mem,
 				}});
-				MOD = f; console.log(f, f.exports.mem == mem);
+				MOD = f; console.log(f);
 				cursor = f.exports.f();
 				console.log(code);
 				if (~cursor) {
@@ -403,7 +403,7 @@ function bfCompile(ir, sp) {
 
 	bc.push(7); // Exports
 
-	var exports = [2];
+	var exports = [1];
 
 	// entries: repeated export entries as described below
 
@@ -411,11 +411,6 @@ function bfCompile(ir, sp) {
 	pushString(exports, "f");
 	exports.push(0);
 	exports.push(5);
-
-	exports.push(3);
-	pushString(exports, "mem");
-	exports.push(2);
-	exports.push(0);
 
 	varuint(bc, exports.length, 4);
 	pushArray(bc, exports);
@@ -457,18 +452,16 @@ function bfCompile(ir, sp) {
 			}
 			n.sd = blocks.length;
 			if (n.meta.op == 0) {
-				block.push(0x20, 0);
-				block.push(0x41);
+				block.push(0x20, 0, 0x41);
 				varint(block, n.arg);
-				block.push(0x36, 0, 0);
-				block.push(0x20, 0, 0x41, 4, 0x6a, 0x21, 0);
+				block.push(0x36, 0, 0, 0x20, 0, 0x41, 4, 0x6a, 0x21, 0);
 			} else if (n.meta.op == 1) {
 				block.push(0x20, 0, 0x04, 0x40);
 				switch (n.arg) {
 					case "+":
 						block.push(0x20, 0, 0x41, 4, 0x47, 0x04, 0x40);
-						block.push(0x20, 0, 0x41, 4, 0x6b, 0x21, 0);
-						block.push(0x20, 0, 0x41, 4, 0x6b);
+						block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0);
+						block.push(0x41, 4, 0x6b);
 						block.push(0x20, 0, 0x28, 0, 0);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 0, 0);
 						block.push(0x6a, 0x36, 0, 0);
@@ -479,8 +472,8 @@ function bfCompile(ir, sp) {
 						// if sp == 4, *0 = -*0
 						block.push(0x41, 0, 0x41, 0, 0x41, 0, 0x28, 0, 0, 0x6b, 0x36, 0, 0);
 						block.push(0x05);
-						block.push(0x20, 0, 0x41, 4, 0x6b, 0x21, 0);
-						block.push(0x20, 0, 0x41, 4, 0x6b);
+						block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0);
+						block.push(0x41, 4, 0x6b);
 						block.push(0x20, 0, 0x28, 0, 0);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 0, 0);
 						block.push(0x6b, 0x36, 0, 0);
@@ -491,8 +484,8 @@ function bfCompile(ir, sp) {
 						// if sp == 4, *0 = 0
 						block.push(0x41, 0, 0x41, 0, 0x36, 0, 0);
 						block.push(0x05);
-						block.push(0x20, 0, 0x41, 4, 0x6b, 0x21, 0);
-						block.push(0x20, 0, 0x41, 4, 0x6b);
+						block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0);
+						block.push(0x41, 4, 0x6b);
 						block.push(0x20, 0, 0x28, 0, 0);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 0, 0);
 						block.push(0x6c, 0x36, 0, 0);
@@ -503,8 +496,8 @@ function bfCompile(ir, sp) {
 						// if sp == 4, *0 = 0
 						block.push(0x41, 0, 0x41, 0, 0x36, 0, 0);
 						block.push(0x05);
-						block.push(0x20, 0, 0x41, 4, 0x6b, 0x21, 0);
-						block.push(0x20, 0, 0x41, 4, 0x6b);
+						block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0);
+						block.push(0x41, 4, 0x6b);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 0, 0);
 						block.push(0x20, 0, 0x28, 0, 0);
 						block.push(0x6d, 0x36, 0, 0);
@@ -515,8 +508,8 @@ function bfCompile(ir, sp) {
 						// if sp == 4, *0 = 0
 						block.push(0x41, 0, 0x41, 0, 0x36, 0, 0);
 						block.push(0x05);
-						block.push(0x20, 0, 0x41, 4, 0x6b, 0x21, 0);
-						block.push(0x20, 0, 0x41, 4, 0x6b);
+						block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0);
+						block.push(0x41, 4, 0x6b);
 						block.push(0x20, 0, 0x28, 0, 0);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 0, 0);
 						block.push(0x6f, 0x36, 0, 0);
@@ -527,8 +520,8 @@ function bfCompile(ir, sp) {
 						// if sp == 4, *0 = 0 > *0
 						block.push(0x41, 0, 0x41, 0, 0x41, 0, 0x28, 0, 0, 0x4a, 0x36, 0, 0);
 						block.push(0x05);
-						block.push(0x20, 0, 0x41, 4, 0x6b, 0x21, 0);
-						block.push(0x20, 0, 0x41, 4, 0x6b);
+						block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0);
+						block.push(0x41, 4, 0x6b);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 0, 0);
 						block.push(0x20, 0, 0x28, 0, 0);
 						block.push(0x4a, 0x36, 0, 0);
@@ -584,6 +577,23 @@ function bfCompile(ir, sp) {
 				block.push(0x20, 0, 0x10, n.arg?2:3, 0x36, 0, 0);
 				block.push(0x20, 0, 0x41, 4, 0x6a, 0x21, 0);
 			} else if (n.meta.op == 8) {
+				// TODO bounds checking
+				block.push(0x20, 0, 0x04, 0x40);
+				block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40); // *0 = *(0xce00+(*0<<2))
+				block.push(0x41, 0, 0x41, 0, 0x28, 0, 0, 0x41, 2, 0x74);
+				block.push(0x28, 0);
+				varint(block, 0xce00);
+				block.push(0x36, 0, 0);
+				block.push(0x05); // *(sp-=4) = *(0xce00+((*sp|*(sp-4)<<5)<<2))
+				block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x41, 4, 0x6b, 0x20, 0, 0x28, 0, 0,
+					0x20, 0, 0x41, 4, 0x6b, 0x28, 0, 0, 0x41, 5, 0x74, 0x72, 0x41, 2, 0x74, 0x28, 0);
+				varint(block, 0xce00);
+				block.push(0x36, 0, 0);
+				block.push(0x0b);
+				block.push(0x05, 0x41, 0, 0x41); // else *0 = *0xce00, sp = 4
+				varint(block, 0xce00);
+				block.push(0x28, 0, 0, 0x36, 0, 0, 0x41, 4, 0x21, 0);
+				block.push(0x0b);
 			} else if (n.meta.op == 9) {
 			} else if (n.meta.op == 10) {
 				blocks.push(block);
