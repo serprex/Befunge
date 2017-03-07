@@ -426,9 +426,11 @@ function bfCompile(ir, sp) {
 	varuint(body, 2);
 	body.push(0x7f);
 
-	body.push(0x41);
-	varint(body, sp);
-	body.push(0x21, 0);
+	if (sp) {
+		body.push(0x41);
+		varint(body, sp);
+		body.push(0x21, 0);
+	}
 
 	var blocks = [];
 
@@ -462,8 +464,8 @@ function bfCompile(ir, sp) {
 						block.push(0x20, 0, 0x41, 4, 0x47, 0x04, 0x40);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0);
 						block.push(0x41, 4, 0x6b);
-						block.push(0x20, 0, 0x28, 0, 0);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 0, 0);
+						block.push(0x20, 0, 0x28, 0, 0);
 						block.push(0x6a, 0x36, 0, 0);
 						block.push(0x0b);
 						break;
@@ -474,8 +476,8 @@ function bfCompile(ir, sp) {
 						block.push(0x05);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0);
 						block.push(0x41, 4, 0x6b);
-						block.push(0x20, 0, 0x28, 0, 0);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 0, 0);
+						block.push(0x20, 0, 0x28, 0, 0);
 						block.push(0x6b, 0x36, 0, 0);
 						block.push(0x0b);
 						break;
@@ -486,8 +488,8 @@ function bfCompile(ir, sp) {
 						block.push(0x05);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0);
 						block.push(0x41, 4, 0x6b);
-						block.push(0x20, 0, 0x28, 0, 0);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 0, 0);
+						block.push(0x20, 0, 0x28, 0, 0);
 						block.push(0x6c, 0x36, 0, 0);
 						block.push(0x0b);
 						break;
@@ -510,8 +512,8 @@ function bfCompile(ir, sp) {
 						block.push(0x05);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0);
 						block.push(0x41, 4, 0x6b);
-						block.push(0x20, 0, 0x28, 0, 0);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 0, 0);
+						block.push(0x20, 0, 0x28, 0, 0);
 						block.push(0x6f, 0x36, 0, 0);
 						block.push(0x0b);
 						break;
@@ -595,6 +597,16 @@ function bfCompile(ir, sp) {
 				block.push(0x28, 0, 0, 0x36, 0, 0, 0x41, 4, 0x21, 0);
 				block.push(0x0b);
 			} else if (n.meta.op == 9) {
+				// TODO bounds checking
+				block.push(0x20, 0, 0x45, 0x04, 0x40, 0x41, 0, 0x41, 0, 0x36, 0, 0, 0x41, 4, 0x21, 0, 0x0b);
+				block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40, 0x41, 4, 0x41, 0, 0x28, 0, 0, 0x36, 0, 0, 0x41, 0, 0x41, 0, 0x36, 0, 0, 0x41, 8, 0x21, 0, 0x0b);
+				block.push(0x20, 0, 0x41, 8, 0x46, 0x04, 0x40, 0x41, 8, 0x41, 4, 0x28, 0, 0, 0x36, 0, 0, 0x41, 4, 0x41, 0, 0x28, 0, 0, 0x36, 0, 0, 0x41, 0, 0x41, 0, 0x36, 0, 0, 0x41, 12, 0x21, 0, 0x0b);
+				block.push(0x20, 0, 0x41, 12, 0x6b, 0x21, 0);
+				// *(0xce00 + ((sp[4]<<5|sp[8])<<2)) = sp[0]
+				block.push(0x20, 0, 0x28, 0, 4, 0x41, 5, 0x74, 0x20, 0, 0x28, 0, 8, 0x72, 0x41, 2, 0x74);
+				block.push(0x20, 0, 0x28, 0, 0);
+				block.push(0x36, 0);
+				varint(block, 0xce00);
 			} else if (n.meta.op == 10) {
 				blocks.push(block);
 				blockpile(blocks, n.n);
@@ -655,8 +667,10 @@ function bfCompile(ir, sp) {
 	body.push(0x0b);
 	for (var i=0; i<blocks.length; i++) {
 		pushArray(body, blocks[i]);
-		body.push(0xc);
-		varuint(body, blocks.length - i);
+		if (body[body.length-1] != 0xf) {
+			body.push(0xc);
+			varuint(body, blocks.length - i);
+		}
 		body.push(0x0b);
 	}
 	body.push(0x0b);
