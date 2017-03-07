@@ -10,7 +10,6 @@ function varint (v, value) {
 			v.push(b | 128);
 		}
 	}
-	return v;
 }
 
 
@@ -25,14 +24,12 @@ function varuint (v, value, padding) {
 		v.push(b);
 		padding--;
 	} while (value != 0 || padding > -1);
-	return v;
 }
 
 function pushString(v, str) {
 	for (var i=0; i<str.length; i++) {
 		v.push(str.charCodeAt(i));
 	}
-	return v;
 }
 
 function pushArray(sink, data) {
@@ -50,22 +47,21 @@ function Op(arg, meta) {
 	this.si = new Set();
 	this.meta = meta;
 }
-function mkop(op, siop, so, name, ev) {
+function mkop(op, siop, so, ev) {
 	var meta = {
 		op: op,
 		siop: siop,
 		so: so,
-		name: name,
 		eval: ev,
 	};
 	metas[op] = meta;
 	return arg => new Op(arg, meta);
 }
-var Op0 = mkop(0, 0, 1, "ld", (op, ctx) => {
+var Op0 = mkop(0, 0, 1, (op, ctx) => {
 	ctx.push(op.arg);
 	return op.n;
 });
-var Op1 = mkop(1, 2, 1, "bin", (op, ctx) => {
+var Op1 = mkop(1, 2, 1, (op, ctx) => {
 	var a = ctx.pop(), b = ctx.pop();
 	switch (op.arg){
 	case "+":b+=a;break;
@@ -78,15 +74,15 @@ var Op1 = mkop(1, 2, 1, "bin", (op, ctx) => {
 	ctx.push(b|0);
 	return op.n;
 });
-var Op2 = mkop(2, 1, 1, "not", (op, ctx) => {
+var Op2 = mkop(2, 1, 1, (op, ctx) => {
 	ctx.push(!ctx.pop());
 	return op.n;
 });
-var Op3 = mkop(3, 1, 0, "pop", (op, ctx) => {
+var Op3 = mkop(3, 1, 0, (op, ctx) => {
 	ctx.pop();
 	return op.n;
 });
-var Op4 = mkop(4, 1, 2, "dup", (op, ctx) => {
+var Op4 = mkop(4, 1, 2, (op, ctx) => {
 	if (ctx.sp) {
 		var a = ctx.pop();
 		ctx.push(a);
@@ -94,22 +90,22 @@ var Op4 = mkop(4, 1, 2, "dup", (op, ctx) => {
 	}
 	return op.n;
 });
-var Op5 = mkop(5, 2, 2, "swp", (op, ctx) => {
+var Op5 = mkop(5, 2, 2, (op, ctx) => {
 	var a = ctx.pop(), b = ctx.pop();
 	ctx.push(a);
 	ctx.push(b);
 	return op.n;
 });
-var Op6 = mkop(6, 1, 0, "pr", (op, ctx) => {
+var Op6 = mkop(6, 1, 0, (op, ctx) => {
 	var a = ctx.pop();
 	prOut.textContent += (op.arg ? String.fromCharCode(a) : a + " ");
 	return op.n;
 });
-var Op7 = mkop(7, 0, 1, "get", (op, ctx) => {
+var Op7 = mkop(7, 0, 1, (op, ctx) => {
 	ctx.push((op.arg ? ini : inc)());
 	return op.n;
 });
-var Op8 = mkop(8, 2, 1, "rem", (op, ctx) => {
+var Op8 = mkop(8, 2, 1, (op, ctx) => {
 	var y = ctx.pop(), x = ctx.pop();
 	if (0 <= x && x < 80 && 0 <= y && y < 25) {
 		y=0xce00+((y|x<<5)<<2);
@@ -119,7 +115,7 @@ var Op8 = mkop(8, 2, 1, "rem", (op, ctx) => {
 	}
 	return op.n;
 });
-var Op9 = mkop(9, 3, 0, "wem", (op, ctx) => {
+var Op9 = mkop(9, 3, 0, (op, ctx) => {
 	var y = ctx.pop(), x = ctx.pop(), z = ctx.pop();
 	if (0 <= x && x < 80 && 0 <= y && y < 25) {
 		y=(y|x<<5);
@@ -136,17 +132,17 @@ var Op9 = mkop(9, 3, 0, "wem", (op, ctx) => {
 	}
 	return op.n;
 });
-var Op10 = mkop(10, 0, 0, "jr", (op, ctx) => {
+var Op10 = mkop(10, 0, 0, (op, ctx) => {
 	var a = Math.random()*4&3;
 	return a == 3 ? op.n : op.arg[a];
 });
-var Op11 = mkop(11, 1, 0, "jz", (op, ctx) => {
+var Op11 = mkop(11, 1, 0, (op, ctx) => {
 	return ctx.pop() ? op.n : op.arg;
 }); 
-var Op12 = mkop(12, 0, 0, "ret", (op, ctx) => {
+var Op12 = mkop(12, 0, 0, (op, ctx) => {
 	return -1;
 });
-var Op13 = mkop(13, 1, 0, "nop", (op, ctx) => {
+var Op13 = mkop(13, 1, 0, (op, ctx) => {
 	return op.n;
 });
 
@@ -318,12 +314,12 @@ function bfRun(mem, cursor, sp) {
 			return bfCompile(ir, sp).then(m => {
 				var f = new WebAssembly.Instance(m, {
 				"": {
-					pri: pri,
-					prc: prc,
-					ini: ini,
-					inc: inc,
-					r4: r4,
-					mem: mem,
+					p: pri,
+					q: prc,
+					i: ini,
+					c: inc,
+					r: r4,
+					m: mem,
 				}});
 				//console.log(code);
 				cursor = f.exports.f();
@@ -358,34 +354,34 @@ function bfCompile(ir, sp) {
 
 	var imp = [6];
 	varuint(imp, 0);
-	varuint(imp, 3);
-	pushString(imp, "pri");
+	varuint(imp, 1);
+	pushString(imp, "p");
 	imp.push(0, 0);
 
 	varuint(imp, 0);
-	varuint(imp, 3);
-	pushString(imp, "prc");
+	varuint(imp, 1);
+	pushString(imp, "q");
 	imp.push(0, 0);
 
 	varuint(imp, 0);
-	varuint(imp, 3);
-	pushString(imp, "ini");
+	varuint(imp, 1);
+	pushString(imp, "i");
 	imp.push(0, 1);
 
 	varuint(imp, 0);
-	varuint(imp, 3);
-	pushString(imp, "inc");
+	varuint(imp, 1);
+	pushString(imp, "c");
 	imp.push(0, 1);
 
 	varuint(imp, 0);
-	varuint(imp, 2);
-	pushString(imp, "r4");
+	varuint(imp, 1);
+	pushString(imp, "r");
 	imp.push(0, 1);
 
 
 	varuint(imp, 0);
-	varuint(imp, 3);
-	pushString(imp, "mem");
+	varuint(imp, 1);
+	pushString(imp, "m");
 	imp.push(2, 0);
 	varuint(imp, 1);
 
