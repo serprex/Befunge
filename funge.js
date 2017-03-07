@@ -325,14 +325,15 @@ function bfRun(mem, cursor, sp) {
 					r4: r4,
 					mem: mem,
 				}});
-				MOD = f; console.log(f);
+				//console.log(code);
 				cursor = f.exports.f();
-				console.log(code);
+				//console.log(code);
 				if (~cursor) {
 					sp = cursor&65535;
 					cursor >>= 16;
 					return bfRun(mem, cursor, sp);
 				}
+				console.timeEnd("start");
 			});
 		}
 	}
@@ -603,10 +604,17 @@ function bfCompile(ir, sp) {
 				block.push(0x20, 0, 0x41, 8, 0x46, 0x04, 0x40, 0x41, 8, 0x41, 4, 0x28, 0, 0, 0x36, 0, 0, 0x41, 4, 0x41, 0, 0x28, 0, 0, 0x36, 0, 0, 0x41, 0, 0x41, 0, 0x36, 0, 0, 0x41, 12, 0x21, 0, 0x0b);
 				block.push(0x20, 0, 0x41, 12, 0x6b, 0x21, 0);
 				// *(0xce00 + ((sp[4]<<5|sp[8])<<2)) = sp[0]
-				block.push(0x20, 0, 0x28, 0, 4, 0x41, 5, 0x74, 0x20, 0, 0x28, 0, 8, 0x72, 0x41, 2, 0x74);
+				block.push(0x20, 0, 0x28, 0, 4, 0x41, 5, 0x74, 0x20, 0, 0x28, 0, 8, 0x72, 0x22, 1, 0x41, 2, 0x74);
 				block.push(0x20, 0, 0x28, 0, 0);
 				block.push(0x36, 0);
 				varint(block, 0xce00);
+				// if *(0xf600 + %1), ret arg<<16|sp
+				block.push(0x20, 1, 0x28, 0);
+				varint(block, 0xf600);
+				block.push(0x04, 0x40, 0x41);
+				varint(block, n.arg<<16);
+				block.push(0x20, 0, 0x72, 0x0f);
+				block.push(0x0b);
 			} else if (n.meta.op == 10) {
 				blocks.push(block);
 				blockpile(blocks, n.n);
@@ -685,8 +693,6 @@ function bfCompile(ir, sp) {
 	varuint(bc, code.length, 4);
 	pushArray(bc, code);
 
-	console.log(bc.length, bc);
-
 	return WebAssembly.compile(new Uint8Array(bc));
 }
 
@@ -727,7 +733,7 @@ btnGo.addEventListener("click", (s, e) => {
 		}
 	}
 	prOut.textContent = "";
+	console.time("start");
 	bfRun(mem, 10112, 0);
 });
 })();
-var MOD;
