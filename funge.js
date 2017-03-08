@@ -581,12 +581,12 @@ function bfCompile(ir, sp) {
 				block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40); // *0 = *(0xce00+(*0<<2))
 				block.push(0x41, 0, 0x41, 0, 0x28, 0, 0, 0x41, 2, 0x74);
 				block.push(0x28, 0);
-				varint(block, 0xce00);
+				varuint(block, 0xce00);
 				block.push(0x36, 0, 0);
 				block.push(0x05); // *(sp-=4) = *(0xce00+((*sp|*(sp-4)<<5)<<2))
 				block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x41, 4, 0x6b, 0x20, 0, 0x28, 0, 0,
 					0x20, 0, 0x41, 4, 0x6b, 0x28, 0, 0, 0x41, 5, 0x74, 0x72, 0x41, 2, 0x74, 0x28, 0);
-				varint(block, 0xce00);
+				varuint(block, 0xce00);
 				block.push(0x36, 0, 0);
 				block.push(0x0b);
 				block.push(0x05, 0x41, 0, 0x41); // else *0 = *0xce00, sp = 4
@@ -603,12 +603,12 @@ function bfCompile(ir, sp) {
 				block.push(0x20, 0, 0x28, 0, 4, 0x41, 5, 0x74, 0x20, 0, 0x28, 0, 8, 0x72, 0x22, 1, 0x41, 2, 0x74);
 				block.push(0x20, 0, 0x28, 0, 0);
 				block.push(0x36, 0);
-				varint(block, 0xce00);
+				varuint(block, 0xce00);
 				// if *(0xf600 + %1), ret arg<<16|sp
 				block.push(0x20, 1, 0x28, 0);
-				varint(block, 0xf600);
+				varuint(block, 0xf600);
 				block.push(0x04, 0x40, 0x41);
-				varint(block, n.arg<<16);
+				varuint(block, n.arg<<16);
 				block.push(0x20, 0, 0x72, 0x0f);
 				block.push(0x0b);
 			} else if (n.meta.op == 10) {
@@ -619,7 +619,7 @@ function bfCompile(ir, sp) {
 				blockpile(blocks, n.arg[2]);
 				block.push(0x10, 4, 0x22, 1, 0x04, 0x7f); // tee-if nextblock=r4()
 				block.push(0x20, 1, 0x41, 1, 0x46, 0x04, 0x7f, 0x41);
-				varint(block, n.arg[0].sd);
+				varuint(block, n.arg[0].sd);
 				block.push(0x05, 0x20, 1, 0x41, 2, 0x46, 0x04, 0x7f, 0x41);
 				varint(block, n.arg[1].sd);
 				block.push(0x05, 0x41);
@@ -664,9 +664,9 @@ function bfCompile(ir, sp) {
 	body.push(0x02, 0x40);
 	body.push(0x20, 1);
 	body.push(0x0e);
-	varint(body, blocks.length - 1);
+	varuint(body, blocks.length - 1);
 	for (var i=0; i<blocks.length; i++) {
-		body.push(i);
+		varuint(body, i);
 	}
 	body.push(0x0b);
 	for (var i=0; i<blocks.length; i++) {
