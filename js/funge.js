@@ -1,4 +1,4 @@
-(function(){"use strict";
+"use strict";
 function varint (v, value) {
 	while (true) {
 		var b = value & 127;
@@ -97,12 +97,12 @@ var Op5 = mkop(5, 2, 2, (op, ctx) => {
 	return op.n;
 });
 var Op6 = mkop(6, 1, 0, (op, ctx) => {
-	var a = ctx.pop();
-	prOut.textContent += (op.arg ? String.fromCharCode(a) : a + " ");
+	if (op.arg) ctx.imp.q(ctx.pop());
+	else ctx.imp.p(ctx.pop());
 	return op.n;
 });
 var Op7 = mkop(7, 0, 1, (op, ctx) => {
-	ctx.push((op.arg ? ini : inc)());
+	ctx.push((op.arg ? ctx.imp.i : ctx.imp.c)());
 	return op.n;
 });
 var Op8 = mkop(8, 2, 1, (op, ctx) => {
@@ -133,7 +133,7 @@ var Op9 = mkop(9, 3, 0, (op, ctx) => {
 	return op.n;
 });
 var Op10 = mkop(10, 0, 0, (op, ctx) => {
-	var a = Math.random()*4&3;
+	var a = ctx.imp.r4();
 	return a == 3 ? op.n : op.arg[a];
 });
 var Op11 = mkop(11, 1, 0, (op, ctx) => {
@@ -260,8 +260,9 @@ Tracer.prototype.trace = function(i) {
 	}
 }
 
-function Interpreter(mem, sp){
-	this.mem = mem;
+function Interpreter(imp, sp){
+	this.imp = imp[""];
+	this.mem = imp.m;
 	this.sp = sp;
 }
 Interpreter.prototype.pop = function() {
@@ -276,52 +277,28 @@ Interpreter.prototype.push = function(x) {
 	this.mem[this.sp+3]=x>>24;
 	this.sp += 4;
 }
-
-function bfInterpret(mem, ir, sp) {
-	var ctx = new Interpreter(mem, sp);
+Interpreter.prototype.run = function(ir) {
 	while (true) {
 		ir = ir.meta.eval(ir, ctx);
 		if (typeof ir == "number") return ir;
 	}
 }
 
-var r4 = () => Math.random()*4&3;
-var ini = () => prompt("Number", "")|0;
-var inc = () => prompt("Character", "").charCodeAt(0)|0;
-var pri = x => prOut.textContent += x + " ";
-var prc = x => prOut.textContent += String.fromCharCode(x);
-function bfRun(mem, cursor, sp) {
-	var code = new Uint8Array(mem.buffer);
-	while (true) {
-		var tracer = new Tracer(code);
-		var ir = tracer.trace(cursor);
-		if (false) {
-			cursor = bfInterpret(code, ir, sp);
-			if (!~cursor) return;
-			sp = cursor&65535;
-			cursor >>= 16;
-		} else {
-			return bfCompile(ir, sp).then(m => {
-				var f = new WebAssembly.Instance(m, {
-				"": {
-					p: pri,
-					q: prc,
-					i: ini,
-					c: inc,
-					r: r4,
-					m: mem,
-				}});
-				//console.log(code);
-				cursor = f.exports.f();
-				//console.log(code);
-				if (~cursor) {
-					sp = cursor&65535;
-					cursor >>= 16;
-					return bfRun(mem, cursor, sp);
-				}
-				console.timeEnd("start");
-			});
-		}
+function bfRun(imp, cursor, sp) {
+	var code = new Uint8Array(imp[""].m.buffer);
+	var tracer = new Tracer(code);
+	var ir = tracer.trace(cursor);
+	if (false) {
+		var ctx = new Interpreter(imp, sp);
+		cursor = ctx.run(code, ir, sp);
+		if (~cursor) return bfRun(imp, cursor>>16, cursor&65535);
+	} else {
+		return bfCompile(ir, sp).then(m => {
+			var f = new WebAssembly.Instance(m, imp);
+			cursor = f.exports.f();
+			if (~cursor) return bfRun(imp, cursor>>16, cursor&65535);
+			console.timeEnd("start");
+		});
 	}
 }
 
@@ -688,16 +665,12 @@ function bfCompile(ir, sp) {
 	return WebAssembly.compile(new Uint8Array(bc));
 }
 
-var btnGo = document.getElementById("btnGo");
-var taBoard = document.getElementById("taBoard");
-var prOut = document.getElementById("prOut");
-btnGo.addEventListener("click", (s, e) => {
-	var board = taBoard.value;
-	var mem = new WebAssembly.Memory({ initial: 1 });
+exports.r4 = () => Math.random()*4|0;
+exports.runSource = function(board, imp){
 	// 0000:cdff stack
 	// ce00:f5ff source
 	// f600:ffff xbits
-	var code = new Uint8Array(mem.buffer);
+	var code = new Uint8Array(imp[""].m.buffer);
 	var i = 0;
 	yout:
 	for (var y=0; y<25; y++) {
@@ -724,8 +697,6 @@ btnGo.addEventListener("click", (s, e) => {
 			}
 		}
 	}
-	prOut.textContent = "";
 	console.time("start");
-	bfRun(mem, 10112, 0);
-});
-})();
+	bfRun(imp, 10112, 0);
+}

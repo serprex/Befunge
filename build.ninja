@@ -2,6 +2,9 @@ rule cc
  command = gcc -std=gnu99 $in -o $out -O3 -s -march=native -fwhole-program -DWBIT=32 -DSPACE=0 -DSTACK=65536
 rule cpp
  command = g++ -std=c++11 -O3 -s -march=native -fwhole-program $in -o $out -Wall -Werror -fno-exceptions
+rule mkcjs
+ command=mkcjs $out $in
 build marsh:cc marsh.c | marsh.h
 build bejit:cc bejit.c
 build bejit-elvm:cpp bejit-elvm.cc
+build js/quire.js:mkcjs js/funge.js
