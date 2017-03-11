@@ -294,16 +294,15 @@ function bfRun(imp, cursor, sp) {
 		if (~cursor) return bfRun(imp, cursor>>16, cursor&65535);
 		console.timeEnd("start");
 	} else {
-		return bfCompile(ir, sp).then(m => {
-			var f = new WebAssembly.Instance(m, imp);
-			cursor = f.exports.f();
+		return bfCompile(ir, sp, imp).then(f => {
+			cursor = f.instance.exports.f();
 			if (~cursor) return bfRun(imp, cursor>>16, cursor&65535);
 			console.timeEnd("start");
 		});
 	}
 }
 
-function bfCompile(ir, sp) {
+function bfCompile(ir, sp, imports) {
 	var bc = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
 
 	bc.push(1); // Types
@@ -663,7 +662,7 @@ function bfCompile(ir, sp) {
 	pushArray(bc, code);
 	//console.log(bc.length);
 
-	return WebAssembly.compile(new Uint8Array(bc));
+	return WebAssembly.instantiate(new Uint8Array(bc), imports);
 }
 
 exports.r4 = () => Math.random()*4|0;
