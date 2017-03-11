@@ -262,7 +262,7 @@ Tracer.prototype.trace = function(i) {
 
 function Interpreter(imp, sp){
 	this.imp = imp[""];
-	this.mem = imp.m;
+	this.mem = this.imp.m;
 	this.sp = sp;
 }
 Interpreter.prototype.pop = function() {
@@ -277,9 +277,9 @@ Interpreter.prototype.push = function(x) {
 	this.mem[this.sp+3]=x>>24;
 	this.sp += 4;
 }
-Interpreter.prototype.run = function(ir) {
+Interpreter.prototype.eval = function(ir) {
 	while (true) {
-		ir = ir.meta.eval(ir, ctx);
+		ir = ir.meta.eval(ir, this);
 		if (typeof ir == "number") return ir;
 	}
 }
@@ -290,8 +290,9 @@ function bfRun(imp, cursor, sp) {
 	var ir = tracer.trace(cursor);
 	if (false) {
 		var ctx = new Interpreter(imp, sp);
-		cursor = ctx.run(code, ir, sp);
+		cursor = ctx.eval(ir);
 		if (~cursor) return bfRun(imp, cursor>>16, cursor&65535);
+		console.timeEnd("start");
 	} else {
 		return bfCompile(ir, sp).then(m => {
 			var f = new WebAssembly.Instance(m, imp);
