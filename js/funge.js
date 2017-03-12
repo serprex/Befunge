@@ -396,10 +396,11 @@ function bfCompile(ir, sp, imports) {
 		body.push(0x21, 0);
 	}
 
-	var blocks = [];
+	var blocks = [], nobr = new Set();
 
 	function blockpile(blocks, n) {
-		var block = [];
+		if (~n.sd) return;
+		var block = [], dep = 0;
 		while (true) {
 			if (~n.sd) {
 				block.push(0x41);
@@ -409,140 +410,187 @@ function bfCompile(ir, sp, imports) {
 				return;
 			}
 			if (n.si.size > 1) {
-				// TODO fallthrough rather than reloop in wasm
+				nobr.add(block);
 				blocks.push(block);
-				block.push(0x41);
-				varint(block, blocks.length);
-				block.push(0x21, 1);
 				block = [];
+				dep = 0;
 			}
 			n.sd = blocks.length;
 			if (n.meta.op == 0) {
 				block.push(0x20, 0, 0x41);
 				varint(block, n.arg);
 				block.push(0x36, 2, 0, 0x20, 0, 0x41, 4, 0x6a, 0x21, 0);
+				dep++;
 			} else if (n.meta.op == 1) {
-				block.push(0x20, 0, 0x04, 0x40);
+				if (dep < 2) {
+					if (dep) {
+						block.push(0x20, 0);
+					} else {
+						block.push(0x20, 0, 0x04, 0x40, 0x20, 0);
+					}
+					block.push(0x41, 4, 0x47, 0x04, 0x40);
+				}
 				switch (n.arg) {
 					case "+":
-						block.push(0x20, 0, 0x41, 4, 0x47, 0x04, 0x40);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0);
 						block.push(0x41, 4, 0x6b);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 2, 0);
 						block.push(0x20, 0, 0x28, 2, 0);
-						block.push(0x6a, 0x36, 2, 0);
-						block.push(0x0b);
+						block.push(0x6a);
+						block.push(0x36, 2, 0);
 						break;
 					case "-":
-						block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40);
 						// if sp == 4, *0 = -*0
-						block.push(0x41, 0, 0x41, 0, 0x41, 0, 0x28, 2, 0, 0x6b, 0x36, 2, 0);
-						block.push(0x05);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0);
 						block.push(0x41, 4, 0x6b);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 2, 0);
 						block.push(0x20, 0, 0x28, 2, 0);
-						block.push(0x6b, 0x36, 2, 0);
-						block.push(0x0b);
+						block.push(0x6b);
+						block.push(0x36, 2, 0);
+						if (dep < 2) {
+							block.push(0x05);
+							block.push(0x41, 0, 0x41, 0, 0x41, 0, 0x28, 2, 0, 0x6b, 0x36, 2, 0);
+						}
 						break;
 					case "*":
-						block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40);
 						// if sp == 4, *0 = 0
-						block.push(0x41, 0, 0x41, 0, 0x36, 2, 0);
-						block.push(0x05);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0);
 						block.push(0x41, 4, 0x6b);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 2, 0);
 						block.push(0x20, 0, 0x28, 2, 0);
-						block.push(0x6c, 0x36, 2, 0);
-						block.push(0x0b);
+						block.push(0x6c);
+						block.push(0x36, 2, 0);
+						if (dep < 2) {
+							block.push(0x05);
+							block.push(0x41, 0, 0x21, 0);
+						}
 						break;
 					case "/":
-						block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40);
 						// if sp == 4, *0 = 0
-						block.push(0x41, 0, 0x41, 0, 0x36, 2, 0);
-						block.push(0x05);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0);
 						block.push(0x41, 4, 0x6b);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 2, 0);
 						block.push(0x20, 0, 0x28, 2, 0);
-						block.push(0x6d, 0x36, 2, 0);
-						block.push(0x0b);
+						block.push(0x6d);
+						block.push(0x36, 2, 0);
+						if (dep < 2) {
+							block.push(0x05);
+							block.push(0x41, 0, 0x21, 0);
+						}
 						break;
 					case "%":
-						block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40);
 						// if sp == 4, *0 = 0
-						block.push(0x41, 0, 0x41, 0, 0x36, 2, 0);
-						block.push(0x05);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0);
 						block.push(0x41, 4, 0x6b);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 2, 0);
 						block.push(0x20, 0, 0x28, 2, 0);
-						block.push(0x6f, 0x36, 2, 0);
-						block.push(0x0b);
+						block.push(0x6f);
+						block.push(0x36, 2, 0);
+						if (dep < 2) {
+							block.push(0x05);
+							block.push(0x41, 0, 0x21, 0);
+						}
 						break;
 					case ">":
-						block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40);
 						// if sp == 4, *0 = 0 > *0
-						block.push(0x41, 0, 0x41, 0, 0x41, 0, 0x28, 2, 0, 0x4a, 0x36, 2, 0);
-						block.push(0x05);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0);
 						block.push(0x41, 4, 0x6b);
 						block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 2, 0);
 						block.push(0x20, 0, 0x28, 2, 0);
-						block.push(0x4a, 0x36, 2, 0);
-						block.push(0x0b);
+						block.push(0x4a);
+						block.push(0x36, 2, 0);
+						if (dep < 2) {
+							block.push(0x05);
+							block.push(0x41, 0, 0x41, 0, 0x41, 0, 0x28, 2, 0, 0x4a, 0x36, 2, 0);
+						}
 						break;
 				}
-				block.push(0x0b);
+				if (dep < 2) {
+					block.push(0x0b);
+					if (dep == 0) {
+						block.push(0x0b);
+					} else if (~"*/%".indexOf(n.arg)) {
+						dep = 0;
+					}
+				} else {
+					dep--;
+				}
 			} else if (n.meta.op == 2) {
-				block.push(0x20, 0);
-				block.push(0x04, 0x40);
+				if (!dep) {
+					block.push(0x20, 0);
+					block.push(0x04, 0x40);
+				}
 				block.push(0x20, 0, 0x41, 4, 0x6b); // s-4
 				block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 2, 0, 0x45); // !*(s-4)
 				block.push(0x36, 2, 0);
-				block.push(0x05); // else *0=1, sp=4
-				block.push(0x41, 0, 0x41, 1, 0x36, 2, 0);
-				block.push(0x41, 4, 0x21, 0);
-				block.push(0x0b);
+				if (!dep) {
+					block.push(0x05); // else *0=1, sp=4
+					block.push(0x41, 0, 0x41, 1, 0x36, 2, 0);
+					block.push(0x41, 4, 0x21, 0);
+					block.push(0x0b);
+				} else {
+					dep--;
+				}
 			} else if (n.meta.op == 3) {
-				block.push(0x20, 0);
-				block.push(0x04, 0x40);
-				block.push(0x20, 0, 0x41, 4, 0x6b, 0x21, 0);
-				block.push(0x0b);
+				if (dep) {
+					block.push(0x20, 0, 0x41, 4, 0x6b, 0x21, 0);
+					dep--;
+				} else {
+					block.push(0x20, 0, 0x04, 0x40);
+					block.push(0x20, 0, 0x41, 4, 0x6b, 0x21, 0);
+					block.push(0x0b);
+				}
 			} else if (n.meta.op == 4) {
-				block.push(0x20, 0);
-				block.push(0x04, 0x40);
+				if (!dep) {
+					block.push(0x20, 0, 0x04, 0x40);
+				}
 				block.push(0x20, 0);
 				block.push(0x20, 0, 0x41, 4, 0x6b, 0x28, 2, 0); // *(s-4)
 				block.push(0x36, 2, 0);
 				block.push(0x20, 0, 0x41, 4, 0x6a, 0x21, 0);
-				block.push(0x0b);
+				if (!dep) {
+					block.push(0x0b);
+				} else {
+					dep++;
+				}
 			} else if (n.meta.op == 5) {
-				block.push(0x20, 0, 0x04, 0x40); // if >0
-				block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40);
-				// if sp == 4, *4 = 0, sp = 8
-				block.push(0x41, 4, 0x41, 0, 0x36, 2, 0);
-				block.push(0x41, 8, 0x21, 0);
-				block.push(0x05); // else swap
+				if (dep < 2) {
+					if (!dep) block.push(0x20, 0, 0x04, 0x40); // if >0
+					block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40);
+					// if sp == 4, *4 = 0, sp = 8
+					block.push(0x41, 4, 0x41, 0, 0x36, 2, 0);
+					block.push(0x41, 8, 0x21, 0);
+					block.push(0x05); // else swap
+				}
 				block.push(0x20, 0, 0x41, 8, 0x6b, 0x22, 1); // sp-8
 				block.push(0x20, 1, 0x28, 2, 4); // *(sp-4)
 				block.push(0x20, 1); // sp-8
 				block.push(0x20, 1, 0x28, 2, 0); // *(sp-8)
 				block.push(0x36, 2, 4, 0x36, 2, 0);
-				block.push(0x0b, 0x0b);
+				if (dep < 2) {
+					block.push(0x0b);
+					if (!dep) block.push(0x0b);
+					else dep = 2;
+				}
 			} else if (n.meta.op == 6) {
-				block.push(0x20, 0); // if >0, pop
-				block.push(0x04, 0x7f);
-				block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x28, 2, 0); // *(s-=4) 
-				block.push(0x05, 0x41, 0); // else 0
-				block.push(0x0b);
+				if (dep) {
+					block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x28, 2, 0); // *(s-=4) 
+					dep--;
+				} else {
+					block.push(0x20, 0, 0x04, 0x7f); // if >0, pop
+					block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x28, 2, 0); // *(s-=4) 
+					block.push(0x05, 0x41, 0); // else 0
+					block.push(0x0b);
+				}
 				block.push(0x10, n.arg?1:0);
 			} else if (n.meta.op == 7) {
 				block.push(0x20, 0, 0x10, n.arg?2:3, 0x36, 2, 0);
 				block.push(0x20, 0, 0x41, 4, 0x6a, 0x21, 0);
+				dep++;
 			} else if (n.meta.op == 8) {
-				block.push(0x20, 0, 0x04, 0x40);
+				if (!dep) {
+					block.push(0x20, 0, 0x04, 0x40);
+				}
 				block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40); // *0 = *(0xce00+(*0<<2))
 				block.push(0x41, 0, 0x41, 0, 0x28, 2, 0, 0x22, 1, 0x41, 0, 0x4d, 0x20, 1, 0x41);
 				varint(block, 2560);
@@ -559,16 +607,22 @@ function bfCompile(ir, sp, imports) {
 				varuint(block, 0xce00);
 				block.push(0x36, 2, 0);
 				block.push(0x0b);
-				block.push(0x05, 0x41, 0, 0x41); // else *0 = *0xce00, sp = 4
-				varint(block, 0xce00);
-				block.push(0x28, 2, 0, 0x36, 2, 0, 0x41, 4, 0x21, 0);
-				block.push(0x0b);
+				if (!dep) {
+					block.push(0x05, 0x41, 0, 0x41); // else *0 = *0xce00, sp = 4
+					varint(block, 0xce00);
+					block.push(0x28, 2, 0, 0x36, 2, 0, 0x41, 4, 0x21, 0);
+					block.push(0x0b);
+				}
+				dep = Math.max(dep - 1, 1);
 			} else if (n.meta.op == 9) {
-				block.push(0x20, 0, 0x41, 8, 0x4d, 0x04, 0x40);
-				block.push(0x20, 0, 0x41, 4, 0x4d, 0x04, 0x40);
-				block.push(0x20, 0, 0x45, 0x04, 0x40, 0x41, 0, 0x41, 0, 0x36, 2, 0, 0x0b);
-				block.push(0x41, 4, 0x41, 0, 0x28, 2, 0, 0x36, 2, 0, 0x41, 0, 0x41, 0, 0x36, 2, 0, 0x0b);
-				block.push(0x41, 8, 0x41, 4, 0x28, 2, 0, 0x36, 2, 0, 0x41, 4, 0x41, 0, 0x28, 2, 0, 0x36, 2, 0, 0x41, 0, 0x41, 0, 0x36, 2, 0, 0x41, 12, 0x21, 0, 0x0b);
+				if (dep < 3) {
+					block.push(0x20, 0, 0x41, 8, 0x4d, 0x04, 0x40);
+					if (dep < 2) block.push(0x20, 0, 0x41, 4, 0x4d, 0x04, 0x40);
+					if (!dep) block.push(0x20, 0, 0x45, 0x04, 0x40, 0x41, 0, 0x41, 0, 0x36, 2, 0, 0x0b);
+					if (dep < 2) block.push(0x41, 4, 0x41, 0, 0x28, 2, 0, 0x36, 2, 0, 0x41, 0, 0x41, 0, 0x36, 2, 0, 0x0b);
+					block.push(0x41, 8, 0x41, 4, 0x28, 2, 0, 0x36, 2, 0, 0x41, 4, 0x41, 0, 0x28, 2, 0, 0x36, 2, 0, 0x41, 0, 0x41, 0, 0x36, 2, 0, 0x41, 12, 0x21, 0, 0x0b);
+				}
+				dep = Math.max(dep - 3, 0);
 				block.push(0x20, 0, 0x41, 12, 0x6b, 0x22, 0);
 				block.push(0x28, 2, 4, 0x22, 1, 0x41, 0, 0x4f, 0x20, 1, 0x41);
 				varint(block, 80);
@@ -591,36 +645,50 @@ function bfCompile(ir, sp, imports) {
 				blockpile(blocks, n.arg[0]);
 				blockpile(blocks, n.arg[1]);
 				blockpile(blocks, n.arg[2]);
-				block.push(0x10, 4, 0x22, 1, 0x04, 0x7f); // tee-if nextblock=r4()
-				block.push(0x20, 1, 0x41, 1, 0x46, 0x04, 0x7f, 0x41);
-				varuint(block, n.arg[0].sd);
-				block.push(0x05, 0x20, 1, 0x41, 2, 0x46, 0x04, 0x7f, 0x41);
-				varint(block, n.arg[1].sd);
-				block.push(0x05, 0x41);
-				varint(block, n.arg[2].sd);
-				block.push(0x0b, 0x0b);
-				block.push(0x05, 0x41);
-				varint(block, n.n.sd);
-				block.push(0x0b, 0x21, 1);
+				if (n.n.sd > n.sd && n.arg[0].sd > n.sd && n.arg[1].sd > n.sd && n.arg[2].sd > n.sd) {
+					nobr.add(block);
+					block.push(0x10, 4, 0x0e, 3);
+					varuint(block, n.n.sd - n.sd);
+					varuint(block, n.arg[0].sd - n.sd);
+					varuint(block, n.arg[1].sd - n.sd);
+					varuint(block, n.arg[2].sd - n.sd);
+				} else {
+					block.push(0x10, 4, 0x22, 1, 0x04, 0x7f); // tee-if nextblock=r4()
+					block.push(0x20, 1, 0x41, 1, 0x46, 0x04, 0x7f, 0x41);
+					varuint(block, n.arg[0].sd);
+					block.push(0x05, 0x20, 1, 0x41, 2, 0x46, 0x04, 0x7f, 0x41);
+					varint(block, n.arg[1].sd);
+					block.push(0x05, 0x41);
+					varint(block, n.arg[2].sd);
+					block.push(0x0b, 0x0b);
+					block.push(0x05, 0x41);
+					varint(block, n.n.sd);
+					block.push(0x0b, 0x21, 1);
+				}
 				return;
 			} else if (n.meta.op == 11) {
 				blocks.push(block);
 				blockpile(blocks, n.n);
 				blockpile(blocks, n.arg);
-				block.push(0x20, 0, 0x04, 0x7f);
+				if (!dep) {
+					block.push(0x20, 0, 0x04, 0x7f);
+				}
 				block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x28, 2, 0); // *(s-=4)
 				block.push(0x04, 0x7f, 0x41);
 				varint(block, n.n.sd);
 				block.push(0x05, 0x41);
 				varint(block, n.arg.sd);
 				block.push(0x0b);
-				block.push(0x05, 0x41);
-				varint(block, n.arg.sd);
-				block.push(0x0b);
+				if (!dep) {
+					block.push(0x05, 0x41);
+					varint(block, n.arg.sd);
+					block.push(0x0b);
+				}
 				block.push(0x21, 1);
 				return;
 			} else if (n.meta.op == 12) {
 				block.push(0x41, 0x7f, 0x0f);
+				nobr.add(block);
 				blocks.push(block);
 				return;
 			}
@@ -643,7 +711,7 @@ function bfCompile(ir, sp, imports) {
 	body.push(0x0b);
 	for (var i=0; i<blocks.length; i++) {
 		pushArray(body, blocks[i]);
-		if (body[body.length-1] != 0xf) {
+		if (!nobr.has(blocks[i])) {
 			body.push(0xc);
 			varuint(body, blocks.length - i);
 		}
