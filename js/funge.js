@@ -175,9 +175,7 @@ Tracer.prototype.trace = function(i) {
 		inst.si.add(tail);
 		return tail;
 	}
-	var inst=Op13();
-	var head=inst;
-	var pist=[]
+	var inst=Op13(), head=inst, pist=[]
 	while (true) {
 		i=mv(i);
 		if (i in this.pg){
@@ -202,11 +200,11 @@ Tracer.prototype.trace = function(i) {
 		this.pg[i]=inst;
 		pist.push(i);
 		this.mem[0xf600+(i>>2)]=1;
-		var i2 = this.mem[0xce00+(i&~3)];
 		if (this.mem[0xce01+(i&~3)] || this.mem[0xce02+(i&~3)] || this.mem[0xce03+(i&~3)]) {
 			continue;
 		}
-		else if (48<=i2 && i2<58) { emit(0, i2-48); }
+		var i2 = this.mem[0xce00+(i&~3)];
+		if (48<=i2 && i2<58) { emit(0, i2-48); }
 		else if (i2 in mvs) { i=i&~3|mvs[i2]; }
 		else if (i2 in bins) { emit(1, bins[i2]); }
 		else if (i2 in raw) { emit(raw[i2]); }
@@ -246,15 +244,17 @@ Tracer.prototype.trace = function(i) {
 					other=0;
 					i=i&~3|2;
 				}
+				this.pg[i^1] = this.pg[i^2] = this.pg[i^3] = inst;
 				var ifNode = emit(11, this.trace(i&~3|other))
 				ifNode.arg.si.add(ifNode)
 			} else if (i2 == 5) {
 				emit(9, i);
 			} else if (i2 == 6) {
-				var rngNode = emit(10, [this.trace(i^1), this.trace(i^2), this.trace(i^3)])
-				for (let ia of rngNode.arg) {
-					ia.si.add(rngNode);
-				}
+				this.pg[i^1] = this.pg[i^2] = this.pg[i^3] = inst;
+				var rngNode = emit(10, [this.trace(i^1), this.trace(i^2), this.trace(i^3)]);
+				rngNode.arg[0].si.add(rngNode);
+				rngNode.arg[1].si.add(rngNode);
+				rngNode.arg[2].si.add(rngNode);
 			}
 		}
 	}
@@ -291,12 +291,18 @@ function bfRun(imp, cursor, sp) {
 	if (false) {
 		var ctx = new Interpreter(imp, sp);
 		cursor = ctx.eval(ir);
-		if (~cursor) return bfRun(imp, cursor>>16, cursor&65535);
+		if (~cursor) {
+			code.fill(0, 0xf600);
+			return bfRun(imp, cursor>>16, cursor&65535);
+		}
 		console.timeEnd("start");
 	} else {
 		return bfCompile(ir, sp, imp).then(f => {
 			cursor = f.instance.exports.f();
-			if (~cursor) return bfRun(imp, cursor>>16, cursor&65535);
+			if (~cursor) {
+				code.fill(0, 0xf600);
+				return bfRun(imp, cursor>>16, cursor&65535);
+			}
 			console.timeEnd("start");
 		});
 	}
@@ -402,19 +408,6 @@ function bfCompile(ir, sp, imports) {
 		if (~n.sd) return;
 		var block = [], dep = 0;
 		while (true) {
-			if (~n.sd) {
-				block.push(0x41);
-				varint(block, n.sd);
-				block.push(0x21, 1);
-				blocks.push(block);
-				return;
-			}
-			if (n.si.size > 1) {
-				nobr.add(block);
-				blocks.push(block);
-				block = [];
-				dep = 0;
-			}
 			n.sd = blocks.length;
 			if (n.meta.op == 0) {
 				block.push(0x20, 0, 0x41);
@@ -588,17 +581,19 @@ function bfCompile(ir, sp, imports) {
 				block.push(0x20, 0, 0x41, 4, 0x6a, 0x21, 0);
 				dep++;
 			} else if (n.meta.op == 8) {
-				if (!dep) {
-					block.push(0x20, 0, 0x04, 0x40);
+				if (dep < 2) {
+					if (!dep) {
+						block.push(0x20, 0, 0x04, 0x40);
+					}
+					block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40); // *0 = *(0xce00+(*0<<2))
+					block.push(0x41, 0, 0x41, 0, 0x28, 2, 0, 0x22, 1, 0x41, 0, 0x4d, 0x20, 1, 0x41);
+					varint(block, 2560);
+					block.push(0x4f, 0x72, 0x04, 0x7f, 0x41, 31, 0x05, 0x20, 1, 0x0b);
+					block.push(0x41, 2, 0x74, 0x28, 2);
+					varuint(block, 0xce00);
+					block.push(0x36, 2, 0);
+					block.push(0x05); // *(sp-=4) = *(0xce00+((*sp|*(sp-4)<<5)<<2))
 				}
-				block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40); // *0 = *(0xce00+(*0<<2))
-				block.push(0x41, 0, 0x41, 0, 0x28, 2, 0, 0x22, 1, 0x41, 0, 0x4d, 0x20, 1, 0x41);
-				varint(block, 2560);
-				block.push(0x4f, 0x72, 0x04, 0x7f, 0x41, 31, 0x05, 0x20, 1, 0x0b);
-				block.push(0x41, 2, 0x74, 0x28, 2);
-				varuint(block, 0xce00);
-				block.push(0x36, 2, 0);
-				block.push(0x05); // *(sp-=4) = *(0xce00+((*sp|*(sp-4)<<5)<<2))
 				block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x41, 4, 0x6b, 0x20, 0, 0x28, 2, 0,
 					0x20, 0, 0x41, 4, 0x6b, 0x28, 2, 0, 0x41, 5, 0x74, 0x72, 0x22, 1, 0x41, 0, 0x4d, 0x20, 1, 0x41);
 				varint(block, 2560);
@@ -606,12 +601,14 @@ function bfCompile(ir, sp, imports) {
 				block.push(0x41, 2, 0x74, 0x28, 2);
 				varuint(block, 0xce00);
 				block.push(0x36, 2, 0);
-				block.push(0x0b);
-				if (!dep) {
-					block.push(0x05, 0x41, 0, 0x41); // else *0 = *0xce00, sp = 4
-					varint(block, 0xce00);
-					block.push(0x28, 2, 0, 0x36, 2, 0, 0x41, 4, 0x21, 0);
+				if (dep < 2) {
 					block.push(0x0b);
+					if (!dep) {
+						block.push(0x05, 0x41, 0, 0x41); // else *0 = *0xce00, sp = 4
+						varint(block, 0xce00);
+						block.push(0x28, 2, 0, 0x36, 2, 0, 0x41, 4, 0x21, 0);
+						block.push(0x0b);
+					}
 				}
 				dep = Math.max(dep - 1, 1);
 			} else if (n.meta.op == 9) {
@@ -648,10 +645,10 @@ function bfCompile(ir, sp, imports) {
 				if (n.n.sd > n.sd && n.arg[0].sd > n.sd && n.arg[1].sd > n.sd && n.arg[2].sd > n.sd) {
 					nobr.add(block);
 					block.push(0x10, 4, 0x0e, 3);
-					varuint(block, n.n.sd - n.sd);
-					varuint(block, n.arg[0].sd - n.sd);
-					varuint(block, n.arg[1].sd - n.sd);
-					varuint(block, n.arg[2].sd - n.sd);
+					varuint(block, n.n.sd - n.sd - 1);
+					varuint(block, n.arg[0].sd - n.sd - 1);
+					varuint(block, n.arg[1].sd - n.sd - 1);
+					varuint(block, n.arg[2].sd - n.sd - 1);
 				} else {
 					block.push(0x10, 4, 0x22, 1, 0x04, 0x7f); // tee-if nextblock=r4()
 					block.push(0x20, 1, 0x41, 1, 0x46, 0x04, 0x7f, 0x41);
@@ -684,15 +681,25 @@ function bfCompile(ir, sp, imports) {
 					varint(block, n.arg.sd);
 					block.push(0x0b);
 				}
-				block.push(0x21, 1);
-				return;
+				return block.push(0x21, 1);
 			} else if (n.meta.op == 12) {
 				block.push(0x41, 0x7f, 0x0f);
 				nobr.add(block);
-				blocks.push(block);
-				return;
+				return blocks.push(block);
 			}
 			n = n.n;
+			if (~n.sd) {
+				block.push(0x41);
+				varint(block, n.sd);
+				block.push(0x21, 1);
+				return blocks.push(block);
+			}
+			if (n.si.size > 1) {
+				nobr.add(block);
+				blocks.push(block);
+				block = [];
+				dep = 0;
+			}
 		}
 	}
 	blockpile(blocks, ir);
