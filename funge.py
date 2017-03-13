@@ -501,7 +501,7 @@ def main(pro):
 		bins={37:modulo,42:multiply,43:add,45:subtract,47:floordivide,96:cmpgt},
 		raw={33:Op2,36:Op3,58:Op4,92:Op5,103:Op10},
 		mvs={60:mvH,62:mvL,94:mvK,118:mvJ},
-		ops={64:10,34:9,35:11,38:3,103:4,44:1,126:2,46:0,112:5,124:7,95:8,63:6}
+		ops={64:10,34:9,35:11,38:3,44:1,126:2,46:0,112:5,124:7,95:8,63:6}
 	):
 		def emit(op, arg=None):
 			nonlocal inst

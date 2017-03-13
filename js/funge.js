@@ -37,114 +37,111 @@ function pushArray(sink, data) {
 }
 
 var novars = [[], [null], [null, null], [null, null, null]];
-var metas = [];
-function Op(arg, meta) {
+function Op(op, arg) {
+	this.meta = metas[op];
 	this.n = null;
 	this.arg = arg;
-	this.vars = novars[meta.siop];
-	this.sd = -1;
+	this.vars = novars[this.meta.siop];
+	this.sd = 0;
 	this.dep = 0;
 	this.si = new Set();
-	this.meta = meta;
 }
-function mkop(op, siop, so, ev) {
-	var meta = {
-		op: op,
-		siop: siop,
-		so: so,
-		eval: ev,
-	};
-	metas[op] = meta;
-	return arg => new Op(arg, meta);
+function Meta(op, siop, so, ev) {
+	this.op = op;
+	this.siop = siop;
+	this.so = so;
+	this.eval = eval;
 }
-var Op0 = mkop(0, 0, 1, (op, ctx) => {
-	ctx.push(op.arg);
-	return op.n;
-});
-var Op1 = mkop(1, 2, 1, (op, ctx) => {
-	var a = ctx.pop(), b = ctx.pop();
-	switch (op.arg){
-	case "+":b+=a;break;
-	case "-":b-=a;break;
-	case "*":b*=a;break;
-	case "/":b/=a;break;
-	case "%":b%=a;break;
-	case ">":b=b>a;break;
-	}
-	ctx.push(b|0);
-	return op.n;
-});
-var Op2 = mkop(2, 1, 1, (op, ctx) => {
-	ctx.push(!ctx.pop());
-	return op.n;
-});
-var Op3 = mkop(3, 1, 0, (op, ctx) => {
-	ctx.pop();
-	return op.n;
-});
-var Op4 = mkop(4, 1, 2, (op, ctx) => {
-	if (ctx.sp) {
-		var a = ctx.pop();
-		ctx.push(a);
-		ctx.push(a);
-	}
-	return op.n;
-});
-var Op5 = mkop(5, 2, 2, (op, ctx) => {
-	var a = ctx.pop(), b = ctx.pop();
-	ctx.push(a);
-	ctx.push(b);
-	return op.n;
-});
-var Op6 = mkop(6, 1, 0, (op, ctx) => {
-	if (op.arg) ctx.imp.q(ctx.pop());
-	else ctx.imp.p(ctx.pop());
-	return op.n;
-});
-var Op7 = mkop(7, 0, 1, (op, ctx) => {
-	ctx.push((op.arg ? ctx.imp.i : ctx.imp.c)());
-	return op.n;
-});
-var Op8 = mkop(8, 2, 1, (op, ctx) => {
-	var y = ctx.pop(), x = ctx.pop();
-	if (0 <= x && x < 80 && 0 <= y && y < 25) {
-		y=0xce00+((y|x<<5)<<2);
-		ctx.push(ctx.mem[y]|ctx.mem[y|1]<<8|ctx.mem[y|2]<<16|ctx.mem[y|3]<<24);
-	} else {
-		ctx.push(0);
-	}
-	return op.n;
-});
-var Op9 = mkop(9, 3, 0, (op, ctx) => {
-	var y = ctx.pop(), x = ctx.pop(), z = ctx.pop();
-	if (0 <= x && x < 80 && 0 <= y && y < 25) {
-		y=(y|x<<5);
-		var proidx = 0xf600 + y;
-		y<<=2;
-		ctx.mem[0xce00+y]=z;
-		ctx.mem[0xce01+y]=z>>8;
-		ctx.mem[0xce02+y]=z>>16;
-		ctx.mem[0xce03+y]=z>>24;
-		if (ctx.mem[proidx]) {
-			ctx.mem.fill(0, 0xf600, 0x10000);
-			return op.arg<<16|ctx.sp;
+var metas = [
+	new Meta(0, 0, 1, (op, ctx) => {
+		ctx.push(op.arg);
+		return op.n;
+	}),
+	new Meta(1, 2, 1, (op, ctx) => {
+		var a = ctx.pop(), b = ctx.pop();
+		switch (op.arg){
+		case "+":b+=a;break;
+		case "-":b-=a;break;
+		case "*":b*=a;break;
+		case "/":b/=a;break;
+		case "%":b%=a;break;
+		case ">":b=b>a;break;
 		}
-	}
-	return op.n;
-});
-var Op10 = mkop(10, 0, 0, (op, ctx) => {
-	var a = ctx.imp.r4();
-	return a == 3 ? op.n : op.arg[a];
-});
-var Op11 = mkop(11, 1, 0, (op, ctx) => {
-	return ctx.pop() ? op.n : op.arg;
-}); 
-var Op12 = mkop(12, 0, 0, (op, ctx) => {
-	return -1;
-});
-var Op13 = mkop(13, 1, 0, (op, ctx) => {
-	return op.n;
-});
+		ctx.push(b|0);
+		return op.n;
+	}),
+	new Meta(2, 1, 1, (op, ctx) => {
+		ctx.push(!ctx.pop());
+		return op.n;
+	}),
+	new Meta(3, 1, 0, (op, ctx) => {
+		ctx.pop();
+		return op.n;
+	}),
+	new Meta(4, 1, 2, (op, ctx) => {
+		if (ctx.sp) {
+			var a = ctx.pop();
+			ctx.push(a);
+			ctx.push(a);
+		}
+		return op.n;
+	}),
+	new Meta(5, 2, 2, (op, ctx) => {
+		var a = ctx.pop(), b = ctx.pop();
+		ctx.push(a);
+		ctx.push(b);
+		return op.n;
+	}),
+	new Meta(6, 1, 0, (op, ctx) => {
+		if (op.arg) ctx.imp.q(ctx.pop());
+		else ctx.imp.p(ctx.pop());
+		return op.n;
+	}),
+	new Meta(7, 0, 1, (op, ctx) => {
+		ctx.push((op.arg ? ctx.imp.i : ctx.imp.c)());
+		return op.n;
+	}),
+	new Meta(8, 2, 1, (op, ctx) => {
+		var y = ctx.pop(), x = ctx.pop();
+		if (0 <= x && x < 80 && 0 <= y && y < 25) {
+			y=0xce00+((y|x<<5)<<2);
+			ctx.push(ctx.mem[y]|ctx.mem[y|1]<<8|ctx.mem[y|2]<<16|ctx.mem[y|3]<<24);
+		} else {
+			ctx.push(0);
+		}
+		return op.n;
+	}),
+	new Meta(9, 3, 0, (op, ctx) => {
+		var y = ctx.pop(), x = ctx.pop(), z = ctx.pop();
+		if (0 <= x && x < 80 && 0 <= y && y < 25) {
+			y|=x<<5;
+			var proidx = 0xf600 + y;
+			y<<=2;
+			ctx.mem[0xce00+y]=z;
+			ctx.mem[0xce01+y]=z>>8;
+			ctx.mem[0xce02+y]=z>>16;
+			ctx.mem[0xce03+y]=z>>24;
+			if (ctx.mem[proidx]) {
+				ctx.mem.fill(0, 0xf600, 0x10000);
+				return op.arg<<16|ctx.sp;
+			}
+		}
+		return op.n;
+	}),
+	new Meta(10, 0, 0, (op, ctx) => {
+		var a = ctx.imp.r4();
+		return a == 3 ? op.n : op.arg[a];
+	}),
+	new Meta(11, 1, 0, (op, ctx) => {
+		return ctx.pop() ? op.n : op.arg;
+	}),
+	new Meta(12, 0, 0, (op, ctx) => {
+		return -1;
+	}),
+	new Meta(13, 1, 0, (op, ctx) => {
+		return op.n;
+	}),
+];
 
 function mv(i) {
 	switch (i&3) {
@@ -158,7 +155,7 @@ function mv(i) {
 var bins={37:"%",42:"*",43:"+",45:"-",47:"/",96:">"};
 var raw={33:2,36:3,58:4,92:5,103:8};
 var mvs={60:2,62:0,94:1,118:3};
-var ops={64:10,34:9,35:11,38:3,103:4,44:1,126:2,46:0,112:5,124:7,95:8,63:6};
+var ops={64:9,34:8,35:10,38:3,44:1,126:2,46:0,112:4,124:6,95:7,63:5};
 function Tracer(mem){
 	this.mem = mem;
 	this.pg = [];
@@ -167,7 +164,7 @@ Tracer.prototype.trace = function(i) {
 	function emit(op, arg) {
 		pist.length = 0;
 		var tail=inst;
-		inst=Op13();
+		inst=new Op(13);
 		tail.meta=metas[op];
 		tail.n=inst;
 		tail.arg=arg;
@@ -175,7 +172,7 @@ Tracer.prototype.trace = function(i) {
 		inst.si.add(tail);
 		return tail;
 	}
-	var inst=Op13(), head=inst, pist=[]
+	var inst=new Op(13), head=inst, pist=[];
 	while (true) {
 		i=mv(i);
 		if (i in this.pg){
@@ -210,11 +207,31 @@ Tracer.prototype.trace = function(i) {
 		else if (i2 in raw) { emit(raw[i2]); }
 		else if (i2 in ops) {
 			i2=ops[i2];
-			if (i2>8){
-				if (i2 == 11) {
-					i=mv(i);
-				}
-				else if (i2 == 9){
+			switch (i2) {
+				case 0:case 1:emit(6, i2);break;
+				case 2:case 3:emit(7, i2 == 3);break;
+				case 4:emit(9, i);break;
+				case 5:
+					this.pg[i^1] = this.pg[i^2] = this.pg[i^3] = inst;
+					var rngNode = emit(10, [this.trace(i^1), this.trace(i^2), this.trace(i^3)]);
+					rngNode.arg[0].si.add(rngNode);
+					rngNode.arg[1].si.add(rngNode);
+					rngNode.arg[2].si.add(rngNode);
+					break;
+				case 6:case 7:
+					var other;
+					if (i2 == 6){
+						other=3;
+						i=i&~3|1;
+					} else {
+						other=0;
+						i=i&~3|2;
+					}
+					this.pg[i^1] = this.pg[i^2] = this.pg[i^3] = inst;
+					var ifNode = emit(11, this.trace(i&~3|other))
+					ifNode.arg.si.add(ifNode)
+					break;
+				case 8:
 					while (true) {
 						i=mv(i);
 						this.mem[0xf600+(i>>2)]=1;
@@ -224,37 +241,11 @@ Tracer.prototype.trace = function(i) {
 						}
 						emit(0, i2);
 					}
-				} else if (i2 == 10) {
+					break;
+				case 9:
 					emit(12).n = null;
 					return head;
-				}
-			} else if (i2<4){
-				if (i2<2){
-					emit(6, i2);
-				}
-				else {
-					emit(7, i2 == 3);
-				}
-			} else if (i2>6) {
-				var other;
-				if (i2 == 7){
-					other=3;
-					i=i&~3|1;
-				} else {
-					other=0;
-					i=i&~3|2;
-				}
-				this.pg[i^1] = this.pg[i^2] = this.pg[i^3] = inst;
-				var ifNode = emit(11, this.trace(i&~3|other))
-				ifNode.arg.si.add(ifNode)
-			} else if (i2 == 5) {
-				emit(9, i);
-			} else if (i2 == 6) {
-				this.pg[i^1] = this.pg[i^2] = this.pg[i^3] = inst;
-				var rngNode = emit(10, [this.trace(i^1), this.trace(i^2), this.trace(i^3)]);
-				rngNode.arg[0].si.add(rngNode);
-				rngNode.arg[1].si.add(rngNode);
-				rngNode.arg[2].si.add(rngNode);
+				case 10:i=mv(i);
 			}
 		}
 	}
@@ -284,12 +275,113 @@ Interpreter.prototype.eval = function(ir) {
 	}
 }
 
+function fakepeep(n) {
+	while (true) {
+		if (n.sd) return;
+		n.sd = -1;
+		if (n.meta.op == 10) {
+			fakepeep(n.arg[0]);
+			fakepeep(n.arg[1]);
+			fakepeep(n.arg[2]);
+		} else if (n.meta.op == 11) {
+			fakepeep(n.arg);
+		} else if (n.meta.op == 12) {
+			return;
+		}
+		n = n.n;
+	}
+}
+
+function peep(n) {
+	var cst = [];
+	while (true) {
+		if (n.sd) return;
+		n.sd = -1;
+		if (n.meta.op == 0) {
+			cst.push(n);
+		} else if (n.meta.op == 1) {
+			var a = cst.pop();
+			var b = cst.pop();
+			if (a && b) {
+				var c;
+				switch (n.arg) {
+					case "+":c=b.arg+a.arg;break;
+					case "-":c=b.arg-a.arg;break;
+					case "*":c=b.arg*a.arg;break;
+					case "/":c=a.arg&&b.arg/a.arg;break;
+					case "%":c=a.arg&&b.arg%a.arg;break;
+					case ">":c=b.arg>a.arg;break;
+				}
+				n.meta = metas[0];
+				n.arg = c;
+				a.meta = metas[13];
+				b.meta = metas[13];
+				cst.push(n);
+			} else {
+				cst.push(null);
+			}
+		} else if (n.meta.op == 2) {
+			var a = cst.pop();
+			if (a) {
+				n.meta = metas[0];
+				n.arg = a.arg;
+				a.meta = metas[13];
+			} else {
+				cst.push(null);
+			}
+		} else if (n.meta.op == 3) {
+			cst.pop();
+		} else if (n.meta.op == 4) {
+			var a = cst.pop();
+			if (a) {
+				n.meta = metas[0];
+				n.arg = a.arg;
+				cst.push(a, n);
+			} else {
+				cst.push(null, null);
+			}
+		} else if (n.meta.op == 5) {
+			var a = cst.pop(), b = cst.pop();
+			cst.push(null, null);
+		} else if (n.meta.op == 6) {
+			cst.pop();
+		} else if (n.meta.op == 7) {
+			cst.push(null);
+		} else if (n.meta.op == 8) {
+			cst.pop();
+			cst.pop();
+			cst.push(null);
+		} else if (n.meta.op == 9) {
+			cst.length = 0;
+		} else if (n.meta.op == 10) {
+			cst.length = 0;
+			peep(n.arg[0]);
+			peep(n.arg[1]);
+			peep(n.arg[2]);
+		} else if (n.meta.op == 11) {
+			cst.length = 0;
+			peep(n.arg);
+		} else if (n.meta.op == 12) {
+			return;
+		}
+		n = n.n;
+		if (n.si.size > 1) {
+			cst.length = 0;
+		}
+	}
+}
+
 function bfRun(imp, cursor, sp) {
+	console.time("built");
+	console.time("build");
 	var code = new Uint8Array(imp[""].m.buffer);
 	var tracer = new Tracer(code);
 	var ir = tracer.trace(cursor);
+	peep(ir);
 	if (false) {
+		console.timeEnd("build");
 		var ctx = new Interpreter(imp, sp);
+		console.timeEnd("built");
 		cursor = ctx.eval(ir);
 		if (~cursor) {
 			code.fill(0, 0xf600);
@@ -297,7 +389,9 @@ function bfRun(imp, cursor, sp) {
 		}
 		console.timeEnd("start");
 	} else {
+		console.timeEnd("build");
 		return bfCompile(ir, sp, imp).then(f => {
+			console.timeEnd("built");
 			cursor = f.instance.exports.f();
 			if (~cursor) {
 				code.fill(0, 0xf600);
@@ -745,6 +839,7 @@ exports.runSource = function(board, imp){
 	// 0000:cdff stack
 	// ce00:f5ff source
 	// f600:ffff xbits
+	console.time("start");
 	var code = new Uint8Array(imp[""].m.buffer);
 	var i = 0;
 	yout:
@@ -772,6 +867,5 @@ exports.runSource = function(board, imp){
 			}
 		}
 	}
-	console.time("start");
 	bfRun(imp, 10112, 0);
 }
