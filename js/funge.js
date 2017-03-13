@@ -300,8 +300,7 @@ function peep(n) {
 		if (n.meta.op == 0) {
 			cst.push(n);
 		} else if (n.meta.op == 1) {
-			var a = cst.pop();
-			var b = cst.pop();
+			var a = cst.pop(), b = cst.pop();
 			if (a && b) {
 				var c;
 				switch (n.arg) {
@@ -324,8 +323,9 @@ function peep(n) {
 			var a = cst.pop();
 			if (a) {
 				n.meta = metas[0];
-				n.arg = a.arg;
+				n.arg = !a.arg;
 				a.meta = metas[13];
+				cst.push(n);
 			} else {
 				cst.push(null);
 			}
@@ -342,14 +342,31 @@ function peep(n) {
 			}
 		} else if (n.meta.op == 5) {
 			var a = cst.pop(), b = cst.pop();
-			cst.push(null, null);
+			if (a && b) {
+				var c = a.arg;
+				a.arg = b.arg;
+				b.arg = c;
+				n.meta = metas[13];
+				cst.push(b, a);
+			} else {
+				cst.push(null, null);
+			}
 		} else if (n.meta.op == 6) {
 			cst.pop();
 		} else if (n.meta.op == 7) {
 			cst.push(null);
 		} else if (n.meta.op == 8) {
-			cst.pop();
-			cst.pop();
+			var a = cst.pop(), b = cst.pop();
+			if (a && b) {
+				if (a.arg < 0 || a.arg > 24 || b.arg < 0 || b.arg > 79) {
+					n.arg = 0;
+					n.meta = metas[0];
+				} else {
+					n.arg = a.arg|b.arg<<5;
+				}
+				a.meta = metas[13];
+				b.meta = metas[13];
+			}
 			cst.push(null);
 		} else if (n.meta.op == 9) {
 			cst.length = 0;
@@ -359,8 +376,16 @@ function peep(n) {
 			peep(n.arg[1]);
 			peep(n.arg[2]);
 		} else if (n.meta.op == 11) {
-			cst.length = 0;
-			peep(n.arg);
+			var a = cst.pop();
+			if (a) {
+				if (!a.arg) n.n = n.arg;
+				n.arg = null;
+				n.meta = metas[13];
+				a.meta = metas[13];
+			} else {
+				cst.length = 0;
+				peep(n.arg);
+			}
 		} else if (n.meta.op == 12) {
 			return;
 		}
@@ -675,36 +700,43 @@ function bfCompile(ir, sp, imports) {
 				block.push(0x20, 0, 0x41, 4, 0x6a, 0x21, 0);
 				dep++;
 			} else if (n.meta.op == 8) {
-				if (dep < 2) {
-					if (!dep) {
-						block.push(0x20, 0, 0x04, 0x40);
+				if (n.arg) {
+					block.push(0x20, 0, 0x41);
+					varint(block, 0xce00+(n.arg<<2));
+					block.push(0x28, 2, 0, 0x36, 2, 0, 0x20, 0, 0x41, 4, 0x6a, 0x21, 0);
+					dep++;
+				} else {
+					if (dep < 2) {
+						if (!dep) {
+							block.push(0x20, 0, 0x04, 0x40);
+						}
+						block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40); // *0 = *(0xce00+(*0<<2))
+						block.push(0x41, 0, 0x41, 0, 0x28, 2, 0, 0x22, 1, 0x41, 0, 0x4d, 0x20, 1, 0x41);
+						varint(block, 2560);
+						block.push(0x4f, 0x72, 0x04, 0x7f, 0x41, 31, 0x05, 0x20, 1, 0x0b);
+						block.push(0x41, 2, 0x74, 0x28, 2);
+						varuint(block, 0xce00);
+						block.push(0x36, 2, 0);
+						block.push(0x05); // *(sp-=4) = *(0xce00+((*sp|*(sp-4)<<5)<<2))
 					}
-					block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40); // *0 = *(0xce00+(*0<<2))
-					block.push(0x41, 0, 0x41, 0, 0x28, 2, 0, 0x22, 1, 0x41, 0, 0x4d, 0x20, 1, 0x41);
+					block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x41, 4, 0x6b, 0x20, 0, 0x28, 2, 0,
+						0x20, 0, 0x41, 4, 0x6b, 0x28, 2, 0, 0x41, 5, 0x74, 0x72, 0x22, 1, 0x41, 0, 0x4d, 0x20, 1, 0x41);
 					varint(block, 2560);
 					block.push(0x4f, 0x72, 0x04, 0x7f, 0x41, 31, 0x05, 0x20, 1, 0x0b);
 					block.push(0x41, 2, 0x74, 0x28, 2);
 					varuint(block, 0xce00);
 					block.push(0x36, 2, 0);
-					block.push(0x05); // *(sp-=4) = *(0xce00+((*sp|*(sp-4)<<5)<<2))
-				}
-				block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x41, 4, 0x6b, 0x20, 0, 0x28, 2, 0,
-					0x20, 0, 0x41, 4, 0x6b, 0x28, 2, 0, 0x41, 5, 0x74, 0x72, 0x22, 1, 0x41, 0, 0x4d, 0x20, 1, 0x41);
-				varint(block, 2560);
-				block.push(0x4f, 0x72, 0x04, 0x7f, 0x41, 31, 0x05, 0x20, 1, 0x0b);
-				block.push(0x41, 2, 0x74, 0x28, 2);
-				varuint(block, 0xce00);
-				block.push(0x36, 2, 0);
-				if (dep < 2) {
-					block.push(0x0b);
-					if (!dep) {
-						block.push(0x05, 0x41, 0, 0x41); // else *0 = *0xce00, sp = 4
-						varint(block, 0xce00);
-						block.push(0x28, 2, 0, 0x36, 2, 0, 0x41, 4, 0x21, 0);
+					if (dep < 2) {
 						block.push(0x0b);
+						if (!dep) {
+							block.push(0x05, 0x41, 0, 0x41); // else *0 = *0xce00, sp = 4
+							varint(block, 0xce00);
+							block.push(0x28, 2, 0, 0x36, 2, 0, 0x41, 4, 0x21, 0);
+							block.push(0x0b);
+						}
 					}
+					dep = Math.max(dep - 1, 1);
 				}
-				dep = Math.max(dep - 1, 1);
 			} else if (n.meta.op == 9) {
 				if (dep < 3) {
 					block.push(0x20, 0, 0x41, 8, 0x4d, 0x04, 0x40);
