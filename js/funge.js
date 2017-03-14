@@ -36,12 +36,12 @@ function pushArray(sink, data) {
 	return Array.prototype.push.apply(sink, data);
 }
 
-var novars = [[], [null], [null, null], [null, null, null]];
-function Op(op, arg) {
-	this.meta = metas[op];
+var novars = [null, null, null];
+function Op(meta, arg) {
+	this.meta = meta;
 	this.n = null;
 	this.arg = arg;
-	this.vars = novars[this.meta.siop];
+	this.vars = novars;
 	this.sd = 0;
 	this.dep = 0;
 	this.si = new Set();
@@ -142,6 +142,7 @@ var metas = [
 		return op.n;
 	}),
 ];
+var metanop = metas[13];
 
 function mv(i) {
 	switch (i&3) {
@@ -164,15 +165,15 @@ Tracer.prototype.trace = function(i) {
 	function emit(op, arg) {
 		pist.length = 0;
 		var tail=inst;
-		inst=new Op(13);
+		inst=new Op(metanop);
 		tail.meta=metas[op];
 		tail.n=inst;
 		tail.arg=arg;
-		tail.vars=novars[tail.meta.siop];
+		tail.vars=novars;
 		inst.si.add(tail);
 		return tail;
 	}
-	var inst=new Op(13), head=inst, pist=[];
+	var inst=new Op(metanop), head=inst, pist=[];
 	while (true) {
 		i=mv(i);
 		if (i in this.pg){
@@ -292,7 +293,7 @@ function fakepeep(n) {
 	}
 }
 
-function peep(n) {
+function peep(n, code) {
 	var cst = [];
 	while (true) {
 		if (n.sd) return;
@@ -313,8 +314,8 @@ function peep(n) {
 				}
 				n.meta = metas[0];
 				n.arg = c;
-				a.meta = metas[13];
-				b.meta = metas[13];
+				a.meta = metanop;
+				b.meta = metanop;
 				cst.push(n);
 			} else {
 				cst.push(null);
@@ -322,18 +323,17 @@ function peep(n) {
 		} else if (n.meta.op == 2) {
 			var a = cst.pop();
 			if (a) {
-				n.meta = metas[0];
-				n.arg = !a.arg;
-				a.meta = metas[13];
-				cst.push(n);
+				a.arg = !a.arg;
+				n.meta = metanop;
+				cst.push(a);
 			} else {
 				cst.push(null);
 			}
 		} else if (n.meta.op == 3) {
 			var a = cst.pop();
 			if (a) {
-				a.meta = metas[13];
-				n.meta = metas[13];
+				a.meta = metanop;
+				n.meta = metanop;
 			}
 		} else if (n.meta.op == 4) {
 			var a = cst.pop();
@@ -350,13 +350,17 @@ function peep(n) {
 				var c = a.arg;
 				a.arg = b.arg;
 				b.arg = c;
-				n.meta = metas[13];
+				n.meta = metanop;
 				cst.push(b, a);
 			} else {
 				cst.push(null, null);
 			}
 		} else if (n.meta.op == 6) {
-			cst.pop();
+			var a = cst.pop();
+			if (a) {
+				n.vars = [a.arg];
+				a.meta = metanop;
+			}
 		} else if (n.meta.op == 7) {
 			cst.push(null);
 		} else if (n.meta.op == 8) {
@@ -368,46 +372,58 @@ function peep(n) {
 				} else {
 					n.vars = [a.arg, b.arg];
 				}
-				a.meta = metas[13];
-				b.meta = metas[13];
+				a.meta = metanop;
+				b.meta = metanop;
 			}
 			cst.push(null);
 		} else if (n.meta.op == 9) {
-			var a = cst.pop(), b = cst.pop();
+			var a = cst.pop(), b = cst.pop(), c = cst.pop();
 			if (a && b) {
-				a.meta = metas[13];
-				b.meta = metas[13];
+				a.meta = metanop;
+				b.meta = metanop;
 				if (a.arg < 0 || a.arg > 24 || b.arg < 0 || b.arg > 79) {
 					n.meta = metas[3];
 				} else {
 					n.vars = [a.arg, b.arg, null];
+					if (code[0xf600+(a.arg|b.arg<<5)]) return;
 				}
+			} else {
+				cst.length = 0;
 			}
-			cst.length = 0;
 		} else if (n.meta.op == 10) {
 			cst.length = 0;
-			peep(n.arg[0]);
-			peep(n.arg[1]);
-			peep(n.arg[2]);
+			peep(n.arg[0], code);
+			peep(n.arg[1], code);
+			peep(n.arg[2], code);
 		} else if (n.meta.op == 11) {
 			var a = cst.pop();
 			if (a) {
 				if (!a.arg) n.n = n.arg;
 				n.arg.si.delete(n);
 				n.arg = null;
-				n.meta = metas[13];
-				a.meta = metas[13];
+				n.meta = metanop;
+				a.meta = metanop;
 			} else {
 				cst.length = 0;
-				peep(n.arg);
+				peep(n.arg, code);
 			}
 		} else if (n.meta.op == 12) {
 			return;
 		}
-		n = n.n;
-		if (n.si.size > 1) {
-			cst.length = 0;
+		if (n.n.si.size > 1) {
+			for (var sis=0; sis<cst.length && cst[cst.length - sis - 1]; sis++);
+			if (sis && n.n.meta.siop && sis >= n.n.meta.siop) {
+				n.n.si.delete(n);
+				let nn = new Op(n.n.meta, n.n.arg);
+				nn.n = n.n.n;
+				nn.n.si.add(nn);
+				n.n = nn;
+				n.n.si.add(n);
+			} else {
+				cst.length = 0;
+			}
 		}
+		n = n.n;
 	}
 }
 
@@ -417,7 +433,7 @@ function bfRun(imp, cursor, sp) {
 	var code = new Uint8Array(imp[""].m.buffer);
 	var tracer = new Tracer(code);
 	var ir = tracer.trace(cursor);
-	peep(ir);
+	peep(ir, code);
 	if (false) {
 		console.timeEnd("build");
 		var ctx = new Interpreter(imp, sp);
@@ -425,7 +441,7 @@ function bfRun(imp, cursor, sp) {
 		cursor = ctx.eval(ir);
 		if (~cursor) {
 			code.fill(0, 0xf600);
-			return bfRun(imp, cursor>>16, cursor&65535);
+			return bfRun(imp, cursor>>>16, cursor&65535);
 		}
 		console.timeEnd("start");
 	} else {
@@ -435,7 +451,7 @@ function bfRun(imp, cursor, sp) {
 			cursor = f.instance.exports.f();
 			if (~cursor) {
 				code.fill(0, 0xf600);
-				return bfRun(imp, cursor>>16, cursor&65535);
+				return bfRun(imp, cursor>>>16, cursor&65535);
 			}
 			console.timeEnd("start");
 		});
@@ -701,14 +717,19 @@ function bfCompile(ir, sp, imports) {
 					else dep = 2;
 				}
 			} else if (n.meta.op == 6) {
-				if (dep) {
-					block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x28, 2, 0); // *(s-=4) 
-					dep--;
+				if (n.vars[0] !== null) {
+					block.push(0x41);
+					varint(block, n.vars[0]);
 				} else {
-					block.push(0x20, 0, 0x04, 0x7f); // if >0, pop
-					block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x28, 2, 0); // *(s-=4) 
-					block.push(0x05, 0x41, 0); // else 0
-					block.push(0x0b);
+					if (dep) {
+						block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x28, 2, 0); // *(s-=4) 
+						dep--;
+					} else {
+						block.push(0x20, 0, 0x04, 0x7f); // if >0, pop
+						block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x28, 2, 0); // *(s-=4) 
+						block.push(0x05, 0x41, 0); // else 0
+						block.push(0x0b);
+					}
 				}
 				block.push(0x10, n.arg?1:0);
 			} else if (n.meta.op == 7) {
