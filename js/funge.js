@@ -37,10 +37,10 @@ function pushArray(sink, data) {
 }
 
 var novars = [null, null, null];
-function Op(meta, arg) {
+function Op(meta) {
 	this.meta = meta;
 	this.n = null;
-	this.arg = arg;
+	this.arg = null;
 	this.vars = novars;
 	this.sd = 0;
 	this.dep = 0;
@@ -414,7 +414,8 @@ function peep(n, code) {
 			for (var sis=0; sis<cst.length && cst[cst.length - sis - 1]; sis++);
 			if (sis && n.n.meta.siop && sis >= n.n.meta.siop) {
 				n.n.si.delete(n);
-				let nn = new Op(n.n.meta, n.n.arg);
+				let nn = new Op(n.n.meta);
+				nn.arg = n.n.arg;
 				nn.n = n.n.n;
 				nn.n.si.add(nn);
 				n.n = nn;
@@ -833,17 +834,15 @@ function bfCompile(ir, sp, imports) {
 					varuint(block, n.arg[1].sd - n.sd - 1);
 					return varuint(block, n.arg[2].sd - n.sd - 1);
 				} else {
-					block.push(0x10, 4, 0x22, 1, 0x04, 0x7f); // tee-if nextblock=r4()
-					block.push(0x20, 1, 0x41, 1, 0x46, 0x04, 0x7f, 0x41);
-					varuint(block, n.arg[0].sd);
-					block.push(0x05, 0x20, 1, 0x41, 2, 0x46, 0x04, 0x7f, 0x41);
-					varint(block, n.arg[1].sd);
-					block.push(0x05, 0x41);
+					block.push(0x41);
 					varint(block, n.arg[2].sd);
-					block.push(0x0b, 0x0b);
-					block.push(0x05, 0x41);
+					block.push(0x41);
+					varint(block, n.arg[1].sd);
+					block.push(0x41);
+					varint(block, n.arg[0].sd);
+					block.push(0x41);
 					varint(block, n.n.sd);
-					return block.push(0x0b, 0x21, 1);
+					return block.push(0x10, 4, 0x22, 1, 0x1b, 0x20, 1, 0x41, 2, 0x46, 0x1b, 0x20, 1, 0x41, 3, 0x46, 0x1b, 0x21, 1);
 				}
 			} else if (n.meta.op == 11) {
 				blocks.push(block);
@@ -852,12 +851,11 @@ function bfCompile(ir, sp, imports) {
 				if (!dep) {
 					block.push(0x20, 0, 0x04, 0x7f);
 				}
-				block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x28, 2, 0); // *(s-=4)
-				block.push(0x04, 0x7f, 0x41);
+				block.push(0x41);
 				varint(block, n.n.sd);
-				block.push(0x05, 0x41);
+				block.push(0x41);
 				varint(block, n.arg.sd);
-				block.push(0x0b);
+				block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x28, 2, 0, 0x1b);
 				if (!dep) {
 					block.push(0x05, 0x41);
 					varint(block, n.arg.sd);
