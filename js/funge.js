@@ -299,158 +299,171 @@ function peep(n, code) {
 	while (true) {
 		if (n.sd) return;
 		n.sd = -1;
-		if (n.meta.op == 0) {
-			cst.push(n);
-		} else if (n.meta.op == 1) {
-			var a = cst.pop(), b = cst.pop();
-			if (a && b) {
-				if (!a.meta.op && !b.meta.op) {
-					var c;
-					switch (n.arg) {
-						case "+":c=b.arg+a.arg;break;
-						case "-":c=b.arg-a.arg;break;
-						case "*":c=b.arg*a.arg;break;
-						case "/":c=a.arg&&b.arg/a.arg;break;
-						case "%":c=a.arg&&b.arg%a.arg;break;
-						case ">":c=b.arg>a.arg;break;
-					}
-					n.meta = metas[0];
-					n.arg = c;
-					a.meta = metanop;
-					b.meta = metanop;
-				} else {
-					a.depo = b.depo = n.depi = true;
-				}
+		switch (n.meta.op) {
+			case 0:
 				cst.push(n);
-			} else {
-				cst.push(null);
-			}
-		} else if (n.meta.op == 2) {
-			var a = cst.pop();
-			if (a) {
-				if (!a.meta.op) {
-					a.arg = !a.arg;
-					n.meta = metanop;
-					cst.push(a);
-				} else {
-					a.depo = n.depi = true;
-					cst.push(n);
-				}
-			} else {
-				cst.push(null);
-			}
-		} else if (n.meta.op == 3) {
-			var a = cst.pop();
-			if (a) {
-				if (!a.meta.op) {
-					a.meta = metanop;
-					n.meta = metanop;
-				} else {
-					a.depo = n.depi = true;
-				}
-			}
-		} else if (n.meta.op == 4) {
-			var a = cst.pop();
-			if (a) {
-				if (!a.meta.op) {
-					n.meta = metas[0];
-					n.arg = a.arg;
-					cst.push(a, n);
-				} else {
-					a.depo = n.depi = true;
-					cst.push(null, null);
-				}
-			} else {
-				cst.push(null, null);
-			}
-		} else if (n.meta.op == 5) {
-			var a = cst.pop(), b = cst.pop();
-			if (a && b) {
-				if (!a.meta.op && !b.meta.op) {
-					var c = a.arg;
-					a.arg = b.arg;
-					b.arg = c;
-					n.meta = metanop;
-					cst.push(b, a);
-				} else {
-					a.depo = b.depo = n.depi = true;
-					cst.push(null, null);
-				}
-			} else {
-				cst.push(null, null);
-			}
-		} else if (n.meta.op == 6) {
-			var a = cst.pop();
-			if (a) {
-				if (!a.meta.op) { 
-					n.vars = [a.arg];
-					a.meta = metanop;
-				} else {
-					a.depo = n.depi = true;
-				}
-			}
-		} else if (n.meta.op == 7) {
-			cst.push(n);
-		} else if (n.meta.op == 8) {
-			var a = cst.pop(), b = cst.pop();
-			if (a && b) {
-				if (!a.meta.op && !b.meta.op) {
-					if (a.arg < 0 || a.arg > 24 || b.arg < 0 || b.arg > 79) {
-						n.arg = 0;
+				break;
+			case 1:
+				var a = cst.pop(), b = cst.pop();
+				if (a && b) {
+					if (!a.meta.op && !b.meta.op) {
+						var c;
+						switch (n.arg) {
+							case "+":c=b.arg+a.arg;break;
+							case "-":c=b.arg-a.arg;break;
+							case "*":c=b.arg*a.arg;break;
+							case "/":c=a.arg&&b.arg/a.arg;break;
+							case "%":c=a.arg&&b.arg%a.arg;break;
+							case ">":c=b.arg>a.arg;break;
+						}
 						n.meta = metas[0];
+						n.arg = c;
+						a.meta = metanop;
+						b.meta = metanop;
 					} else {
-						n.vars = [a.arg, b.arg];
+						a.depo = b.depo = n.depi = true;
 					}
-					a.meta = metanop;
-					b.meta = metanop;
+					cst.push(n);
 				} else {
-					a.depo = b.depo = n.depi = true;
+					cst.push(null);
 				}
+				break;
+			case 2:
+				var a = cst.pop();
+				if (a) {
+					if (!a.meta.op) {
+						a.arg = !a.arg;
+						n.meta = metanop;
+						cst.push(a);
+					} else {
+						a.depo = n.depi = true;
+						cst.push(n);
+					}
+				} else {
+					cst.push(null);
+				}
+				break;
+			case 3:
+				var a = cst.pop();
+				if (a) {
+					if (!a.meta.op) {
+						a.meta = metanop;
+						n.meta = metanop;
+					} else {
+						a.depo = n.depi = true;
+					}
+				}
+				break;
+			case 4:
+				var a = cst.pop();
+				if (a) {
+					if (!a.meta.op) {
+						n.meta = metas[0];
+						n.arg = a.arg;
+						cst.push(a, n);
+					} else {
+						a.depo = n.depi = true;
+						cst.push(null, null);
+					}
+				} else {
+					cst.push(null, null);
+				}
+				break;
+			case 5:
+				var a = cst.pop(), b = cst.pop();
+				if (a && b) {
+					if (!a.meta.op && !b.meta.op) {
+						var c = a.arg;
+						a.arg = b.arg;
+						b.arg = c;
+						n.meta = metanop;
+						cst.push(b, a);
+					} else {
+						a.depo = b.depo = n.depi = true;
+						cst.push(null, null);
+					}
+				} else {
+					cst.push(null, null);
+				}
+				break;
+			case 6:
+				var a = cst.pop();
+				if (a) {
+					if (!a.meta.op) { 
+						n.vars = [a.arg];
+						a.meta = metanop;
+					} else {
+						a.depo = n.depi = true;
+					}
+				}
+				break;
+			case 7:
 				cst.push(n);
-			} else {
-				cst.push(null);
-			}
-		} else if (n.meta.op == 9) {
-			var a = cst.pop(), b = cst.pop(), c = cst.pop();
-			if (a && b) {
-				if (!a.meta.op && !b.meta.op) {
-					a.meta = metanop;
-					b.meta = metanop;
-					if (a.arg < 0 || a.arg > 24 || b.arg < 0 || b.arg > 79) {
-						n.meta = metas[3];
+				break;
+			case 8:
+				var a = cst.pop(), b = cst.pop();
+				if (a && b) {
+					if (!a.meta.op && !b.meta.op) {
+						if (a.arg < 0 || a.arg > 24 || b.arg < 0 || b.arg > 79) {
+							n.arg = 0;
+							n.meta = metas[0];
+						} else {
+							n.vars = [a.arg, b.arg];
+						}
+						a.meta = metanop;
+						b.meta = metanop;
 					} else {
-						n.vars = [a.arg, b.arg, null];
-						if (code[0xf600+(a.arg|b.arg<<5)]) return;
+						a.depo = b.depo = n.depi = true;
 					}
-				} else if (c) {
-					a.depo = b.depo = c.depo = n.depi = true;
-				}
-			} else {
-				cst.length = 0;
-			}
-		} else if (n.meta.op == 10) {
-			cst.length = 0;
-			peep(n.arg[0], code);
-			peep(n.arg[1], code);
-			peep(n.arg[2], code);
-		} else if (n.meta.op == 11) {
-			var a = cst.pop();
-			if (a) {
-				if (!a.meta.op) {
-					if (!a.arg) n.n = n.arg;
-					n.arg.si.delete(n);
-					n.arg = null;
-					n.meta = metanop;
-					a.meta = metanop;
+					cst.push(n);
 				} else {
-					a.depo = n.depi = true;
+					cst.push(null);
 				}
-			} else {
+				break;
+			case 9:
+				var a = cst.pop(), b = cst.pop(), c = cst.pop();
+				if (a && b) {
+					if (!a.meta.op && !b.meta.op) {
+						a.meta = metanop;
+						b.meta = metanop;
+						if (a.arg < 0 || a.arg > 24 || b.arg < 0 || b.arg > 79) {
+							n.meta = metas[3];
+						} else {
+							n.vars = [a.arg, b.arg, null];
+							if (code[0xf600+(a.arg|b.arg<<5)]) return;
+						}
+					} else if (c) {
+						a.depo = b.depo = c.depo = n.depi = true;
+					}
+				} else {
+					cst.length = 0;
+				}
+				break;
+			case 10:
 				cst.length = 0;
-				peep(n.arg, code);
-			}
-		} else if (n.meta.op == 12) {
-			return;
+				peep(n.arg[0], code);
+				peep(n.arg[1], code);
+				peep(n.arg[2], code);
+				break;
+			case 11:
+				var a = cst.pop();
+				if (a) {
+					if (!a.meta.op) {
+						if (!a.arg) n.n = n.arg;
+						n.arg.si.delete(n);
+						n.arg = null;
+						n.meta = metanop;
+						a.meta = metanop;
+					} else {
+						a.depo = n.depi = true;
+					}
+				} else {
+					cst.length = 0;
+					peep(n.arg, code);
+				}
+				break;
+			case 12:
+				return;
 		}
 		if (n.n.si.size > 1) {
 			for (var sis=0; sis<cst.length && cst[cst.length - sis - 1]; sis++);
@@ -658,7 +671,7 @@ function bfCompile(ir, sp, imports) {
 							case "*":
 								block.push(0x6c);
 								block.push(0x36, 2, 0);
-								if (dep < 2) { // if sp == 4, *0 = 0
+								if (dep < 2) { // if sp == 4, sp = 0
 									block.push(0x05);
 									block.push(0x41, 0, 0x21, 0);
 								}
@@ -666,7 +679,7 @@ function bfCompile(ir, sp, imports) {
 							case "/":
 								block.push(0x6d);
 								block.push(0x36, 2, 0);
-								if (dep < 2) { // if sp == 4, *0 = 0
+								if (dep < 2) { // if sp == 4, sp = 0
 									block.push(0x05);
 									block.push(0x41, 0, 0x21, 0);
 								}
@@ -674,7 +687,7 @@ function bfCompile(ir, sp, imports) {
 							case "%":
 								block.push(0x6f);
 								block.push(0x36, 2, 0);
-								if (dep < 2) { // if sp == 4, *0 = 0
+								if (dep < 2) { // if sp == 4, sp = 0
 									block.push(0x05);
 									block.push(0x41, 0, 0x21, 0);
 								}
@@ -692,6 +705,8 @@ function bfCompile(ir, sp, imports) {
 							block.push(0x0b);
 							if (dep == 0) {
 								block.push(0x0b);
+							} else if (~"*%/".indexOf(n.arg)) {
+								dep = 0;
 							}
 						} else {
 							dep--;
