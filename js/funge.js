@@ -44,7 +44,7 @@ function Op(meta) {
 	this.vars = novars;
 	this.sd = 0;
 	this.depo = false;
-	this.depi = false;
+	this.depi = 0;
 	this.si = new Set();
 }
 function Meta(op, siop, so, ev) {
@@ -321,9 +321,14 @@ function peep(n, code) {
 						a.meta = metanop;
 						b.meta = metanop;
 					} else {
-						a.depo = b.depo = n.depi = true;
+						a.depo = b.depo = true;
+						n.depi = 2;
 					}
 					cst.push(n);
+				} else if (a) {
+					a.depo = true;
+					n.depi = 1;
+					cst.push(null);
 				} else {
 					cst.push(null);
 				}
@@ -336,7 +341,8 @@ function peep(n, code) {
 						n.meta = metanop;
 						cst.push(a);
 					} else {
-						a.depo = n.depi = true;
+						a.depo = true;
+						n.depi = 1;
 						cst.push(n);
 					}
 				} else {
@@ -350,7 +356,8 @@ function peep(n, code) {
 						a.meta = metanop;
 						n.meta = metanop;
 					} else {
-						a.depo = n.depi = true;
+						a.depo = true;
+						n.depi = 1;
 					}
 				}
 				break;
@@ -362,7 +369,8 @@ function peep(n, code) {
 						n.arg = a.arg;
 						cst.push(a, n);
 					} else {
-						a.depo = n.depi = true;
+						a.depo = true;
+						n.depi = 1;
 						cst.push(null, null);
 					}
 				} else {
@@ -379,7 +387,8 @@ function peep(n, code) {
 						n.meta = metanop;
 						cst.push(b, a);
 					} else {
-						a.depo = b.depo = n.depi = true;
+						a.depo = b.depo = true;
+						n.depi = 2;
 						cst.push(null, null);
 					}
 				} else {
@@ -393,7 +402,8 @@ function peep(n, code) {
 						n.vars = [a.arg];
 						a.meta = metanop;
 					} else {
-						a.depo = n.depi = true;
+						a.depo = true;
+						n.depi = 1;
 					}
 				}
 				break;
@@ -413,7 +423,8 @@ function peep(n, code) {
 						a.meta = metanop;
 						b.meta = metanop;
 					} else {
-						a.depo = b.depo = n.depi = true;
+						a.depo = b.depo = true;
+						n.depi = 2;
 					}
 					cst.push(n);
 				} else {
@@ -433,7 +444,8 @@ function peep(n, code) {
 							if (code[0xf600+(a.arg|b.arg<<5)]) return;
 						}
 					} else if (c) {
-						a.depo = b.depo = c.depo = n.depi = true;
+						a.depo = b.depo = c.depo = true;
+						n.depi = 3;
 					}
 				} else {
 					cst.length = 0;
@@ -455,7 +467,8 @@ function peep(n, code) {
 						n.meta = metanop;
 						a.meta = metanop;
 					} else {
-						a.depo = n.depi = true;
+						a.depo = true;
+						n.depi = 1;
 					}
 				} else {
 					cst.length = 0;
@@ -631,6 +644,9 @@ function bfCompile(ir, sp, imports) {
 					break;
 				case 1:
 					if (n.depi) {
+						if (n.depi == 1) {
+							block.push(0x21, 1, 0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x28, 2, 0, 0x20, 1);
+						}
 						switch (n.arg) {
 							case "+":block.push(0x6a);break;
 							case "-":block.push(0x6b);break;
