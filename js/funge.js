@@ -61,12 +61,12 @@ const metas = [
 	new Meta(1, 2, 1, (op, ctx) => {
 		let a = ctx.pop(), b = ctx.pop();
 		switch (op.arg){
-		case "+":b+=a;break;
-		case "-":b-=a;break;
-		case "*":b*=a;break;
-		case "/":b/=a;break;
-		case "%":b%=a;break;
-		case ">":b=b>a;break;
+		case 0x6a:b+=a;break;
+		case 0x6b:b-=a;break;
+		case 0x6c:b*=a;break;
+		case 0x6d:b/=a;break;
+		case 0x6f:b%=a;break;
+		case 0x4a:b=b>a;break;
 		}
 		ctx.push(b|0);
 		return op.n;
@@ -154,7 +154,7 @@ function mv(i) {
 	}
 }
 
-const bins={37:"%",42:"*",43:"+",45:"-",47:"/",96:">"};
+const bins={37:0x6f,42:0x6c,43:0x6a,45:0x6b,47:0x6d,96:0x4a};
 const raw={33:2,36:3,58:4,92:5,103:8};
 const mvs={60:2,62:0,94:1,118:3};
 const ops={64:9,34:8,35:10,38:3,44:1,126:2,46:0,112:4,124:6,95:7,63:5};
@@ -312,12 +312,12 @@ function peep(n, code) {
 					if (!a.meta.op && !b.meta.op) {
 						let t;
 						switch (n.arg) {
-							case "+":t=b.arg+a.arg;break;
-							case "-":t=b.arg-a.arg;break;
-							case "*":t=b.arg*a.arg;break;
-							case "/":t=a.arg&&b.arg/a.arg;break;
-							case "%":t=a.arg&&b.arg%a.arg;break;
-							case ">":t=b.arg>a.arg;break;
+							case 0x6a:t=b.arg+a.arg;break;
+							case 0x6b:t=b.arg-a.arg;break;
+							case 0x6c:t=b.arg*a.arg;break;
+							case 0x6d:t=a.arg&&b.arg/a.arg;break;
+							case 0x6f:t=a.arg&&b.arg%a.arg;break;
+							case 0x4a:t=b.arg>a.arg;break;
 						}
 						n.meta = metas[0];
 						n.arg = t;
@@ -669,14 +669,7 @@ function bfCompile(ir, sp, imports) {
 						} else if (n.depi == 2) {
 							block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x28, 2, 0);
 						}
-						switch (n.arg) {
-							case "+":block.push(0x6a);break;
-							case "-":block.push(0x6b);break;
-							case "*":block.push(0x6c);break;
-							case "/":block.push(0x6d);break;
-							case "%":block.push(0x6f);break;
-							case ">":block.push(0x4a);break;
-						}
+						block.push(n.arg);
 						if (!n.depo) {
 							block.push(0x21, 1, 0x20, 0, 0x20, 1);
 							pushArray(block, spiller);
@@ -692,54 +685,31 @@ function bfCompile(ir, sp, imports) {
 							block.push(0x41, 4, 0x47, 0x04, 0x40);
 						}
 						block.push(0x20, 0, 0x41, 8, 0x6b, 0x22, 0, 0x20, 0, 0x28, 2, 0);
-						block.push(0x20, 0, 0x41, 4, 0x6a, 0x22, 0, 0x28, 2, 0);
-						switch (n.arg) {
-							case "+":
-								block.push(0x6a);
-								block.push(0x36, 2, 0);
-								break;
-							case "-":
-								block.push(0x6b);
-								block.push(0x36, 2, 0);
-								if (dep < 2) { // if sp == 4, *0 = -*0
+						block.push(0x20, 0, 0x41, 4, 0x6a, 0x22, 0, 0x28, 2, 0, n.arg);
+						block.push(0x36, 2, 0);
+						if (dep < 2) {
+							switch (n.arg) {
+								case 0x6b: // if sp == 4, *0 = -*0
 									block.push(0x05);
 									block.push(0x41, 0, 0x41, 0, 0x41, 0, 0x28, 2, 0, 0x6b, 0x36, 2, 0);
-								}
-								break;
-							case "*":
-								block.push(0x6c);
-								block.push(0x36, 2, 0);
-								if (dep < 2) { // if sp == 4, sp = 0
+									break;
+								case 0x6c: // if sp == 4, sp = 0
 									block.push(0x05);
 									block.push(0x41, 0, 0x21, 0);
-								}
-								break;
-							case "/":
-								block.push(0x6d);
-								block.push(0x36, 2, 0);
-								if (dep < 2) { // if sp == 4, sp = 0
+									break;
+								case 0x6d: // if sp == 4, sp = 0
 									block.push(0x05);
 									block.push(0x41, 0, 0x21, 0);
-								}
-								break;
-							case "%":
-								block.push(0x6f);
-								block.push(0x36, 2, 0);
-								if (dep < 2) { // if sp == 4, sp = 0
+									break;
+								case 0x6f: // if sp == 4, sp = 0
 									block.push(0x05);
 									block.push(0x41, 0, 0x21, 0);
-								}
-								break;
-							case ">":
-								block.push(0x4a);
-								block.push(0x36, 2, 0);
-								if (dep < 2) { // if sp == 4, *0 = 0 > *0
+									break;
+								case 0x4a: // if sp == 4, *0 = 0 > *0
 									block.push(0x05);
 									block.push(0x41, 0, 0x41, 0, 0x41, 0, 0x28, 2, 0, 0x4a, 0x36, 2, 0);
-								}
-								break;
-						}
-						if (dep < 2) {
+									break;
+							}
 							block.push(0x0b);
 							if (dep == 0) {
 								block.push(0x0b);
