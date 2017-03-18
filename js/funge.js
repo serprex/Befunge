@@ -471,6 +471,12 @@ function peep(n, code) {
 						n.meta = metanop;
 						a.meta = metanop;
 						break;
+					} else if (a.meta.op == 2) {
+						a.meta = metanop;
+						var t = n.n;
+						n.n = n.arg;
+						n.arg = t;
+						n.depi = a.depi;
 					} else {
 						a.depo = true;
 						n.depi = 1;
