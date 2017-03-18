@@ -1,7 +1,7 @@
 "use strict";
 function varint (v, value) {
 	while (true) {
-		var b = value & 127;
+		let b = value & 127;
 		value >>= 7;
 		if ((value == 0 && ((b & 0x40) == 0)) || ((value == -1 && ((b & 0x40) == 0x40)))) {
 			return v.push(b);
@@ -16,7 +16,7 @@ function varint (v, value) {
 function varuint (v, value, padding) {
 	padding |= 0;
 	do {
-		var b = value & 127;
+		let b = value & 127;
 		value >>= 7;
 		if (value != 0 || padding > 0) {
 			b |= 128;
@@ -27,7 +27,7 @@ function varuint (v, value, padding) {
 }
 
 function pushString(v, str) {
-	for (var i=0; i<str.length; i++) {
+	for (let i=0; i<str.length; i++) {
 		v.push(str.charCodeAt(i));
 	}
 }
@@ -36,7 +36,7 @@ function pushArray(sink, data) {
 	return Array.prototype.push.apply(sink, data);
 }
 
-var novars = [null, null, null];
+const novars = [null, null, null];
 function Op(meta) {
 	this.meta = meta;
 	this.n = null;
@@ -53,13 +53,13 @@ function Meta(op, siop, so, ev) {
 	this.so = so;
 	this.eval = eval;
 }
-var metas = [
+const metas = [
 	new Meta(0, 0, 1, (op, ctx) => {
 		ctx.push(op.arg);
 		return op.n;
 	}),
 	new Meta(1, 2, 1, (op, ctx) => {
-		var a = ctx.pop(), b = ctx.pop();
+		let a = ctx.pop(), b = ctx.pop();
 		switch (op.arg){
 		case "+":b+=a;break;
 		case "-":b-=a;break;
@@ -81,14 +81,14 @@ var metas = [
 	}),
 	new Meta(4, 1, 2, (op, ctx) => {
 		if (ctx.sp) {
-			var a = ctx.pop();
+			let a = ctx.pop();
 			ctx.push(a);
 			ctx.push(a);
 		}
 		return op.n;
 	}),
 	new Meta(5, 2, 2, (op, ctx) => {
-		var a = ctx.pop(), b = ctx.pop();
+		let a = ctx.pop(), b = ctx.pop();
 		ctx.push(a);
 		ctx.push(b);
 		return op.n;
@@ -103,7 +103,7 @@ var metas = [
 		return op.n;
 	}),
 	new Meta(8, 2, 1, (op, ctx) => {
-		var y = ctx.pop(), x = ctx.pop();
+		let y = ctx.pop(), x = ctx.pop();
 		if (0 <= x && x < 80 && 0 <= y && y < 25) {
 			y=0xce00+((y|x<<5)<<2);
 			ctx.push(ctx.mem[y]|ctx.mem[y|1]<<8|ctx.mem[y|2]<<16|ctx.mem[y|3]<<24);
@@ -113,10 +113,10 @@ var metas = [
 		return op.n;
 	}),
 	new Meta(9, 3, 0, (op, ctx) => {
-		var y = ctx.pop(), x = ctx.pop(), z = ctx.pop();
+		let y = ctx.pop(), x = ctx.pop(), z = ctx.pop();
 		if (0 <= x && x < 80 && 0 <= y && y < 25) {
 			y|=x<<5;
-			var proidx = 0xf600 + y;
+			const proidx = 0xf600 + y;
 			y<<=2;
 			ctx.mem[0xce00+y]=z;
 			ctx.mem[0xce01+y]=z>>8;
@@ -130,7 +130,7 @@ var metas = [
 		return op.n;
 	}),
 	new Meta(10, 0, 0, (op, ctx) => {
-		var a = ctx.imp.r4();
+		let a = ctx.imp.r4();
 		return a == 3 ? op.n : op.arg[a];
 	}),
 	new Meta(11, 1, 0, (op, ctx) => {
@@ -143,7 +143,7 @@ var metas = [
 		return op.n;
 	}),
 ];
-var metanop = metas[13];
+const metanop = metas[13];
 
 function mv(i) {
 	switch (i&3) {
@@ -154,10 +154,10 @@ function mv(i) {
 	}
 }
 
-var bins={37:"%",42:"*",43:"+",45:"-",47:"/",96:">"};
-var raw={33:2,36:3,58:4,92:5,103:8};
-var mvs={60:2,62:0,94:1,118:3};
-var ops={64:9,34:8,35:10,38:3,44:1,126:2,46:0,112:4,124:6,95:7,63:5};
+const bins={37:"%",42:"*",43:"+",45:"-",47:"/",96:">"};
+const raw={33:2,36:3,58:4,92:5,103:8};
+const mvs={60:2,62:0,94:1,118:3};
+const ops={64:9,34:8,35:10,38:3,44:1,126:2,46:0,112:4,124:6,95:7,63:5};
 function Tracer(mem){
 	this.mem = mem;
 	this.pg = [];
@@ -165,7 +165,7 @@ function Tracer(mem){
 Tracer.prototype.trace = function(i) {
 	function emit(op, arg) {
 		pist.length = 0;
-		var tail=inst;
+		const tail=inst;
 		inst=new Op(metanop);
 		tail.meta=metas[op];
 		tail.n=inst;
@@ -174,7 +174,8 @@ Tracer.prototype.trace = function(i) {
 		inst.si.add(tail);
 		return tail;
 	}
-	var inst=new Op(metanop), head=inst, pist=[];
+	let inst=new Op(metanop), head=inst;
+	const pist = [];
 	while (true) {
 		i=mv(i);
 		if (i in this.pg){
@@ -202,7 +203,7 @@ Tracer.prototype.trace = function(i) {
 		if (this.mem[0xce01+(i&~3)] || this.mem[0xce02+(i&~3)] || this.mem[0xce03+(i&~3)]) {
 			continue;
 		}
-		var i2 = this.mem[0xce00+(i&~3)];
+		let i2 = this.mem[0xce00+(i&~3)];
 		if (48<=i2 && i2<58) { emit(0, i2-48); }
 		else if (i2 in mvs) { i=i&~3|mvs[i2]; }
 		else if (i2 in bins) { emit(1, bins[i2]); }
@@ -215,13 +216,13 @@ Tracer.prototype.trace = function(i) {
 				case 4:emit(9, i);break;
 				case 5:
 					this.pg[i^1] = this.pg[i^2] = this.pg[i^3] = inst;
-					var rngNode = emit(10, [this.trace(i^1), this.trace(i^2), this.trace(i^3)]);
+					const rngNode = emit(10, [this.trace(i^1), this.trace(i^2), this.trace(i^3)]);
 					rngNode.arg[0].si.add(rngNode);
 					rngNode.arg[1].si.add(rngNode);
 					rngNode.arg[2].si.add(rngNode);
 					break;
 				case 6:case 7:
-					var other;
+					let other;
 					if (i2 == 6){
 						other=3;
 						i=i&~3|1;
@@ -230,14 +231,14 @@ Tracer.prototype.trace = function(i) {
 						i=i&~3|2;
 					}
 					this.pg[i^1] = this.pg[i^2] = this.pg[i^3] = inst;
-					var ifNode = emit(11, this.trace(i&~3|other))
+					const ifNode = emit(11, this.trace(i&~3|other))
 					ifNode.arg.si.add(ifNode)
 					break;
 				case 8:
 					while (true) {
 						i=mv(i);
 						this.mem[0xf600+(i>>2)]=1;
-						var i2 = this.mem[0xce00+(i&~3)]|this.mem[0xce01+(i&~3)]<<8|this.mem[0xce02+(i&~3)]<<16|this.mem[0xce03+(i&~3)]<<24;
+						i2 = this.mem[0xce00+(i&~3)]|this.mem[0xce01+(i&~3)]<<8|this.mem[0xce02+(i&~3)]<<16|this.mem[0xce03+(i&~3)]<<24;
 						if (i2 == 34) {
 							break;
 						}
@@ -295,29 +296,31 @@ function fakepeep(n) {
 }
 
 function peep(n, code) {
-	var cst = [];
+	const cst = [];
 	while (true) {
 		if (n.sd) return;
 		n.sd = -1;
+		let a, b, c;
 		switch (n.meta.op) {
 			case 0:
 				cst.push(n);
 				break;
 			case 1:
-				var a = cst.pop(), b = cst.pop();
+				a = cst.pop();
+				b = cst.pop();
 				if (a && b) {
 					if (!a.meta.op && !b.meta.op) {
-						var c;
+						let t;
 						switch (n.arg) {
-							case "+":c=b.arg+a.arg;break;
-							case "-":c=b.arg-a.arg;break;
-							case "*":c=b.arg*a.arg;break;
-							case "/":c=a.arg&&b.arg/a.arg;break;
-							case "%":c=a.arg&&b.arg%a.arg;break;
-							case ">":c=b.arg>a.arg;break;
+							case "+":t=b.arg+a.arg;break;
+							case "-":t=b.arg-a.arg;break;
+							case "*":t=b.arg*a.arg;break;
+							case "/":t=a.arg&&b.arg/a.arg;break;
+							case "%":t=a.arg&&b.arg%a.arg;break;
+							case ">":t=b.arg>a.arg;break;
 						}
 						n.meta = metas[0];
-						n.arg = c;
+						n.arg = t;
 						a.meta = metanop;
 						b.meta = metanop;
 					} else {
@@ -338,7 +341,7 @@ function peep(n, code) {
 				}
 				break;
 			case 2:
-				var a = cst.pop();
+				a = cst.pop();
 				if (a) {
 					if (!a.meta.op) {
 						a.arg = !a.arg;
@@ -354,7 +357,7 @@ function peep(n, code) {
 				}
 				break;
 			case 3:
-				var a = cst.pop();
+				a = cst.pop();
 				if (a) {
 					if (!a.meta.op) {
 						a.meta = metanop;
@@ -366,7 +369,7 @@ function peep(n, code) {
 				}
 				break;
 			case 4:
-				var a = cst.pop();
+				a = cst.pop();
 				if (a) {
 					if (!a.meta.op) {
 						n.meta = metas[0];
@@ -382,12 +385,13 @@ function peep(n, code) {
 				}
 				break;
 			case 5:
-				var a = cst.pop(), b = cst.pop();
+				a = cst.pop();
+				b = cst.pop();
 				if (a && b) {
 					if (!a.meta.op && !b.meta.op) {
-						var c = a.arg;
+						let t = a.arg;
 						a.arg = b.arg;
-						b.arg = c;
+						b.arg = t;
 						n.meta = metanop;
 						cst.push(b, a);
 					} else {
@@ -400,7 +404,7 @@ function peep(n, code) {
 				}
 				break;
 			case 6:
-				var a = cst.pop();
+				a = cst.pop();
 				if (a) {
 					if (!a.meta.op) { 
 						n.vars = [a.arg];
@@ -415,7 +419,8 @@ function peep(n, code) {
 				cst.push(n);
 				break;
 			case 8:
-				var a = cst.pop(), b = cst.pop();
+				a = cst.pop();
+				b = cst.pop();
 				if (a && b) {
 					if (!a.meta.op && !b.meta.op) {
 						if (a.arg < 0 || a.arg > 24 || b.arg < 0 || b.arg > 79) {
@@ -436,7 +441,9 @@ function peep(n, code) {
 				}
 				break;
 			case 9:
-				var a = cst.pop(), b = cst.pop(), c = cst.pop();
+				a = cst.pop();
+				b = cst.pop();
+				c = cst.pop();
 				if (a && b) {
 					if (!a.meta.op && !b.meta.op) {
 						a.meta = metanop;
@@ -462,7 +469,7 @@ function peep(n, code) {
 				peep(n.arg[2], code);
 				break;
 			case 11:
-				var a = cst.pop();
+				a = cst.pop();
 				if (a) {
 					if (!a.meta.op) {
 						if (!a.arg) n.n = n.arg;
@@ -473,7 +480,7 @@ function peep(n, code) {
 						break;
 					} else if (a.meta.op == 2) {
 						a.meta = metanop;
-						var t = n.n;
+						let t = n.n;
 						n.n = n.arg;
 						n.arg = t;
 						n.depi = a.depi;
@@ -489,10 +496,11 @@ function peep(n, code) {
 				return;
 		}
 		if (n.n.si.size > 1) {
-			for (var sis=0; sis<cst.length && cst[cst.length - sis - 1]; sis++);
-			if (sis && n.n.meta.siop && sis >= n.n.meta.siop) {
+			let sis = 0;
+			while (sis<cst.length && cst[cst.length - sis - 1]) sis++;
+			if ((cst && !n.n.meta.op) || (sis && n.n.meta.siop && sis >= n.n.meta.siop)) {
 				n.n.si.delete(n);
-				let nn = new Op(n.n.meta);
+				const nn = new Op(n.n.meta);
 				nn.arg = n.n.arg;
 				nn.n = n.n.n;
 				nn.n.si.add(nn);
@@ -509,13 +517,13 @@ function peep(n, code) {
 function bfRun(imp, cursor, sp) {
 	console.time("built");
 	console.time("build");
-	var code = new Uint8Array(imp[""].m.buffer);
-	var tracer = new Tracer(code);
-	var ir = tracer.trace(cursor);
+	const code = new Uint8Array(imp[""].m.buffer);
+	const tracer = new Tracer(code);
+	const ir = tracer.trace(cursor);
 	peep(ir, code);
 	if (false) {
 		console.timeEnd("build");
-		var ctx = new Interpreter(imp, sp);
+		const ctx = new Interpreter(imp, sp);
 		console.timeEnd("built");
 		cursor = ctx.eval(ir);
 		if (~cursor) {
@@ -538,12 +546,12 @@ function bfRun(imp, cursor, sp) {
 }
 
 function bfCompile(ir, sp, imports) {
-	var mem = new Uint8Array(imports[""].m.buffer);
-	var bc = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
+	const mem = new Uint8Array(imports[""].m.buffer);
+	const bc = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
 
 	bc.push(1); // Types
 
-	var type = [2];
+	const type = [2];
 
 	// i32 -> void
 	type.push(0x60, 1, 0x7f, 0);
@@ -555,7 +563,7 @@ function bfCompile(ir, sp, imports) {
 
 	bc.push(2); // Imports
 
-	var imp = [6];
+	const imp = [6];
 	varuint(imp, 0);
 	varuint(imp, 1);
 	pushString(imp, "p");
@@ -593,7 +601,7 @@ function bfCompile(ir, sp, imports) {
 
 	bc.push(3); // Funcs
 
-	var functions = [1];
+	const functions = [1];
 
 	// types: sequence of indices into the type section
 	varuint(functions, 1);
@@ -603,7 +611,7 @@ function bfCompile(ir, sp, imports) {
 
 	bc.push(7); // Exports
 
-	var exports = [1];
+	const exports = [1];
 
 	// entries: repeated export entries as described below
 
@@ -617,9 +625,9 @@ function bfCompile(ir, sp, imports) {
 
 	bc.push(10); // Codes
 
-	var code = [1];
+	const code = [1];
 
-	var body = [];
+	const body = [];
 
 	// locals
 	varuint(body, 1);
@@ -632,12 +640,12 @@ function bfCompile(ir, sp, imports) {
 		body.push(0x21, 0);
 	}
 
-	var blocks = [], nobr = new Set();
+	const blocks = [], nobr = new Set();
 
-	var spiller = [0x36, 2, 0, 0x20, 0, 0x41, 4, 0x6a, 0x21, 0];
+	const spiller = [0x36, 2, 0, 0x20, 0, 0x41, 4, 0x6a, 0x21, 0];
 	function blockpile(blocks, n) {
 		if (~n.sd) return;
-		var block = [], dep = 0;
+		let block = [], dep = 0;
 		while (true) {
 			n.sd = blocks.length;
 			switch (n.meta.op) {
@@ -920,7 +928,7 @@ function bfCompile(ir, sp, imports) {
 						varint(block, 0xce00);
 					} else {
 						if (n.vars[0] !== null && n.vars[1] !== null) {
-							var xy = n.vars[0]|n.vars[1]<<5;
+							const xy = n.vars[0]|n.vars[1]<<5;
 							block.push(0x41);
 							varint(block, 0xce00+(xy<<2));
 							if (!dep) {
@@ -1039,18 +1047,18 @@ function bfCompile(ir, sp, imports) {
 	blockpile(blocks, ir);
 
 	body.push(0x03, 0x40);
-	for (var i=0; i<blocks.length; i++) {
+	for (let i=0; i<blocks.length; i++) {
 		body.push(0x02, 0x40);
 	}
 	body.push(0x02, 0x40);
 	body.push(0x20, 1);
 	body.push(0x0e);
 	varuint(body, blocks.length - 1);
-	for (var i=0; i<blocks.length; i++) {
+	for (let i=0; i<blocks.length; i++) {
 		varuint(body, i);
 	}
 	body.push(0x0b);
-	for (var i=0; i<blocks.length; i++) {
+	for (let i=0; i<blocks.length; i++) {
 		pushArray(body, blocks[i]);
 		if (!nobr.has(blocks[i])) {
 			body.push(0xc);
@@ -1079,18 +1087,18 @@ exports.runSource = function(board, imp){
 	// ce00:f5ff source
 	// f600:ffff xbits
 	console.time("start");
-	var code = new Uint8Array(imp[""].m.buffer);
-	var i = 0;
+	const code = new Uint8Array(imp[""].m.buffer);
+	let i = 0, ch;
 	yout:
-	for (var y=0; y<25; y++) {
-		for (var x=0; x<80; x++) {
+	for (let y=0; y<25; y++) {
+		for (let x=0; x<80; x++) {
 			if (i == board.length) {
 				for (;x<80; x++) code[0xce00+((y|x<<5)<<2)] = 32;
 				for (y++; y<25; y++)
 					for (x=0; x<80; x++) code[0xce00+((y|x<<5)<<2)] = 32;
 				break yout;
 			}
-			var ch = board.charCodeAt(i++);
+			ch = board.charCodeAt(i++);
 			if (ch == 10) {
 				for (;x<80; x++) code[0xce00+((y|x<<5)<<2)] = 32;
 				break;
