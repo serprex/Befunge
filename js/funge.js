@@ -322,13 +322,17 @@ function peep(n, code) {
 						b.meta = metanop;
 					} else {
 						a.depo = b.depo = true;
-						n.depi = 2;
+						n.depi = 3;
 					}
 					cst.push(n);
-				} else if (a) {
+				} else if (a && b !== undefined) {
 					a.depo = true;
 					n.depi = 1;
-					cst.push(null);
+					cst.push(n);
+				} else if (b) {
+					b.depo = true;
+					n.depi = 2;
+					cst.push(n);
 				} else {
 					cst.push(null);
 				}
@@ -388,7 +392,7 @@ function peep(n, code) {
 						cst.push(b, a);
 					} else {
 						a.depo = b.depo = true;
-						n.depi = 2;
+						n.depi = 3;
 						cst.push(null, null);
 					}
 				} else {
@@ -424,7 +428,7 @@ function peep(n, code) {
 						b.meta = metanop;
 					} else {
 						a.depo = b.depo = true;
-						n.depi = 2;
+						n.depi = 3;
 					}
 					cst.push(n);
 				} else {
@@ -445,7 +449,7 @@ function peep(n, code) {
 						}
 					} else if (c) {
 						a.depo = b.depo = c.depo = true;
-						n.depi = 3;
+						n.depi = 7;
 					}
 				} else {
 					cst.length = 0;
@@ -466,14 +470,14 @@ function peep(n, code) {
 						n.arg = null;
 						n.meta = metanop;
 						a.meta = metanop;
+						break;
 					} else {
 						a.depo = true;
 						n.depi = 1;
 					}
-				} else {
-					cst.length = 0;
-					peep(n.arg, code);
 				}
+				cst.length = 0;
+				peep(n.arg, code);
 				break;
 			case 12:
 				return;
@@ -486,8 +490,8 @@ function peep(n, code) {
 				nn.arg = n.n.arg;
 				nn.n = n.n.n;
 				nn.n.si.add(nn);
+				nn.si.add(n);
 				n.n = nn;
-				n.n.si.add(n);
 			} else {
 				cst.length = 0;
 			}
@@ -646,6 +650,8 @@ function bfCompile(ir, sp, imports) {
 					if (n.depi) {
 						if (n.depi == 1) {
 							block.push(0x21, 1, 0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x28, 2, 0, 0x20, 1);
+						} else if (n.depi == 2) {
+							block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x28, 2, 0);
 						}
 						switch (n.arg) {
 							case "+":block.push(0x6a);break;
@@ -658,8 +664,8 @@ function bfCompile(ir, sp, imports) {
 						if (!n.depo) {
 							block.push(0x21, 1, 0x20, 0, 0x20, 1);
 							pushArray(block, spiller);
-							dep++;
-						}
+							if (n.depi == 3) dep++;
+						} else if (n.depi != 3) dep--;
 					} else {
 						if (dep < 2) {
 							if (dep) {

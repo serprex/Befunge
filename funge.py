@@ -549,11 +549,9 @@ def main(pro):
 							if i2 is 34:break
 							emit(Op0, i2)
 					elif i2 is 10:
-						for i in pist:pg[i]=node14
-						if inst is head:return node14
-						for i in inst.si:
-							i.n=node14
-							node14.si.add(i)
+						node14 = emit(Op14)
+						node14.n = None
+						node14.sd = True
 						return head
 				elif i2<4:
 					if i2<2:emit(Op6, i2)
@@ -803,7 +801,10 @@ def main(pro):
 		st = []
 		while not ir.isseq():
 			ir=ir.eval(st)
-			if not ir:return node14.emit(bc)
+			if not ir:
+				bc += loadmkconst(None)
+				bc += ret
+				return
 		for dep in map(loadmkconst, st):
 			bc += dep
 		dep = len(st)
@@ -848,10 +849,8 @@ def main(pro):
 		bc += jumpabs(ir.sd)
 	bc=bytearray()
 	root=Op16(None)
-	node14=Op14(None)
 	ir=compile((X1,0),mvL)
 	while True:
-		node14.sd=True
 		pg.clear()
 		root.n=ir
 		ir.si.add(root)
@@ -861,7 +860,6 @@ def main(pro):
 		if not f:return
 		f=iter(f)
 		ret11pos = None
-		node14.si.clear()
 		bc.clear()
 		pro.clear()
 		for x,y in ps.keys():
