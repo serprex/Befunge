@@ -684,24 +684,19 @@ function bfCompile(ir, sp, imports) {
 						if (dep < 2) {
 							switch (n.arg) {
 								case 0x6b: // if sp == 4, *0 = -*0
-									block.push(0x05);
-									block.push(0x41, 0, 0x41, 0, 0x41, 0, 0x28, 2, 0, 0x6b, 0x36, 2, 0);
+									block.push(0x05, 0x41, 0, 0x41, 0, 0x41, 0, 0x28, 2, 0, 0x6b, 0x36, 2, 0);
 									break;
 								case 0x6c: // if sp == 4, sp = 0
-									block.push(0x05);
-									block.push(0x41, 0, 0x21, 0);
+									block.push(0x05, 0x41, 0, 0x21, 0);
 									break;
 								case 0x6d: // if sp == 4, sp = 0
-									block.push(0x05);
-									block.push(0x41, 0, 0x21, 0);
+									block.push(0x05, 0x41, 0, 0x21, 0);
 									break;
 								case 0x6f: // if sp == 4, sp = 0
-									block.push(0x05);
-									block.push(0x41, 0, 0x21, 0);
+									block.push(0x05, 0x41, 0, 0x21, 0);
 									break;
 								case 0x4a: // if sp == 4, *0 = 0 > *0
-									block.push(0x05);
-									block.push(0x41, 0, 0x41, 0, 0x41, 0, 0x28, 2, 0, 0x4a, 0x36, 2, 0);
+									block.push(0x05, 0x41, 0, 0x41, 0, 0x41, 0, 0x28, 2, 0, 0x4a, 0x36, 2, 0);
 									break;
 							}
 							block.push(0x0b);
