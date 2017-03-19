@@ -135,7 +135,7 @@ Tracer.prototype.trace = function(i) {
 			switch (i2) {
 				case 0:case 1:emit(6, i2);break;
 				case 2:case 3:emit(7, i2 == 3);break;
-				case 4:emit(9, i);break;
+				case 4:emit(9, i<<16);break;
 				case 5:
 					this.pg[i^1] = this.pg[i^2] = this.pg[i^3] = inst;
 					const rngNode = emit(10, [this.trace(i^1), this.trace(i^2), this.trace(i^3)]);
@@ -254,17 +254,17 @@ Interpreter.prototype.eval = function(op) {
 				}
 				break;
 			case 9:
-				if (op.arg !== null) {
+				if (op.arg & 0x1000) {
 					let z = this.pop();
-					const proidx = 0xf600 + op.arg;
-					const y = op.arg<<2;
+					const proidx = 0xf600 + (op.arg&0xfff);
+					const y = (op.arg&0xfff)<<2;
 					this.mem[0xce00+y]=z;
 					this.mem[0xce01+y]=z>>8;
 					this.mem[0xce02+y]=z>>16;
 					this.mem[0xce03+y]=z>>24;
 					if (this.mem[proidx]) {
-						this.mem.fill(0, 0xf600, 0x10000);
-						return op.arg<<16|this.sp;
+						this.mem.fill(0, 0xf600);
+						return op.arg&0xffff0000|this.sp;
 					}
 				} else {
 					let y = this.pop(), x = this.pop(), z = this.pop();
@@ -277,8 +277,8 @@ Interpreter.prototype.eval = function(op) {
 						this.mem[0xce02+y]=z>>16;
 						this.mem[0xce03+y]=z>>24;
 						if (this.mem[proidx]) {
-							this.mem.fill(0, 0xf600, 0x10000);
-							return op.arg<<16|this.sp;
+							this.mem.fill(0, 0xf600);
+							return op.arg&0xffff0000|this.sp;
 						}
 					}
 				}
@@ -472,7 +472,7 @@ function peep(n, code) {
 						if (a.arg < 0 || a.arg > 24 || b.arg < 0 || b.arg > 79) {
 							n.meta = metas[3];
 						} else {
-							n.arg = a.arg|b.arg<<5;
+							n.arg |= a.arg | b.arg<<5 | 0x1000;
 							if (code[0xf600+(a.arg|b.arg<<5)]) return;
 						}
 					} else if (c) {
@@ -536,8 +536,6 @@ function peep(n, code) {
 }
 
 function bfRun(imp, cursor, sp) {
-	console.time("built");
-	console.time("build");
 	const code = new Uint8Array(imp[""].m.buffer);
 	const tracer = new Tracer(code);
 	const ir = tracer.trace(cursor);
@@ -933,9 +931,9 @@ function bfCompile(ir, sp, imports) {
 						block.push(0x41, 2, 0x74, 0x21, 1, 0x41, 5, 0x74, 0x72, 0x21, 1, 0x21, 2, 0x20, 2, 0x20, 1, 0x36, 2);
 						varint(block, 0xce00);
 					} else {
-						if (n.arg !== null) {
+						if (n.arg & 0x1000) {
 							block.push(0x41);
-							varint(block, 0xce00+(n.arg<<2));
+							varint(block, 0xce00+((n.arg&0xfff)<<2));
 							if (!dep) {
 								block.push(0x20, 0, 0x04, 0x7f);
 							}
@@ -944,9 +942,9 @@ function bfCompile(ir, sp, imports) {
 								block.push(0x05, 0x41, 0, 0x0b);
 							} else dep--;
 							block.push(0x36, 2, 0);
-							if (mem[0xf600+n.arg]) {
+							if (mem[0xf600+(n.arg&0xfff)]) {
 								block.push(0x41);
-								varint(block, n.arg<<16);
+								varint(block, n.arg&0xffff0000);
 								block.push(0x20, 0, 0x72, 0x0f);
 								nobr.add(block);
 								return blocks.push(block);
@@ -973,7 +971,7 @@ function bfCompile(ir, sp, imports) {
 							block.push(0x20, 1, 0x28, 2);
 							varuint(block, 0xf600);
 							block.push(0x04, 0x40, 0x41);
-							varuint(block, n.arg<<16);
+							varuint(block, n.arg&0xffff0000);
 							block.push(0x20, 0, 0x72, 0x0f);
 							block.push(0x0b, 0x0b);
 						}
