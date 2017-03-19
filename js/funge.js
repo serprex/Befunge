@@ -36,12 +36,10 @@ function pushArray(sink, data) {
 	return Array.prototype.push.apply(sink, data);
 }
 
-const novars = [null, null, null];
 function Op(meta) {
 	this.meta = meta;
 	this.n = null;
 	this.arg = null;
-	this.vars = novars;
 	this.sd = 0;
 	this.depo = false;
 	this.depi = 0;
@@ -170,7 +168,6 @@ Tracer.prototype.trace = function(i) {
 		tail.meta=metas[op];
 		tail.n=inst;
 		tail.arg=arg;
-		tail.vars=novars;
 		inst.si.add(tail);
 		return tail;
 	}
@@ -409,7 +406,7 @@ function peep(n, code) {
 				a = cst.pop();
 				if (a) {
 					if (!a.meta.op) { 
-						n.vars = [a.arg];
+						n.arg |= a.arg<<2 | 2;
 						a.meta = metanop;
 					} else {
 						a.depo = true;
@@ -429,7 +426,7 @@ function peep(n, code) {
 							n.arg = 0;
 							n.meta = metas[0];
 						} else {
-							n.vars = [a.arg, b.arg];
+							n.arg = a.arg|b.arg<<5;
 						}
 						a.meta = metanop;
 						b.meta = metanop;
@@ -453,7 +450,7 @@ function peep(n, code) {
 						if (a.arg < 0 || a.arg > 24 || b.arg < 0 || b.arg > 79) {
 							n.meta = metas[3];
 						} else {
-							n.vars = [a.arg, b.arg, null];
+							n.arg = a.arg|b.arg<<5;
 							if (code[0xf600+(a.arg|b.arg<<5)]) return;
 						}
 					} else if (c) {
@@ -824,9 +821,9 @@ function bfCompile(ir, sp, imports) {
 					break;
 				case 6:
 					if (!n.depi) {
-						if (n.vars[0] !== null) {
+						if (n.arg & 2) {
 							block.push(0x41);
-							varint(block, n.vars[0]);
+							varint(block, n.arg>>2);
 						} else {
 							if (dep) {
 								block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x28, 2, 0); // *(s-=4) 
@@ -861,10 +858,10 @@ function bfCompile(ir, sp, imports) {
 							dep++;
 						}
 					} else {
-						if (n.vars[0] !== null && n.vars[1] !== null) {
+						if (n.arg !== null) {
 							if (!n.depo) block.push(0x20, 0);
 							block.push(0x41);
-							varint(block, 0xce00+(n.vars[0]<<2|n.vars[1]<<7));
+							varint(block, 0xce00+(n.arg<<2));
 							block.push(0x28, 2, 0);
 							if (!n.depo) {
 								block.push(0x36, 2, 0, 0x20, 0, 0x41, 4, 0x6a, 0x21, 0);
@@ -918,10 +915,9 @@ function bfCompile(ir, sp, imports) {
 						block.push(0x41, 2, 0x74, 0x21, 1, 0x41, 5, 0x74, 0x72, 0x21, 1, 0x21, 2, 0x20, 2, 0x20, 1, 0x36, 2);
 						varint(block, 0xce00);
 					} else {
-						if (n.vars[0] !== null && n.vars[1] !== null) {
-							const xy = n.vars[0]|n.vars[1]<<5;
+						if (n.arg !== null) {
 							block.push(0x41);
-							varint(block, 0xce00+(xy<<2));
+							varint(block, 0xce00+(n.arg<<2));
 							if (!dep) {
 								block.push(0x20, 0, 0x04, 0x7f);
 							}
@@ -930,7 +926,7 @@ function bfCompile(ir, sp, imports) {
 								block.push(0x05, 0x41, 0, 0x0b);
 							} else dep--;
 							block.push(0x36, 2, 0);
-							if (mem[0xf600+xy]) {
+							if (mem[0xf600+n.arg]) {
 								block.push(0x41);
 								varint(block, n.arg<<16);
 								block.push(0x20, 0, 0x72, 0x0f);
