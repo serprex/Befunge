@@ -65,8 +65,7 @@ const metas = [
 	new Meta(11, 1, 0),
 	new Meta(12, 0, 0),
 	new Meta(13, 1, 0),
-];
-const metanop = metas[13];
+], metanop = metas[13];
 
 function mv(i) {
 	switch (i&3) {
@@ -83,6 +82,7 @@ const mvs={60:2,62:0,94:1,118:3};
 const ops={64:9,34:8,35:10,38:3,44:1,126:2,46:0,112:4,124:6,95:7,63:5};
 function Tracer(mem){
 	this.mem = mem;
+	this.mem32 = new Int32Array(this.mem.buffer);
 	this.pg = [];
 }
 Tracer.prototype.trace = function(i) {
@@ -122,10 +122,7 @@ Tracer.prototype.trace = function(i) {
 		this.pg[i]=inst;
 		pist.push(i);
 		this.mem[0xf600+(i>>2)]=1;
-		if (this.mem[0xce01+(i&~3)] || this.mem[0xce02+(i&~3)] || this.mem[0xce03+(i&~3)]) {
-			continue;
-		}
-		let i2 = this.mem[0xce00+(i&~3)];
+		let i2 = this.mem32[0xce00+i>>2];
 		if (48<=i2 && i2<58) { emit(0, i2-48); }
 		else if (i2 in mvs) { i=i&~3|mvs[i2]; }
 		else if (i2 in bins) { emit(1, bins[i2]); }
@@ -160,7 +157,7 @@ Tracer.prototype.trace = function(i) {
 					while (true) {
 						i=mv(i);
 						this.mem[0xf600+(i>>2)]=1;
-						i2 = this.mem[0xce00+(i&~3)]|this.mem[0xce01+(i&~3)]<<8|this.mem[0xce02+(i&~3)]<<16|this.mem[0xce03+(i&~3)]<<24;
+						i2 = this.mem32[0xce00+i>>2];
 						if (i2 == 34) {
 							break;
 						}
@@ -185,13 +182,10 @@ function Interpreter(imp, sp){
 Interpreter.prototype.pop = function() {
 	if (!this.sp) return 0;
 	this.sp -= 4;
-	return this.mem[this.sp]|this.mem[this.sp+1]<<8|this.mem[this.sp+2]<<16|this.mem[this.sp+3]<<24;
+	return this.mem32[this.sp>>2];
 }
 Interpreter.prototype.push = function(x) {
-	this.mem[this.sp]=x;
-	this.mem[this.sp+1]=x>>8;
-	this.mem[this.sp+2]=x>>16;
-	this.mem[this.sp+3]=x>>24;
+	this.mem32[this.sp>>2] = x;
 	this.sp += 4;
 }
 Interpreter.prototype.eval = function(op) {
@@ -241,13 +235,11 @@ Interpreter.prototype.eval = function(op) {
 				break;
 			case 8:
 				if (op.arg !== null) {
-					const y = op.arg<<2;
-					this.push(this.mem[0xce00+y]|this.mem[0xce01+y]<<8|this.mem[0xce02+y]<<16|this.mem[0xce03+y]<<24);
+					this.push(this.mem32[0x3380+op.arg]);
 				} else {
 					let y = this.pop(), x = this.pop();
 					if (0 <= x && x < 80 && 0 <= y && y < 25) {
-						y=0xce00+((y|x<<5)<<2);
-						this.push(this.mem[y]|this.mem[y|1]<<8|this.mem[y|2]<<16|this.mem[y|3]<<24);
+						this.push(this.mem32[0x3380+(y|x<<5)]);
 					} else {
 						this.push(0);
 					}
@@ -257,11 +249,8 @@ Interpreter.prototype.eval = function(op) {
 				if (op.arg & 0x1000) {
 					let z = this.pop();
 					const proidx = 0xf600 + (op.arg&0xfff);
-					const y = (op.arg&0xfff)<<2;
-					this.mem[0xce00+y]=z;
-					this.mem[0xce01+y]=z>>8;
-					this.mem[0xce02+y]=z>>16;
-					this.mem[0xce03+y]=z>>24;
+					const y = (op.arg&0xfff);
+					this.mem32[0x3380+(op.arg&0xfff)]=z;
 					if (this.mem[proidx]) {
 						this.mem.fill(0, 0xf600);
 						return op.arg&0xffff0000|this.sp;
@@ -271,11 +260,7 @@ Interpreter.prototype.eval = function(op) {
 					if (0 <= x && x < 80 && 0 <= y && y < 25) {
 						y|=x<<5;
 						const proidx = 0xf600 + y;
-						y<<=2;
-						this.mem[0xce00+y]=z;
-						this.mem[0xce01+y]=z>>8;
-						this.mem[0xce02+y]=z>>16;
-						this.mem[0xce03+y]=z>>24;
+						this.mem32[0x3380+y]=z;
 						if (this.mem[proidx]) {
 							this.mem.fill(0, 0xf600);
 							return op.arg&0xffff0000|this.sp;
