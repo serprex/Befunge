@@ -9,7 +9,7 @@
 FILE*ran;
 int32_t ps[2560],st[65536],*sp=st-1;
 uint16_t pg[10240],rl,ct[65536];
-uint8_t pro[640],r[65536];
+uint8_t pro[2560],r[65536];
 int mv(int i){
 	switch(i&3){
 	case 0:return i>=10112?i-10112:i+128;
@@ -26,7 +26,7 @@ int comp(int i){
 	int cl=0;
 	while(pg[i=mv(i)]==(uint16_t)-1){
 		int op=opc(ps[i>>2]);
-		pro[i>>4]|=1<<(i>>1&6);
+		pro[i>>2]=1;
 		if(op<30){
 			pg[i]=rl;
 			ct[cl]=rl;
@@ -129,30 +129,26 @@ int comp(int i){
 			r[rl]=25;
 			rl+=3;
 			*(uint16_t*)(r+rl-2)=i;
-			int x,y;
+			int x;
 			switch(sp-st){
 			default:
 				sp-=3;
 				x=(sp[2]>=0&&sp[2]<80?sp[2]<<5:0)|(sp[3]>=0&&sp[3]<25?sp[3]:0);
-				y=ps[x];
 				ps[x]=sp[1];
 			case(-1)
 				x=0;
-				y=ps[0];
 				ps[0]=0;
 			case(0)
 				sp=st-1;
 				x=sp[1]<25&&sp[1]>=0?sp[1]<<5:0;
-				y=ps[x];
 				ps[x]=0;
 			case(1)
 				sp=st-1;
 				x=(sp[1]>=0&&sp[1]<80?sp[1]<<5:0)|(sp[2]>=0&&sp[2]<25?sp[2]:0);
-				y=ps[x];
 				ps[x]=0;
 			}
-			if(y!=ps[x]&&(pro[x>>2]&3<<(x&3)*2)&&((pro[x>>2]&2<<(x&3)*2)||opc(y)!=opc(ps[x]))){
-				memset(pro,0,640);
+			if(pro[x]){
+				memset(pro,0,2560);
 				memset(pg,-1,20480);
 				cl=rl=0;
 			}else if(cl>5&&!r[ct[cl-6]]&&!r[ct[cl-4]]){
@@ -187,7 +183,7 @@ int comp(int i){
 			int j=1;
 			while(ps[(i=mv(i))>>2]!='"'){
 				j=0;
-				pro[i>>4]|=2<<(i>>1&6);
+				pro[i>>2]=1;
 				r[rl]=0;
 				rl+=5;
 				*++sp=*(int32_t*)(r+rl-4)=ps[i>>2];
@@ -196,7 +192,7 @@ int comp(int i){
 				ct[cl-2]=rl;
 			}
 			cl-=2;
-			pro[i>>4]|=2<<(i>>1&6);
+			pro[i>>2]=1;
 			if(j)pg[ct[cl+1]]=(uint16_t)-1;
 		}
 		case(30)exit(0);
@@ -231,7 +227,6 @@ int main(int argc,char**argv){
 		FoundNew:;
 	}
 	RunProg:fclose(prog);
-	memset(pro,0,640);
 	memset(pg,-1,20480);
 	uint8_t*op=r+comp(10112);
 	static void*ft[]={
@@ -304,35 +299,30 @@ int main(int argc,char**argv){
 		}else if(sp==st)*sp=*sp<25&&*sp>=0?ps[*sp]:0;else*++sp=ps[0];
 		LOOP;
 	OP25:{
-		int x,y;
+		int x;
 		switch(sp-st){
 		default:
 			sp-=3;
 			x=(sp[2]>=0&&sp[2]<80?sp[2]<<5:0)+(sp[3]>=0&&sp[3]<25?sp[3]:0);
-			y=ps[x];
 			ps[x]=sp[1];
 		case(-1)
 			x=0;
-			y=ps[0];
 			ps[0]=0;
 		case(0)
 			sp=st-1;
 			x=sp[1]<25&&sp[1]>=0?sp[1]<<5:0;
-			y=ps[x];
 			ps[x]=0;
 		case(1)
 			sp=st-1;
 			x=(sp[1]>=0&&sp[1]<80?sp[1]<<5:0)+(sp[2]>=0&&sp[2]<25?sp[2]:0);
-			y=ps[x];
 			ps[x]=0;
 		}
 		if(0){from2:
 			x=*(uint16_t*)(op-2);
-			y=ps[x];
 			ps[x]=sp>=st?*sp--:0;
 		}
-		if(y!=ps[x]&&pro[x>>2]&3<<(x&3)*2&&(pro[x>>2]&2<<(x&3)*2||opc(y)!=opc(ps[x]))){
-			memset(pro,0,640);
+		if(pro[x]){
+			memset(pro,0,2560);
 			memset(pg,-1,20480);
 			rl=0;
 			op=r+comp(*(uint16_t*)op);
