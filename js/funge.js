@@ -13,13 +13,16 @@ function varint (v, value) {
 }
 
 
-function varuint (v, value, padding) {
-	padding |= 0;
-	do {
+function varuint (v, value) {
+	while (true) {
 		let b = value & 127;
 		value >>= 7;
-		v.push(value || padding ? b | 128 : b);
-	} while (~--padding || value);
+		if (value) {
+			v.push(b | 128);
+		} else {
+			return v.push(b);
+		}
+	}
 }
 
 function pushString(v, str) {
@@ -247,20 +250,14 @@ Interpreter.prototype.eval = function(op) {
 					const proidx = 0xf600 + (op.arg&0xfff);
 					const y = (op.arg&0xfff);
 					this.mem32[0x3380+(op.arg&0xfff)]=z;
-					if (this.mem[proidx]) {
-						this.mem.fill(0, 0xf600);
-						return op.arg&0xffff0000|this.sp;
-					}
+					if (this.mem[proidx]) return op.arg&0xffff0000|this.sp;
 				} else {
 					let y = this.pop(), x = this.pop(), z = this.pop();
 					if (0 <= x && x < 80 && 0 <= y && y < 25) {
 						y|=x<<5;
 						const proidx = 0xf600 + y;
 						this.mem32[0x3380+y]=z;
-						if (this.mem[proidx]) {
-							this.mem.fill(0, 0xf600);
-							return op.arg&0xffff0000|this.sp;
-						}
+						if (this.mem[proidx]) return op.arg&0xffff0000|this.sp;
 					}
 				}
 				break;
@@ -555,7 +552,7 @@ function bfCompile(ir, sp, imports) {
 	// void -> i32
 	type.push(0x60, 0, 1, 0x7f);
 
-	varuint(bc, type.length, 4);
+	varuint(bc, type.length);
 	pushArray(bc, type);
 
 	bc.push(2); // Imports
@@ -593,7 +590,7 @@ function bfCompile(ir, sp, imports) {
 	imp.push(2, 0);
 	varuint(imp, 1);
 
-	varuint(bc, imp.length, 4);
+	varuint(bc, imp.length);
 	pushArray(bc, imp);
 
 	bc.push(3); // Funcs
@@ -603,7 +600,7 @@ function bfCompile(ir, sp, imports) {
 	// types: sequence of indices into the type section
 	varuint(functions, 1);
 
-	varuint(bc, functions.length, 4);
+	varuint(bc, functions.length);
 	pushArray(bc, functions);
 
 	bc.push(7); // Exports
@@ -617,7 +614,7 @@ function bfCompile(ir, sp, imports) {
 	exports.push(0);
 	exports.push(5);
 
-	varuint(bc, exports.length, 4);
+	varuint(bc, exports.length);
 	pushArray(bc, exports);
 
 	bc.push(10); // Codes
@@ -905,8 +902,14 @@ function bfCompile(ir, sp, imports) {
 				case 9:
 					if (n.depi) {
 						// TODO bounds checking
-						block.push(0x41, 2, 0x74, 0x21, 1, 0x41, 7, 0x74, 0x20, 1, 0x72, 0x21, 1, 0x21, 2, 0x20, 1, 0x20, 2, 0x36, 2);
+						block.push(0x21, 1, 0x41, 5, 0x74, 0x20, 1, 0x72, 0x21, 1);
+						block.push(0x21, 2, 0x20, 1, 0x41, 2, 0x74, 0x20, 2, 0x36, 2);
 						varint(block, 0xce00);
+						block.push(0x20, 1, 0x2d, 0);
+						varint(block, 0xf600);
+						block.push(0x04, 0x40, 0x41);
+						varint(block, n.arg&0xffff0000);
+						block.push(0x20, 0, 0x72, 0x0f, 0x0b);
 					} else {
 						if (n.arg & 0x1000) {
 							block.push(0x41);
@@ -945,7 +948,7 @@ function bfCompile(ir, sp, imports) {
 							block.push(0x36, 2);
 							varuint(block, 0xce00);
 							// if *(0xf600 + %1), ret arg<<16|sp
-							block.push(0x20, 1, 0x28, 2);
+							block.push(0x20, 1, 0x2d, 0);
 							varuint(block, 0xf600);
 							block.push(0x04, 0x40, 0x41);
 							varuint(block, n.arg&0xffff0000);
@@ -1051,11 +1054,11 @@ function bfCompile(ir, sp, imports) {
 	body.push(0);
 	body.push(0x0b);
 
-	varuint(code, body.length, 4);
+	varuint(code, body.length);
 
 	pushArray(code, body);
 
-	varuint(bc, code.length, 4);
+	varuint(bc, code.length);
 	pushArray(bc, code);
 
 	return WebAssembly.instantiate(new Uint8Array(bc), imports);
