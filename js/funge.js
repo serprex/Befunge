@@ -125,12 +125,12 @@ Tracer.prototype.trace = function(i) {
 		if (48<=i2 && i2<58) { emit(0, i2-48); }
 		else if (i2 in mvs) { i=i&~3|mvs[i2]; }
 		else if (i2 in bins) { emit(1, bins[i2]); }
-		else if (i2 in raw) { emit(raw[i2]); }
+		else if (i2 in raw) { emit(raw[i2], null); }
 		else if (i2 in ops) {
 			i2=ops[i2];
 			switch (i2) {
 				case 0:case 1:emit(6, i2);break;
-				case 2:case 3:emit(7, i2 == 3);break;
+				case 2:case 3:emit(7, i2-2);break;
 				case 4:emit(9, i<<16);break;
 				case 5:
 					this.pg[i^1] = this.pg[i^2] = this.pg[i^3] = inst;
@@ -164,7 +164,7 @@ Tracer.prototype.trace = function(i) {
 					}
 					break;
 				case 9:
-					emit(12).n = null;
+					emit(12, null).n = null;
 					return head;
 				case 10:i=mv(i);
 			}
@@ -237,33 +237,28 @@ Interpreter.prototype.eval = function(op) {
 					this.push(this.mem32[0x3380+op.arg]);
 				} else {
 					let y = this.pop(), x = this.pop();
-					if (0 <= x && x < 80 && 0 <= y && y < 25) {
-						this.push(this.mem32[0x3380+(y|x<<5)]);
-					} else {
-						this.push(0);
-					}
+					y |= x<<5;
+					this.push(0 <= y && y < 2560 ? this.mem32[0x3380+y] : 0);
 				}
 				break;
 			case 9:
 				if (op.arg & 0x1000) {
 					let z = this.pop();
-					const proidx = 0xf600 + (op.arg&0xfff);
-					const y = (op.arg&0xfff);
-					this.mem32[0x3380+(op.arg&0xfff)]=z;
-					if (this.mem[proidx]) return op.arg&0xffff0000|this.sp;
+					const y = op.arg&0xfff;
+					this.mem32[0x3380+y]=z;
+					if (this.mem[0xf600+y]) return op.arg&0xffff0000|this.sp;
 				} else {
 					let y = this.pop(), x = this.pop(), z = this.pop();
 					if (0 <= x && x < 80 && 0 <= y && y < 25) {
 						y|=x<<5;
-						const proidx = 0xf600 + y;
 						this.mem32[0x3380+y]=z;
-						if (this.mem[proidx]) return op.arg&0xffff0000|this.sp;
+						if (this.mem[0xf600+y]) return op.arg&0xffff0000|this.sp;
 					}
 				}
 				break;
 			case 10:
 				a = this.imp.r4();
-				op = a == 3 ? op.n : op.arg[a];
+				op = a > 2 ? op.n : op.arg[a];
 				continue;
 			case 11:
 				op = this.pop() ? op.n : op.arg;
@@ -341,7 +336,7 @@ function peep(n, code) {
 				a = cst.pop();
 				if (a) {
 					if (!a.meta.op) {
-						a.arg = !a.arg;
+						a.arg = a.arg?0:1;
 						n.meta = metanop;
 						cst.push(a);
 					} else {
@@ -514,17 +509,17 @@ function peep(n, code) {
 	}
 }
 
-function bfRun(imp, cursor, sp) {
+function bfRun(imp, cursor, sp, interp) {
 	const code = new Uint8Array(imp[""].m.buffer);
 	const tracer = new Tracer(code);
 	const ir = tracer.trace(cursor);
 	peep(ir, code);
-	if (false) {
+	if (interp) {
 		const ctx = new Interpreter(imp, sp);
 		cursor = ctx.eval(ir);
 		if (~cursor) {
 			code.fill(0, 0xf600);
-			return bfRun(imp, cursor>>>16, cursor&65535);
+			return bfRun(imp, cursor>>>16, cursor&65535, interp);
 		}
 		console.timeEnd("start");
 	} else {
@@ -532,7 +527,7 @@ function bfRun(imp, cursor, sp) {
 			cursor = f.instance.exports.f();
 			if (~cursor) {
 				code.fill(0, 0xf600);
-				return bfRun(imp, cursor>>>16, cursor&65535);
+				return bfRun(imp, cursor>>>16, cursor&65535, interp);
 			}
 			console.timeEnd("start");
 		});
@@ -681,7 +676,7 @@ function bfCompile(ir, sp, imports) {
 						block.push(0x36, 2, 0);
 						if (dep < 2) {
 							switch (n.arg) {
-								case 0x6b: // if sp == 4, *0 = -*0
+								case 0x6b: // if sp == 4, *0 = 0-*0
 									block.push(0x05, 0x41, 0, 0x41, 0, 0x41, 0, 0x28, 2, 0, 0x6b, 0x36, 2, 0);
 									break;
 								case 0x6c: // if sp == 4, sp = 0
@@ -1065,7 +1060,7 @@ function bfCompile(ir, sp, imports) {
 }
 
 exports.r4 = () => Math.random()*4|0;
-exports.runSource = function(board, imp){
+exports.runSource = function(board, imp, interp){
 	// 0000:cdff stack
 	// ce00:f5ff source
 	// f600:ffff xbits
@@ -1097,5 +1092,5 @@ exports.runSource = function(board, imp){
 			}
 		}
 	}
-	bfRun(imp, 10112, 0);
+	bfRun(imp, 10112, 0, interp);
 }
