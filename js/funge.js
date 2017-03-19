@@ -49,7 +49,7 @@ function Meta(op, siop, so, ev) {
 	this.op = op;
 	this.siop = siop;
 	this.so = so;
-	this.eval = eval;
+	this.eval = ev;
 }
 const metas = [
 	new Meta(0, 0, 1, (op, ctx) => {
@@ -92,8 +92,9 @@ const metas = [
 		return op.n;
 	}),
 	new Meta(6, 1, 0, (op, ctx) => {
-		if (op.arg) ctx.imp.q(ctx.pop());
-		else ctx.imp.p(ctx.pop());
+		let c = op.arg&2 ? op.arg>>2 : ctx.pop();
+		if (op.arg&1) ctx.imp.q(c);
+		else ctx.imp.p(c);
 		return op.n;
 	}),
 	new Meta(7, 0, 1, (op, ctx) => {
@@ -101,21 +102,25 @@ const metas = [
 		return op.n;
 	}),
 	new Meta(8, 2, 1, (op, ctx) => {
-		let y = ctx.pop(), x = ctx.pop();
-		if (0 <= x && x < 80 && 0 <= y && y < 25) {
-			y=0xce00+((y|x<<5)<<2);
-			ctx.push(ctx.mem[y]|ctx.mem[y|1]<<8|ctx.mem[y|2]<<16|ctx.mem[y|3]<<24);
+		if (op.arg !== null) {
+			const y = op.arg<<2;
+			ctx.push(ctx.mem[0xce00+y]|ctx.mem[0xce01+y]<<8|ctx.mem[0xce02+y]<<16|ctx.mem[0xce03+y]<<24);
 		} else {
-			ctx.push(0);
+			let y = ctx.pop(), x = ctx.pop();
+			if (0 <= x && x < 80 && 0 <= y && y < 25) {
+				y=0xce00+((y|x<<5)<<2);
+				ctx.push(ctx.mem[y]|ctx.mem[y|1]<<8|ctx.mem[y|2]<<16|ctx.mem[y|3]<<24);
+			} else {
+				ctx.push(0);
+			}
 		}
 		return op.n;
 	}),
 	new Meta(9, 3, 0, (op, ctx) => {
-		let y = ctx.pop(), x = ctx.pop(), z = ctx.pop();
-		if (0 <= x && x < 80 && 0 <= y && y < 25) {
-			y|=x<<5;
-			const proidx = 0xf600 + y;
-			y<<=2;
+		if (op.arg !== null) {
+			let z = ctx.pop();
+			const proidx = 0xf600 + op.arg;
+			const y = op.arg<<2;
 			ctx.mem[0xce00+y]=z;
 			ctx.mem[0xce01+y]=z>>8;
 			ctx.mem[0xce02+y]=z>>16;
@@ -123,6 +128,21 @@ const metas = [
 			if (ctx.mem[proidx]) {
 				ctx.mem.fill(0, 0xf600, 0x10000);
 				return op.arg<<16|ctx.sp;
+			}
+		} else {
+			let y = ctx.pop(), x = ctx.pop(), z = ctx.pop();
+			if (0 <= x && x < 80 && 0 <= y && y < 25) {
+				y|=x<<5;
+				const proidx = 0xf600 + y;
+				y<<=2;
+				ctx.mem[0xce00+y]=z;
+				ctx.mem[0xce01+y]=z>>8;
+				ctx.mem[0xce02+y]=z>>16;
+				ctx.mem[0xce03+y]=z>>24;
+				if (ctx.mem[proidx]) {
+					ctx.mem.fill(0, 0xf600, 0x10000);
+					return op.arg<<16|ctx.sp;
+				}
 			}
 		}
 		return op.n;
