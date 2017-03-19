@@ -459,6 +459,7 @@ function peep(n, code) {
 					} else if (c) {
 						a.depo = b.depo = c.depo = true;
 						n.depi = 7;
+						cst.length = 0;
 					}
 				} else {
 					cst.length = 0;
@@ -904,7 +905,7 @@ function bfCompile(ir, sp, imports) {
 				case 9:
 					if (n.depi) {
 						// TODO bounds checking
-						block.push(0x41, 2, 0x74, 0x21, 1, 0x41, 5, 0x74, 0x72, 0x21, 1, 0x21, 2, 0x20, 2, 0x20, 1, 0x36, 2);
+						block.push(0x41, 2, 0x74, 0x21, 1, 0x41, 7, 0x74, 0x20, 1, 0x72, 0x21, 1, 0x21, 2, 0x20, 1, 0x20, 2, 0x36, 2);
 						varint(block, 0xce00);
 					} else {
 						if (n.arg & 0x1000) {
