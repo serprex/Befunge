@@ -1087,7 +1087,7 @@ exports.runSource = function(board, imp, interp){
 			i=board.indexOf("\n", i)+1;
 			if (!i) {
 				for (y++; y<25; y++)
-					for (x=0; x<80; x++) code[0xce00+((y|x<<5)<<2)] = 32;
+					for (let x=0; x<80; x++) code[0xce00+((y|x<<5)<<2)] = 32;
 				break;
 			}
 		}
