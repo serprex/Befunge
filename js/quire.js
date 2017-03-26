@@ -1,4 +1,11 @@
-"use strict";
+"use strict"
+var require=(function(o){var M={},a=/[^/]+\/\.\.\//,r=function(x,p){
+x=(p||"")+x.replace(/^\.\//,"")
+while(x.match(a))x=x.replace(a,"")
+return(M[x]||o)(x)}
+r.f=function(p,f){var m={},j=p.lastIndexOf("/"),s=~j?p.slice(0,j+1):""
+M[p]=function(){return m.exports||(f(m,m.exports={},function(x){return r(x,s)}),m.exports)}}
+return r})(typeof require!="undefined"&&require);require.f('js/funge',function(module,exports,require){"use strict";
 function varint (v, value) {
 	while (true) {
 		let b = value & 127;
@@ -578,6 +585,7 @@ function bfCompile(ir, sp, imports) {
 	pushString(imp, "r");
 	imp.push(0, 1);
 
+
 	varuint(imp, 0);
 	varuint(imp, 1);
 	pushString(imp, "m");
@@ -1087,3 +1095,4 @@ exports.runSource = function(board, imp, interp){
 	}
 	bfRun(imp, 10112, 0, interp);
 }
+});
