@@ -1018,12 +1018,10 @@ function bfCompile(ir, sp, imports) {
 	blockpile(blocks, ir);
 
 	body.push(0x03, 0x40);
-	for (let i=0; i<blocks.length; i++) {
+	for (let i=0; i<=blocks.length; i++) {
 		body.push(0x02, 0x40);
 	}
-	body.push(0x02, 0x40);
-	body.push(0x20, 1);
-	body.push(0x0e);
+	body.push(0x20, 1, 0x0e);
 	varuint(body, blocks.length - 1);
 	for (let i=0; i<blocks.length; i++) {
 		varuint(body, i);
@@ -1037,10 +1035,7 @@ function bfCompile(ir, sp, imports) {
 		}
 		body.push(0x0b);
 	}
-	body.push(0x0b);
-
-	body.push(0);
-	body.push(0x0b);
+	body.push(0x0b, 0, 0x0b);
 
 	varuint(code, body.length);
 
