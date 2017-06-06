@@ -1,4 +1,4 @@
-#!/bin/node --expose-wasm
+#!/bin/node
 var funge = require("./funge");
 var fs = require("fs");
 function readline() {
