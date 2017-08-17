@@ -140,7 +140,7 @@ int comp(int i){
 				ps[0]=0;
 			case(0)
 				sp=st-1;
-				x=sp[1]<25&&sp[1]>=0?sp[1]<<5:0;
+				x=sp[1]<25&&sp[1]>=0?sp[1]:0;
 				ps[x]=0;
 			case(1)
 				sp=st-1;
@@ -310,7 +310,7 @@ int main(int argc,char**argv){
 			ps[0]=0;
 		case(0)
 			sp=st-1;
-			x=sp[1]<25&&sp[1]>=0?sp[1]<<5:0;
+			x=sp[1]<25&&sp[1]>=0?sp[1]:0;
 			ps[x]=0;
 		case(1)
 			sp=st-1;

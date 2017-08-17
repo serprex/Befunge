@@ -98,7 +98,7 @@
 			pg[0]=FT(7);
 		break;case 0:
 			sp=st-1;
-			x=sp[1]<25&&sp[1]>=0?sp[1]*32:0;
+			x=sp[1]<25&&sp[1]>=0?sp[1]:0;
 			ps[x]=0;
 			pg[x]=FT(7);
 		break;case 1:
