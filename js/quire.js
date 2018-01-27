@@ -1,4 +1,11 @@
-require.f('js/funge',function(module,exports,require){});"use strict";
+require.f('js/funge',function(module,exports,require){});"use strict"
+var require=(function(o){var M={},a=/[^/]+\/\.\.\//,r=function(x,p){
+x=(p||"")+x.replace(/^\.\//,"")
+while(x.match(a))x=x.replace(a,"")
+return(M[x]||o)(x)}
+r.f=function(p,f){var m={},j=p.lastIndexOf("/"),s=~j?p.slice(0,j+1):""
+M[p]=function(){return m.exports||(f(m,m.exports={},function(x){return r(x,s)}),m.exports)}}
+return r})(typeof require!="undefined"&&require);"use strict";
 function varint (v, value) {
 	while (true) {
 		let b = value & 127;
@@ -100,15 +107,15 @@ Tracer.prototype.trace = function(i) {
 	while (true) {
 		i=mv(i);
 		if (i in this.pg){
-			let pgi=this.pg[i];
+			const pgi=this.pg[i];
 			if (inst != pgi){
-				for (let pi of pist) {
+				for (const pi of pist) {
 					this.pg[pi]=pgi;
 				}
 				if (inst == head) {
 					return pgi;
 				}
-				for (let si of inst.si){
+				for (const si of inst.si){
 					si.n=pgi;
 					pgi.si.add(si);
 				}
@@ -243,8 +250,7 @@ Interpreter.prototype.eval = function(op) {
 				break;
 			case 9:
 				if (op.arg & 0x1000) {
-					let z = this.pop();
-					const y = op.arg&0xfff;
+					const z = this.pop(), y = op.arg&0xfff;
 					this.mem32[0x3380+y]=z;
 					if (this.mem[0xf600+y]) return op.arg&0xffff0000|this.sp;
 				} else {
@@ -382,7 +388,7 @@ function peep(n, code) {
 				b = cst.pop();
 				if (a && b) {
 					if (!a.meta.op && !b.meta.op) {
-						let t = a.arg;
+						const t = a.arg;
 						a.arg = b.arg;
 						b.arg = t;
 						n.meta = metanop;
@@ -475,7 +481,7 @@ function peep(n, code) {
 						break;
 					} else if (a.meta.op == 2) {
 						a.meta = metanop;
-						let t = n.n;
+						const t = n.n;
 						n.n = n.arg;
 						n.arg = t;
 						n.depi = a.depi;
@@ -1082,11 +1088,3 @@ exports.runSource = function(board, imp, interp){
 	}
 	bfRun(imp, 10112, 0, interp);
 }
-"use strict"
-var require=(function(o){var M={},a=/[^/]+\/\.\.\//,r=function(x,p){
-x=(p||"")+x.replace(/^\.\//,"")
-while(x.match(a))x=x.replace(a,"")
-return(M[x]||o)(x)}
-r.f=function(p,f){var m={},j=p.lastIndexOf("/"),s=~j?p.slice(0,j+1):""
-M[p]=function(){return m.exports||(f(m,m.exports={},function(x){return r(x,s)}),m.exports)}}
-return r})(typeof require!="undefined"&&require);
