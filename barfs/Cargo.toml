@@ -1,0 +1,9 @@
+[package]
+name = "barfs"
+version = "0.1.0"
+authors = ["serprex"]
+
+[dependencies]
+cranelift = "0.25.0"
+cranelift-module = "0.25.0"
+cranelift-simplejit = "0.25.0"
