@@ -7,3 +7,6 @@ authors = ["serprex"]
 cranelift = "0.25.0"
 cranelift-module = "0.25.0"
 cranelift-simplejit = "0.25.0"
+fnv = "1.0.6"
+rand = "0.6.1"
+

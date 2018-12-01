@@ -1,5 +1,5 @@
 use cfg::{BinOp, Dir, Instr, Op};
-use util::{popu32, pushu32, readu32, writeu32};
+use util::{self, popu32, pushu32, readu32, writeu32};
 
 pub fn eval(
 	cfg: &[Instr],
@@ -52,7 +52,7 @@ pub fn eval(
 				pushu32(stack, sidx, a);
 			}
 			Op::Rch => {
-				pushu32(stack, sidx, b'a' as u32);
+				pushu32(stack, sidx, util::read_char());
 			}
 			Op::Wch => {
 				let a = popu32(stack, sidx);
@@ -62,7 +62,7 @@ pub fn eval(
 				);
 			}
 			Op::Rum => {
-				pushu32(stack, sidx, 0);
+				pushu32(stack, sidx, util::read_int());
 			}
 			Op::Wum => {
 				let a = popu32(stack, sidx);
@@ -78,9 +78,22 @@ pub fn eval(
 				let c = popu32(stack, sidx);
 				let b = popu32(stack, sidx);
 				let a = popu32(stack, sidx);
-				writeu32(code, ((a << 5) | b) as usize, c);
+				let idx = ((a << 5) | b) as usize;
+				writeu32(code, idx, c);
+				if (progbits[idx >> 3] & (1 << idx & 7)) == 0 {
+					return (xy, dir);
+				}
 			}
-			Op::Jr(r0, r1, r2) => {}
+			Op::Jr(r0, r1, r2) => {
+				let r = util::rand_nibble();
+				n = match r {
+					0 => r0,
+					1 => r1,
+					2 => r2,
+					_ => op.n,
+				} as usize;
+				continue;
+			}
 			Op::Jz(rz) => {
 				let a = popu32(stack, sidx);
 				if a == 0 {

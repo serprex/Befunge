@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use fnv::{FnvHashMap, FnvHashSet};
 use util;
 
 #[derive(Copy, Clone, Debug)]
@@ -76,8 +76,8 @@ fn emit(
 	cfg: &mut Vec<Instr>,
 	previnst: &mut usize,
 	ret: &mut usize,
-	pgmap: &mut HashMap<(usize, Dir), usize>,
-	pastspot: &mut HashSet<(usize, Dir)>,
+	pgmap: &mut FnvHashMap<(usize, Dir), usize>,
+	pastspot: &mut FnvHashSet<(usize, Dir)>,
 	inst: Instr,
 ) -> () {
 	let instidx = cfg.len();
@@ -119,7 +119,7 @@ fn mv(xy: usize, dir: Dir) -> usize {
 }
 
 pub fn create_cfg(code: &[u8], xy: usize, dir: Dir) -> (Vec<Instr>, Vec<u8>) {
-	let mut pgmap: HashMap<(usize, Dir), usize> = HashMap::new();
+	let mut pgmap: FnvHashMap<(usize, Dir), usize> = FnvHashMap::default();
 	let mut cfg = vec![];
 	compile(&mut cfg, code, &mut pgmap, xy, dir);
 	let mut pg = vec![0; 320];
@@ -132,13 +132,13 @@ pub fn create_cfg(code: &[u8], xy: usize, dir: Dir) -> (Vec<Instr>, Vec<u8>) {
 fn compile(
 	cfg: &mut Vec<Instr>,
 	code: &[u8],
-	pgmap: &mut HashMap<(usize, Dir), usize>,
+	pgmap: &mut FnvHashMap<(usize, Dir), usize>,
 	mut xy: usize,
 	mut dir: Dir,
 ) -> usize {
 	let mut tail = usize::max_value();
 	let mut head = 0;
-	let mut pastspot: HashSet<(usize, Dir)> = HashSet::new();
+	let mut pastspot: FnvHashSet<(usize, Dir)> = FnvHashSet::default();
 	loop {
 		if !pastspot.insert((xy, dir)) {
 			emit(

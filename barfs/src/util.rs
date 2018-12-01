@@ -1,3 +1,26 @@
+use rand;
+use std::io;
+
+pub fn rand_nibble() -> u8 {
+	rand::random::<u8>() & 3
+}
+
+pub fn read_char() -> u32 {
+	let mut line = String::new();
+	io::stdin()
+		.read_line(&mut line)
+		.expect("Error reading character");
+	line.chars().next().map(|c| c as u32).unwrap_or(0)
+}
+
+pub fn read_int() -> u32 {
+	let mut line = String::new();
+	io::stdin()
+		.read_line(&mut line)
+		.expect("Error reading number");
+	line.trim().parse().unwrap_or(0)
+}
+
 pub fn readu32(data: &[u8], idx: usize) -> u32 {
 	(data[idx] as u32)
 		| (data[idx + 1] as u32) << 8
