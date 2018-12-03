@@ -21,7 +21,7 @@ pub enum Dir {
 
 #[derive(Copy, Clone, Debug)]
 pub enum Op {
-	Ld(u32),
+	Ld(i32),
 	Bin(BinOp),
 	Not,
 	Pop,
@@ -44,7 +44,7 @@ pub enum Op {
 pub struct Instr {
 	pub op: Op,
 	pub n: u32,
-	pub var: Vec<u32>,
+	pub var: Vec<i32>,
 	pub si: Vec<u32>,
 	pub dep: u32,
 	pub sd: bool,
@@ -76,19 +76,21 @@ fn emit(
 	cfg: &mut Vec<Instr>,
 	previnst: &mut usize,
 	ret: &mut usize,
-	pgmap: &mut FnvHashMap<(usize, Dir), usize>,
+	pgmap: &mut FnvHashMap<(usize, Dir), u32>,
 	pastspot: &mut FnvHashSet<(usize, Dir)>,
-	inst: Instr,
+	mut inst: Instr,
 ) -> () {
 	let instidx = cfg.len();
-	cfg.push(inst);
 	if *previnst != usize::max_value() {
 		cfg[*previnst].n = instidx as u32;
+		inst.si_add(*previnst as u32);
+	} else {
 		*ret = instidx;
 	}
+	cfg.push(inst);
 	*previnst = instidx;
 	for &spot in pastspot.iter() {
-		pgmap.insert(spot, instidx);
+		pgmap.insert(spot, instidx as u32);
 	}
 	pastspot.clear();
 }
@@ -100,7 +102,7 @@ fn mv(xy: usize, dir: Dir) -> usize {
 		} else {
 			xy + 32
 		},
-		Dir::N => if (xy & 31) == 0 {
+		Dir::N => if (xy & 31) != 0 {
 			xy - 1
 		} else {
 			xy + 24
@@ -118,21 +120,21 @@ fn mv(xy: usize, dir: Dir) -> usize {
 	}
 }
 
-pub fn create_cfg(code: &[u8], xy: usize, dir: Dir) -> (Vec<Instr>, Vec<u8>) {
-	let mut pgmap: FnvHashMap<(usize, Dir), usize> = FnvHashMap::default();
+pub fn create_cfg(code: &[i32], xy: usize, dir: Dir) -> (Vec<Instr>, Vec<u8>) {
+	let mut pgmap: FnvHashMap<(usize, Dir), u32> = FnvHashMap::default();
 	let mut cfg = vec![];
 	compile(&mut cfg, code, &mut pgmap, xy, dir);
 	let mut pg = vec![0; 320];
 	for &(idx, dir) in pgmap.keys() {
-		pg[idx >> 3] |= 1 << (idx & 7) as u8;
+		pg[idx as usize >> 3] |= 1 << (idx as usize & 7) as u8;
 	}
 	(cfg, pg)
 }
 
 fn compile(
 	cfg: &mut Vec<Instr>,
-	code: &[u8],
-	pgmap: &mut FnvHashMap<(usize, Dir), usize>,
+	code: &[i32],
+	pgmap: &mut FnvHashMap<(usize, Dir), u32>,
 	mut xy: usize,
 	mut dir: Dir,
 ) -> usize {
@@ -151,206 +153,224 @@ fn compile(
 			);
 			return head;
 		}
-		let ch = util::readu32(code, xy);
-		if ch < 127 {
-			match ch as u8 {
-				b'0'...b'9' => emit(
-					cfg,
-					&mut tail,
-					&mut head,
-					pgmap,
-					&mut pastspot,
-					Instr::new(Op::Ld(ch - 48)),
-				),
-				b':' => emit(
-					cfg,
-					&mut tail,
-					&mut head,
-					pgmap,
-					&mut pastspot,
-					Instr::new(Op::Dup),
-				),
-				b'\\' => emit(
-					cfg,
-					&mut tail,
-					&mut head,
-					pgmap,
-					&mut pastspot,
-					Instr::new(Op::Swp),
-				),
-				b'$' => emit(
-					cfg,
-					&mut tail,
-					&mut head,
-					pgmap,
-					&mut pastspot,
-					Instr::new(Op::Pop),
-				),
-				b'g' => emit(
-					cfg,
-					&mut tail,
-					&mut head,
-					pgmap,
-					&mut pastspot,
-					Instr::new(Op::Rem),
-				),
-				b'p' => emit(
-					cfg,
-					&mut tail,
-					&mut head,
-					pgmap,
-					&mut pastspot,
-					Instr::new(Op::Wem(mv(xy, dir), dir)),
-				),
-				b'&' => emit(
-					cfg,
-					&mut tail,
-					&mut head,
-					pgmap,
-					&mut pastspot,
-					Instr::new(Op::Rum),
-				),
-				b'.' => emit(
-					cfg,
-					&mut tail,
-					&mut head,
-					pgmap,
-					&mut pastspot,
-					Instr::new(Op::Wum),
-				),
-				b'~' => emit(
-					cfg,
-					&mut tail,
-					&mut head,
-					pgmap,
-					&mut pastspot,
-					Instr::new(Op::Rch),
-				),
-				b',' => emit(
-					cfg,
-					&mut tail,
-					&mut head,
-					pgmap,
-					&mut pastspot,
-					Instr::new(Op::Wch),
-				),
-				b'+' => emit(
-					cfg,
-					&mut tail,
-					&mut head,
-					pgmap,
-					&mut pastspot,
-					Instr::new(Op::Bin(BinOp::Add)),
-				),
-				b'-' => emit(
-					cfg,
-					&mut tail,
-					&mut head,
-					pgmap,
-					&mut pastspot,
-					Instr::new(Op::Bin(BinOp::Sub)),
-				),
-				b'*' => emit(
-					cfg,
-					&mut tail,
-					&mut head,
-					pgmap,
-					&mut pastspot,
-					Instr::new(Op::Bin(BinOp::Mul)),
-				),
-				b'/' => emit(
-					cfg,
-					&mut tail,
-					&mut head,
-					pgmap,
-					&mut pastspot,
-					Instr::new(Op::Bin(BinOp::Div)),
-				),
-				b'%' => emit(
-					cfg,
-					&mut tail,
-					&mut head,
-					pgmap,
-					&mut pastspot,
-					Instr::new(Op::Bin(BinOp::Mod)),
-				),
-				b'`' => emit(
-					cfg,
-					&mut tail,
-					&mut head,
-					pgmap,
-					&mut pastspot,
-					Instr::new(Op::Bin(BinOp::Cmp)),
-				),
-				b'!' => emit(
-					cfg,
-					&mut tail,
-					&mut head,
-					pgmap,
-					&mut pastspot,
-					Instr::new(Op::Not),
-				),
-				b'>' => dir = Dir::E,
-				b'^' => dir = Dir::N,
-				b'<' => dir = Dir::W,
-				b'v' => dir = Dir::S,
-				b'#' => xy = mv(xy, dir),
-				b'|' => {
-					let d = compile(cfg, code, pgmap, mv(xy, Dir::S), Dir::S);
-					emit(
-						cfg,
-						&mut tail,
-						&mut head,
-						pgmap,
-						&mut pastspot,
-						Instr::new(Op::Jz(d as u32)),
-					);
-					cfg[d].n = tail as u32;
-					dir = Dir::N;
-				}
-				b'_' => {
-					let d = compile(cfg, code, pgmap, mv(xy, Dir::W), Dir::W);
-					emit(
-						cfg,
-						&mut tail,
-						&mut head,
-						pgmap,
-						&mut pastspot,
-						Instr::new(Op::Jz(d as u32)),
-					);
-					cfg[d].n = tail as u32;
-					dir = Dir::E;
-				}
-				b'?' => {
-					let d1 = compile(cfg, code, pgmap, mv(xy, Dir::E), Dir::E);
-					let d2 = compile(cfg, code, pgmap, mv(xy, Dir::N), Dir::N);
-					let d3 = compile(cfg, code, pgmap, mv(xy, Dir::W), Dir::W);
-					emit(
-						cfg,
-						&mut tail,
-						&mut head,
-						pgmap,
-						&mut pastspot,
-						Instr::new(Op::Jr(d1 as u32, d2 as u32, d3 as u32)),
-					);
-					cfg[d1].n = tail as u32;
-					cfg[d2].n = tail as u32;
-					cfg[d3].n = tail as u32;
-					dir = Dir::S;
-				}
-				b'@' => {
-					emit(
-						cfg,
-						&mut tail,
-						&mut head,
-						pgmap,
-						&mut pastspot,
-						Instr::new(Op::Ret),
-					);
-					return head;
-				}
-				_ => (),
+		if let Some(&n) = pgmap.get(&(xy, dir)) {
+			if tail != usize::max_value() {
+				cfg[tail].n = n;
+				cfg[n as usize].si_add(tail as u32);
+			} else {
+				head = n as usize;
 			}
+			tail = n as usize;
+			for &spot in pastspot.iter() {
+				pgmap.insert(spot, n);
+			}
+			return head;
+		}
+		let ch = code[xy];
+		match ch {
+			48...57 => emit(
+				cfg,
+				&mut tail,
+				&mut head,
+				pgmap,
+				&mut pastspot,
+				Instr::new(Op::Ld(ch - 48)),
+			),
+			58 => emit(
+				cfg,
+				&mut tail,
+				&mut head,
+				pgmap,
+				&mut pastspot,
+				Instr::new(Op::Dup),
+			),
+			92 => emit(
+				cfg,
+				&mut tail,
+				&mut head,
+				pgmap,
+				&mut pastspot,
+				Instr::new(Op::Swp),
+			),
+			36 => emit(
+				cfg,
+				&mut tail,
+				&mut head,
+				pgmap,
+				&mut pastspot,
+				Instr::new(Op::Pop),
+			),
+			103 => emit(
+				cfg,
+				&mut tail,
+				&mut head,
+				pgmap,
+				&mut pastspot,
+				Instr::new(Op::Rem),
+			),
+			112 => emit(
+				cfg,
+				&mut tail,
+				&mut head,
+				pgmap,
+				&mut pastspot,
+				Instr::new(Op::Wem(mv(xy, dir), dir)),
+			),
+			38 => emit(
+				cfg,
+				&mut tail,
+				&mut head,
+				pgmap,
+				&mut pastspot,
+				Instr::new(Op::Rum),
+			),
+			46 => emit(
+				cfg,
+				&mut tail,
+				&mut head,
+				pgmap,
+				&mut pastspot,
+				Instr::new(Op::Wum),
+			),
+			126 => emit(
+				cfg,
+				&mut tail,
+				&mut head,
+				pgmap,
+				&mut pastspot,
+				Instr::new(Op::Rch),
+			),
+			44 => emit(
+				cfg,
+				&mut tail,
+				&mut head,
+				pgmap,
+				&mut pastspot,
+				Instr::new(Op::Wch),
+			),
+			43 => emit(
+				cfg,
+				&mut tail,
+				&mut head,
+				pgmap,
+				&mut pastspot,
+				Instr::new(Op::Bin(BinOp::Add)),
+			),
+			45 => emit(
+				cfg,
+				&mut tail,
+				&mut head,
+				pgmap,
+				&mut pastspot,
+				Instr::new(Op::Bin(BinOp::Sub)),
+			),
+			42 => emit(
+				cfg,
+				&mut tail,
+				&mut head,
+				pgmap,
+				&mut pastspot,
+				Instr::new(Op::Bin(BinOp::Mul)),
+			),
+			47 => emit(
+				cfg,
+				&mut tail,
+				&mut head,
+				pgmap,
+				&mut pastspot,
+				Instr::new(Op::Bin(BinOp::Div)),
+			),
+			37 => emit(
+				cfg,
+				&mut tail,
+				&mut head,
+				pgmap,
+				&mut pastspot,
+				Instr::new(Op::Bin(BinOp::Mod)),
+			),
+			96 => emit(
+				cfg,
+				&mut tail,
+				&mut head,
+				pgmap,
+				&mut pastspot,
+				Instr::new(Op::Bin(BinOp::Cmp)),
+			),
+			33 => emit(
+				cfg,
+				&mut tail,
+				&mut head,
+				pgmap,
+				&mut pastspot,
+				Instr::new(Op::Not),
+			),
+			62 => dir = Dir::E,
+			94 => dir = Dir::N,
+			60 => dir = Dir::W,
+			118 => dir = Dir::S,
+			35 => xy = mv(xy, dir),
+			95 | 124 => {
+				let newdir = if ch == 95 {
+					(Dir::E, Dir::W)
+				} else {
+					(Dir::S, Dir::N)
+				};
+				let d = compile(cfg, code, pgmap, mv(xy, newdir.0), newdir.0);
+				emit(
+					cfg,
+					&mut tail,
+					&mut head,
+					pgmap,
+					&mut pastspot,
+					Instr::new(Op::Jz(d as u32)),
+				);
+				cfg[d].si_add(tail as u32);
+				dir = newdir.1;
+			}
+			63 => {
+				let d1 = compile(cfg, code, pgmap, mv(xy, Dir::E), Dir::E);
+				let d2 = compile(cfg, code, pgmap, mv(xy, Dir::N), Dir::N);
+				let d3 = compile(cfg, code, pgmap, mv(xy, Dir::W), Dir::W);
+				emit(
+					cfg,
+					&mut tail,
+					&mut head,
+					pgmap,
+					&mut pastspot,
+					Instr::new(Op::Jr(d1 as u32, d2 as u32, d3 as u32)),
+				);
+				cfg[d1].si_add(tail as u32);
+				cfg[d2].si_add(tail as u32);
+				cfg[d3].si_add(tail as u32);
+				dir = Dir::S;
+			}
+			64 => {
+				emit(
+					cfg,
+					&mut tail,
+					&mut head,
+					pgmap,
+					&mut pastspot,
+					Instr::new(Op::Ret),
+				);
+				return head;
+			}
+			34 => loop {
+				xy = mv(xy, dir);
+				let qch = code[xy];
+				if qch == b'"' as i32 {
+					break;
+				}
+				emit(
+					cfg,
+					&mut tail,
+					&mut head,
+					pgmap,
+					&mut pastspot,
+					Instr::new(Op::Ld(qch)),
+				);
+			},
+			_ => (),
 		}
 		xy = mv(xy, dir);
 	}
