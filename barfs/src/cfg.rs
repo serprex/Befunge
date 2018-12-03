@@ -125,7 +125,7 @@ pub fn create_cfg(code: &[i32], xy: usize, dir: Dir) -> (Vec<Instr>, Vec<u8>) {
 	let mut cfg = vec![];
 	compile(&mut cfg, code, &mut pgmap, xy, dir);
 	let mut pg = vec![0; 320];
-	for &(idx, dir) in pgmap.keys() {
+	for &(idx, _dir) in pgmap.keys() {
 		pg[idx as usize >> 3] |= 1 << (idx as usize & 7) as u8;
 	}
 	(cfg, pg)

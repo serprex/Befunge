@@ -20,11 +20,11 @@ pub fn eval(
 					stack,
 					sidx,
 					match bop {
-						BinOp::Add => a + b,
-						BinOp::Sub => a - b,
-						BinOp::Mul => a * b,
-						BinOp::Div => a / b,
-						BinOp::Mod => a % b,
+						BinOp::Add => a.wrapping_add(b),
+						BinOp::Sub => a.wrapping_sub(b),
+						BinOp::Mul => a.wrapping_mul(b),
+						BinOp::Div => if b == 0 { 0 } else { a / b },
+						BinOp::Mod => if b == 0 { 0 } else { a % b },
 						BinOp::Cmp => if a > b {
 							1
 						} else {
@@ -77,13 +77,13 @@ pub fn eval(
 				push(stack, sidx, c);
 			}
 			Op::Wem(xy, dir) => {
-				let c = pop(stack, sidx);
 				let b = pop(stack, sidx);
 				let a = pop(stack, sidx);
+				let c = pop(stack, sidx);
 				if a >= 0 && a < 80 && b >= 0 && b < 25 {
 					let idx = ((a << 5) | b) as usize;
 					code[idx] = c;
-					if (progbits[idx >> 3] & (1 << (idx & 7))) == 0 {
+					if (progbits[idx >> 3] & (1 << (idx & 7))) != 0 {
 						return (xy, dir);
 					}
 				}

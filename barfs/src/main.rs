@@ -17,7 +17,7 @@ use std::mem::transmute;
 fn main() {
 	let mut code = [0i32; 2560];
 	let mut stack = [0i32; 4096];
-	let mut stackidx: usize = 0;
+	let mut stackidx: usize = usize::max_value();
 	{
 		let fin = File::open(env::args().nth(1).expect("Missing argument for input file"))
 			.expect("Failed to open file");
