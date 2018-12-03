@@ -315,30 +315,32 @@ fn compile(
 				} else {
 					(Dir::S, Dir::N)
 				};
-				let d = compile(cfg, code, pgmap, mv(xy, newdir.0), newdir.0);
 				emit(
 					cfg,
 					&mut tail,
 					&mut head,
 					pgmap,
 					&mut pastspot,
-					Instr::new(Op::Jz(d as u32)),
+					Instr::new(Op::Nop),
 				);
+				let d = compile(cfg, code, pgmap, mv(xy, newdir.0), newdir.0);
+				cfg[tail].op = Op::Jz(d as u32);
 				cfg[d].si_add(tail as u32);
 				dir = newdir.1;
 			}
 			63 => {
-				let d1 = compile(cfg, code, pgmap, mv(xy, Dir::E), Dir::E);
-				let d2 = compile(cfg, code, pgmap, mv(xy, Dir::N), Dir::N);
-				let d3 = compile(cfg, code, pgmap, mv(xy, Dir::W), Dir::W);
 				emit(
 					cfg,
 					&mut tail,
 					&mut head,
 					pgmap,
 					&mut pastspot,
-					Instr::new(Op::Jr(d1 as u32, d2 as u32, d3 as u32)),
+					Instr::new(Op::Nop),
 				);
+				let d1 = compile(cfg, code, pgmap, mv(xy, Dir::E), Dir::E);
+				let d2 = compile(cfg, code, pgmap, mv(xy, Dir::N), Dir::N);
+				let d3 = compile(cfg, code, pgmap, mv(xy, Dir::W), Dir::W);
+				cfg[tail].op = Op::Jr(d1 as u32, d2 as u32, d3 as u32);
 				cfg[d1].si_add(tail as u32);
 				cfg[d2].si_add(tail as u32);
 				cfg[d3].si_add(tail as u32);

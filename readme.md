@@ -8,7 +8,7 @@ It included such microoptimizations as postprocessing the assembly of GCC since 
 A month later I optimized indexing by having one dimension be a power of 2. The choices are 128x25 vs 80x32. The latter is much smaller, but somewhat unintuitive as it the memory layout puts vertical text side by side. I also observed that if I duplicated the VM 4 times I could reduce the instruction dispatch to not have to check direction. Changing direction works by changing VMs.
 
 #### Intermission
-During this time I moved out, read Fountainhead & Atlas Shrugged, & began college
+During this time I moved out, read _Fountainhead_ & _Atlas Shrugged_, & began college
 
 ### bejit
 Come December I made a first jab at bejit. It was a sea of malloc without any peepholing, & it outraced marsh with ease. Soon after I started on an optimizer which would iterate the entire 10240 loop cache cells when replacing a node. There were so many bugs. By February I gave up, rewrote it to use bytecode without optimizations, found performance comparable to marsh. Optimizations fixed that, & I moved on
