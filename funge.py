@@ -55,8 +55,9 @@ def main(pro):
 	tuple2 = mkemit("BUILD_TUPLE")(2)
 	giter = mkemit("GET_ITER")
 	fiter = mkemit("FOR_ITER")
+	list0 = mkemit("BUILD_LIST")(0)
 	lappend1 = mkemit("LIST_APPEND")(1)
-	blist1 = mkemit("BUILD_LIST_UNPACK")(1)
+	lextend1 = mkemit("LIST_EXTEND")(1)
 	_not = mkemit("UNARY_NOT")
 	_neg = mkemit("UNARY_NEGATIVE")
 	_pos = mkemit("UNARY_POSITIVE")
@@ -117,8 +118,8 @@ def main(pro):
 			self.dep = 0
 			self.si = set()
 		def __str__(self, blut={add:"+", subtract:"-", multiply:"*", floordivide:"/", modulo:"%", cmpgt:">", lshift:"<<", rshift:">>", band:"&"}):
-			return f"{self.name}\t{blut[self.arg] if self.op is 1 else self.arg}\t{self.var}"
-		def isseq(self):return len(self.si) is not 1
+			return f"{self.name}\t{blut[self.arg] if self.op == 1 else self.arg}\t{self.var}"
+		def isseq(self):return len(self.si) != 1
 		def sguard(self, bc, x):
 			dep=self.dep
 			if not dep:
@@ -141,7 +142,7 @@ def main(pro):
 				sn.si.add(s)
 				if s.n is self:s.n=sn
 				if s.arg is self:s.arg=sn
-				elif s.op is 12:
+				elif s.op == 12:
 					if s.arg[0] is self:s.arg[0]=sn
 					if s.arg[1] is self:s.arg[1]=sn
 					if s.arg[2] is self:s.arg[2]=sn
@@ -304,7 +305,9 @@ def main(pro):
 		nonlocal ret11pos
 		if ret11pos is None:
 			ret11pos = len(bc)
-			bc += blist1
+			bc += list0
+			bc += swap
+			bc += lextend1
 			bc += swap
 			bc += loadmkconst(repeat)
 			bc += swap
@@ -325,7 +328,7 @@ def main(pro):
 	@mkin(11, 3, 0, "wem")
 	class Op11(Inst):
 		__slots__ = ()
-		def isseq(self):return len(ir.si) is not 1 or self.var[0] is None or self.var[1] is None or (self.var[1],self.var[0]) in pro
+		def isseq(self):return len(ir.si) != 1 or self.var[0] is None or self.var[1] is None or (self.var[1],self.var[0]) in pro
 		def emit(self, bc):
 			a,b,c=self.var
 			if a is b is None:
@@ -368,7 +371,7 @@ def main(pro):
 			elif a is not None and b is not None:
 				a=b,a
 				if c is not None:bc += loadmkconst(c)
-				elif a in pro or len(ir.si) is not 1:
+				elif a in pro or len(ir.si) != 1:
 					self.sguard(bc, False)
 					bc += loadmkconst(1)
 					bc += subtract
@@ -439,24 +442,24 @@ def main(pro):
 			j3 = len(bc)+1
 			bc += jumpif0
 			self.arg.sort(key=lambda x:x.sd is not True)
-			if self.arg[0].sd is not True and bc[self.arg[0].sd-2] is 1:
+			if self.arg[0].sd is not True and bc[self.arg[0].sd-2] == 1:
 				bc += jumpabs(self.arg[0].sd-2)
 			else:
 				bc += pop
 				compile2(self.arg[0], bc)
-			if self.arg[1].sd is not True and bc[self.arg[1].sd-2] is 1:
+			if self.arg[1].sd is not True and bc[self.arg[1].sd-2] == 1:
 				bc[j1+2],bc[j1]=(self.arg[1].sd-2).to_bytes(2,"little")
 			else:
 				bc[j1+2],bc[j1]=len(bc).to_bytes(2,"little")
 				bc += pop
 				compile2(self.arg[1], bc)
-			if self.arg[2].sd is not True and bc[self.arg[2].sd-2] is 1:
+			if self.arg[2].sd is not True and bc[self.arg[2].sd-2] == 1:
 				bc[j2+2],bc[j2]=(self.arg[2].sd-2).to_bytes(2,"little")
 			else:
 				bc[j2+2],bc[j2]=len(bc).to_bytes(2,"little")
 				bc += pop
 				compile2(self.arg[2], bc)
-			if self.n.sd is not True and bc[self.n.sd-2] is 1:
+			if self.n.sd is not True and bc[self.n.sd-2] == 1:
 				bc[j3+2],bc[j3]=(self.n.sd-2).to_bytes(2,"little")
 				return ...
 			else:
@@ -464,7 +467,7 @@ def main(pro):
 				bc += pop
 		def eval(self, st):
 			st=getrandbits(2)
-			return self.n if st is 3 else self.arg[st]
+			return self.n if st == 3 else self.arg[st]
 	@mkin(13, 1, 0, "jz")
 	class Op13(Inst):
 		__slots__ = ()
@@ -540,24 +543,24 @@ def main(pro):
 			elif i2 in ops:
 				i2=ops[i2]
 				if i2>8:
-					if i2 is 11:i=mv(*i)
-					elif i2 is 9:
+					if i2 == 11:i=mv(*i)
+					elif i2 == 9:
 						while True:
 							i=mv(*i)
 							pro.add(i)
 							i2=ps[i]
-							if i2 is 34:break
+							if i2 == 34:break
 							emit(Op0, i2)
-					elif i2 is 10:
+					elif i2 == 10:
 						node14 = emit(Op14)
 						node14.n = None
 						node14.sd = True
 						return head
 				elif i2<4:
 					if i2<2:emit(Op6, i2)
-					else:emit(Op8, (intput if i2 is 3 else getch))
+					else:emit(Op8, (intput if i2 == 3 else getch))
 				elif i2>6:
-					if i2 is 7:
+					if i2 == 7:
 						i2=mvJ
 						mv=mvK
 					else:
@@ -565,8 +568,8 @@ def main(pro):
 						mv=mvH
 					i2=emit(Op13, compile(i,i2))
 					i2.arg.si.add(i2)
-				elif i2 is 5:emit(Op11, imv)
-				elif i2 is 6:
+				elif i2 == 5:emit(Op11, imv)
+				elif i2 == 6:
 					i2=emit(Op12, [compile(i,mvL), compile(i,mvK), compile(i,mvH)])
 					for mv in i2.arg:mv.si.add(i2)
 					mv=mvJ
@@ -574,7 +577,7 @@ def main(pro):
 		if not cst:return
 		ir=lir.n
 		if ir.sd:return
-		while ir.op is 16:
+		while ir.op == 16:
 			if lir is ir:return
 			ir.si.remove(lir)
 			ir=lir.n=ir.n
@@ -583,7 +586,7 @@ def main(pro):
 			ir.dep=len(cst)
 			return
 		op=ir.op
-		if op is 13:
+		if op == 13:
 			if cst[-1] is not None:
 				c0=cst.pop()
 				c0.__class__=Op16
@@ -596,27 +599,27 @@ def main(pro):
 					ir.n.si.remove(ir)
 					ir.arg.si.remove(ir)
 				return calcvar(lir, cst)
-			elif len(ir.si) is 1:
+			elif len(ir.si) == 1:
 				ir.dep=len(cst)
-				if lir.op is 2:
+				if lir.op == 2:
 					lir.__class__=Op16
 					lir.var=()
 					ir.dep=len(cst)
 					ir.n,ir.arg=ir.arg,ir.n
 			return
-		elif op is 4:
+		elif op == 4:
 			if ir.n.op in (3,5):
 				a=ir.n.op
 				ir.n.si.remove(ir)
 				ir.n=ir.n.n
 				ir.n.si.add(ir)
-				if a is 3:
+				if a == 3:
 					ir.remove()
 					return calcvar(lir, cst)
 			else:
 				b=cst[-1]
 				if b is not None:
-					if len(ir.si) is 1:
+					if len(ir.si) == 1:
 						ir.__class__=Op0
 						ir.arg=b.arg
 						ir.var=()
@@ -627,9 +630,9 @@ def main(pro):
 						ir.si.add(lir)
 						ir.n=a
 						return a.si.add(ir)
-				elif len(ir.si) is 1:ir.dep=len(cst)
+				elif len(ir.si) == 1:ir.dep=len(cst)
 				return
-		elif op is 5 and cst[-1] is not None and len(cst)>1 and cst[-2] is not None:
+		elif op == 5 and cst[-1] is not None and len(cst)>1 and cst[-2] is not None:
 			cst[-1].arg,cst[-2].arg=cst[-2].arg,cst[-1].arg
 			lir.n=ir.n
 			if lir.n is ir:return
@@ -637,7 +640,7 @@ def main(pro):
 			ir.si.remove(lir)
 			if not ir.si:ir.n.si.remove(ir)
 			return calcvar(lir, cst)
-		if len(ir.si) is not 1:
+		if len(ir.si) != 1:
 			if any(cst[-ir.siop:]):
 				ir.si.remove(lir)
 				if not ir.si:ir.n.si.remove(ir)
@@ -668,7 +671,7 @@ def main(pro):
 			ir.var=(*calcvarhelper(),)
 			ir.dep=len(cst)
 			if op<5:
-				if op is 1:
+				if op == 1:
 					a,b = ir.var
 					c = ir.arg
 					if a is not None:
@@ -708,7 +711,7 @@ def main(pro):
 								ir.var = a.bit_length()-1, None
 								ir.arg = lshift
 				elif None not in ir.var:
-					if op is 4:
+					if op == 4:
 						c,=ir.var
 						ir.__class__=Op0
 						ir.arg=c
@@ -719,10 +722,10 @@ def main(pro):
 						b.n=a
 						a.si.remove(ir)
 						return a.si.add(b)
-					elif op is 3:
+					elif op == 3:
 						ir.remove()
 						return calcvar(lir, cst)
-					elif op is 2:
+					elif op == 2:
 						ir.__class__=Op0
 						a,=ir.var
 						a=ir.arg=not a
@@ -730,8 +733,8 @@ def main(pro):
 	def nohole(ir):
 		while not ir.sd:
 			ir.sd=True
-			if ir.op is 13:nohole(ir.arg)
-			elif ir.op is 12:
+			if ir.op == 13:nohole(ir.arg)
+			elif ir.op == 12:
 				for a in ir.arg:nohole(a)
 			ir=ir.n
 	def peephole(ir):
@@ -741,10 +744,10 @@ def main(pro):
 				if ir.sd:return
 				op=ir.op
 				if not op:
-					if len(ir.si) is not 1:cst.clear()
+					if len(ir.si) != 1:cst.clear()
 					cst.append(ir)
 					break
-				elif op is 13:
+				elif op == 13:
 					if ir.n is ir.arg:
 						op=3
 						ir.__class__=Op3
@@ -755,13 +758,13 @@ def main(pro):
 						ir=ir.n
 						cst.clear()
 						continue
-				elif op is 12:
+				elif op == 12:
 					ir.sd=True
 					for a in ir.arg:peephole(a)
 					ir=ir.n
 					cst.clear()
 					continue
-				elif op is 11:
+				elif op == 11:
 					a,b,c=ir.var
 					if a is not None and b is not None:
 						if (b,a) in pro:
@@ -780,7 +783,7 @@ def main(pro):
 					ir.sd=True
 					ir=ir.n
 					continue
-				if len(ir.si) is not 1:
+				if len(ir.si) != 1:
 					ir.dep=0
 					cst.clear()
 					cst += repeat(None, ir.so)
@@ -821,8 +824,8 @@ def main(pro):
 			seq = ir.isseq()
 			if seq or dep>2 or odep<siop or ir.dep<siop:
 				dep=ir.so
-				if odep is 1:bc += swap
-				elif odep is 2:bc += rot3_2
+				if odep == 1:bc += swap
+				elif odep == 2:bc += rot3_2
 				if not seq and ir.dep>=siop:
 					adj+=siop-odep
 				else:
@@ -836,13 +839,13 @@ def main(pro):
 						adj=siop
 				ir.sd=len(bc)
 				if siop and not seq:
-					ir.sguard(bc, siop is 2)
-					if siop is 1:bc += swap
+					ir.sguard(bc, siop == 2)
+					if siop == 1:bc += swap
 					else:bc += rot3
 			if ir.emit(bc) is ...:return
 			ir=ir.n
-		if dep is 1:bc += swap
-		elif dep is 2:bc += rot3_2
+		if dep == 1:bc += swap
+		elif dep == 2:bc += rot3_2
 		if dep != adj:
 			bc += loadmkconst(dep-adj)
 			bc += add
@@ -856,7 +859,7 @@ def main(pro):
 		ir.si.add(root)
 		peephole(ir)
 		compile2pre(ir, bc)
-		f=eval(CodeType(0,0,0,65536,0,bytes(bc),tuple(constl),(),(),"","",0,b""))
+		f=eval(CodeType(0,0,0,0,65536,0,bytes(bc),tuple(constl),(),(),"","",0,b""))
 		if not f:return
 		f=iter(f)
 		ret11pos = None
