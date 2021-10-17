@@ -1,5 +1,5 @@
 use crate::cfg::{BinOp, Dir, Instr, Op};
-use crate::util::{self, pop, push};
+use crate::util::{self, pop, print_stack, push};
 
 pub fn eval(
 	cfg: &[Instr],
@@ -7,10 +7,14 @@ pub fn eval(
 	code: &mut [i32],
 	stack: &mut [i32],
 	sidx: &mut isize,
-) -> (usize, Dir) {
+) -> Option<(usize, Dir)> {
 	let mut n = 0;
 	loop {
 		let op = &cfg[n];
+		if true {
+			print_stack(stack.as_ptr(), *sidx);
+			println!("{:?}", op);
+		}
 		match op.op {
 			Op::Ld(val) => push(stack, sidx, val),
 			Op::Bin(bop) => {
@@ -23,19 +27,27 @@ pub fn eval(
 						BinOp::Add => a.wrapping_add(b),
 						BinOp::Sub => a.wrapping_sub(b),
 						BinOp::Mul => a.wrapping_mul(b),
-						BinOp::Div => if b == 0 { 0 } else { a / b },
-						BinOp::Mod => if b == 0 { 0 } else { a % b },
-						BinOp::Cmp => if a > b {
-							1
-						} else {
-							0
-						},
+						BinOp::Div => {
+							if b == 0 {
+								0
+							} else {
+								a / b
+							}
+						}
+						BinOp::Mod => {
+							if b == 0 {
+								0
+							} else {
+								a % b
+							}
+						}
+						BinOp::Cmp => (a > b) as i32,
 					},
 				);
 			}
 			Op::Not => {
 				let a = pop(stack, sidx);
-				push(stack, sidx, if a == 0 { 1 } else { 0 });
+				push(stack, sidx, (a == 0) as i32);
 			}
 			Op::Pop => {
 				pop(stack, sidx);
@@ -58,7 +70,7 @@ pub fn eval(
 				let a = pop(stack, sidx);
 				print!(
 					"{}",
-					std::char::from_u32(unsafe { std::mem::transmute(a) })
+					std::char::from_u32(a as u32)
 						.unwrap_or(std::char::REPLACEMENT_CHARACTER)
 				);
 			}
@@ -84,7 +96,7 @@ pub fn eval(
 					let idx = ((a << 5) | b) as usize;
 					code[idx] = c;
 					if (progbits[idx >> 3] & (1 << (idx & 7))) != 0 {
-						return (xy, dir);
+						return Some((xy, dir));
 					}
 				}
 			}
@@ -106,7 +118,7 @@ pub fn eval(
 				}
 			}
 			Op::Ret => {
-				return (usize::max_value(), Dir::E);
+				return None;
 			}
 			Op::Hcf => loop {},
 			Op::Nop => (),

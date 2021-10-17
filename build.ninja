@@ -7,4 +7,3 @@ rule mkcjs
 build marsh:cc marsh.c | marsh.h
 build bejit:cc bejit.c
 build bejit-elvm:cpp bejit-elvm.cc
-build js/quire.js:mkcjs js/funge.js

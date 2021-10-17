@@ -6,7 +6,6 @@ mod util;
 use std::env;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::mem::transmute;
 
 fn main() {
 	let mut code = [0i32; 2560];
@@ -24,7 +23,7 @@ fn main() {
 		for (y, line) in reader.lines().take(25).enumerate() {
 			if let Ok(line) = line {
 				for (x, ch) in line.chars().take(80).take_while(|&c| c != '\n').enumerate() {
-					code[x << 5 | y] = unsafe { transmute(ch as u32) };
+					code[x << 5 | y] = ch as u32 as i32;
 				}
 			}
 		}
@@ -34,15 +33,19 @@ fn main() {
 	let mut dir = cfg::Dir::E;
 	loop {
 		let (cfg, progbits) = cfg::create_cfg(&code, xy, dir);
-		for (idx, node) in cfg.iter().enumerate() {
-			println!("{} {:?}", idx, node);
+		if false {
+			for (idx, node) in cfg.iter().enumerate() {
+				println!("{} {:?}", idx, node);
+			}
 		}
-		let ret = if false {
+		if let Some((newxy, newdir)) = if false {
 			evalcfg::eval(&cfg, &progbits, &mut code, &mut stack, &mut stackidx)
 		} else {
 			match jit::execute(&cfg, &progbits, &mut code, &mut stack, &mut stackidx) {
 				Ok(res) => {
-					println!("{:?} {}", res, stackidx);
+					if false {
+						println!("{:?} {}", res, stackidx);
+					}
 					res
 				}
 				Err(err) => {
@@ -50,11 +53,11 @@ fn main() {
 					break;
 				}
 			}
-		};
-		if ret.0 == usize::max_value() {
+		} { 
+			xy = newxy;
+			dir = newdir;
+		} else {
 			break;
 		}
-		xy = ret.0;
-		dir = ret.1;
 	}
 }

@@ -72,10 +72,6 @@ impl Instr {
 			self.block = true;
 		}
 	}
-
-	pub fn si_has(&self, n: u32) -> bool {
-		self.si.contains(&n)
-	}
 }
 
 fn emit(
@@ -108,26 +104,34 @@ fn emit(
 
 fn mv(xy: usize, dir: Dir) -> usize {
 	match dir {
-		Dir::E => if xy >= 2528 {
-			xy - 2528
-		} else {
-			xy + 32
-		},
-		Dir::N => if (xy & 31) != 0 {
-			xy - 1
-		} else {
-			xy + 24
-		},
-		Dir::W => if xy < 32 {
-			xy + 2528
-		} else {
-			xy - 32
-		},
-		Dir::S => if (xy + 1 & 31) < 25 {
-			xy + 1
-		} else {
-			xy - 24
-		},
+		Dir::E => {
+			if xy >= 2528 {
+				xy - 2528
+			} else {
+				xy + 32
+			}
+		}
+		Dir::N => {
+			if (xy & 31) != 0 {
+				xy - 1
+			} else {
+				xy + 24
+			}
+		}
+		Dir::W => {
+			if xy < 32 {
+				xy + 2528
+			} else {
+				xy - 32
+			}
+		}
+		Dir::S => {
+			if (xy + 1 & 31) < 25 {
+				xy + 1
+			} else {
+				xy - 24
+			}
+		}
 	}
 }
 
