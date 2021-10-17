@@ -25,17 +25,21 @@ pub fn read_int() -> i32 {
 	line.trim().parse().unwrap_or(0)
 }
 
-pub fn pop(data: &mut [i32], stackidx: &mut usize) -> i32 {
-	if *stackidx != usize::max_value() {
-		let v = data[*stackidx];
+pub fn putnum(n: i32) {
+	print!("{} ", n);
+}
+
+pub fn pop(data: &mut [i32], stackidx: &mut isize) -> i32 {
+	if *stackidx < 0 {
+		0
+	} else {
+		let v = data[*stackidx as usize];
 		*stackidx = stackidx.wrapping_sub(1);
 		v
-	} else {
-		0
 	}
 }
 
-pub fn push(data: &mut [i32], stackidx: &mut usize, v: i32) -> () {
+pub fn push(data: &mut [i32], stackidx: &mut isize, v: i32) -> () {
 	*stackidx = stackidx.wrapping_add(1);
-	data[*stackidx] = v;
+	data[*stackidx as usize] = v;
 }

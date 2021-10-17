@@ -1,9 +1,3 @@
-extern crate cranelift;
-extern crate cranelift_module;
-extern crate cranelift_simplejit;
-extern crate fnv;
-extern crate rand;
-
 mod cfg;
 mod evalcfg;
 mod jit;
@@ -11,19 +5,19 @@ mod util;
 
 use std::env;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufRead, BufReader};
 use std::mem::transmute;
 
 fn main() {
 	let mut code = [0i32; 2560];
 	let mut stack = [0i32; 4096];
-	let mut stackidx: usize = usize::max_value();
+	let mut stackidx: isize = -1;
 	{
 		let fin = File::open(env::args().nth(1).expect("Missing argument for input file"))
 			.expect("Failed to open file");
 		let reader = BufReader::new(fin);
-		for x in 0..79usize {
-			for y in 0..24usize {
+		for x in 0..80usize {
+			for y in 0..25usize {
 				code[x << 5 | y] = 32;
 			}
 		}
@@ -43,17 +37,16 @@ fn main() {
 		for (idx, node) in cfg.iter().enumerate() {
 			println!("{} {:?}", idx, node);
 		}
-		let ret = if true {
+		let ret = if false {
 			evalcfg::eval(&cfg, &progbits, &mut code, &mut stack, &mut stackidx)
 		} else {
-			let mut jit = jit::Jit::new();
-			match jit.compile(&cfg, &progbits, &mut code, &mut stack, &mut stackidx) {
+			match jit::execute(&cfg, &progbits, &mut code, &mut stack, &mut stackidx) {
 				Ok(res) => {
 					println!("{:?} {}", res, stackidx);
 					res
 				}
 				Err(err) => {
-					print!("{}", err);
+					println!("{}", err);
 					break;
 				}
 			}

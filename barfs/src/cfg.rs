@@ -1,5 +1,4 @@
-use fnv::{FnvHashMap, FnvHashSet};
-use util;
+use fxhash::{FxHashMap, FxHashSet};
 
 #[derive(Copy, Clone, Debug)]
 pub enum BinOp {
@@ -48,6 +47,7 @@ pub struct Instr {
 	pub si: Vec<u32>,
 	pub dep: u32,
 	pub sd: bool,
+	pub block: bool,
 }
 
 impl Instr {
@@ -59,11 +59,17 @@ impl Instr {
 			si: Vec::new(),
 			dep: 0,
 			sd: false,
+			block: false,
 		}
 	}
-	pub fn si_add(&mut self, n: u32) -> () {
+
+	pub fn si_add(&mut self, n: u32, force_block: bool) -> () {
 		if !self.si.contains(&n) {
 			self.si.push(n);
+		}
+
+		if force_block || self.si.len() > 1 {
+			self.block = true;
 		}
 	}
 
@@ -76,14 +82,19 @@ fn emit(
 	cfg: &mut Vec<Instr>,
 	previnst: &mut usize,
 	ret: &mut usize,
-	pgmap: &mut FnvHashMap<(usize, Dir), u32>,
-	pastspot: &mut FnvHashSet<(usize, Dir)>,
+	pgmap: &mut FxHashMap<(usize, Dir), u32>,
+	pastspot: &mut FxHashSet<(usize, Dir)>,
 	mut inst: Instr,
 ) -> () {
 	let instidx = cfg.len();
 	if *previnst != usize::max_value() {
+		let mut prevop = &mut cfg[*previnst];
+		prevop.n = instidx as u32;
+		if matches!(prevop.op, Op::Jz(_) | Op::Jr(..)) {
+			inst.block = true;
+		}
 		cfg[*previnst].n = instidx as u32;
-		inst.si_add(*previnst as u32);
+		inst.si_add(*previnst as u32, false);
 	} else {
 		*ret = instidx;
 	}
@@ -121,7 +132,7 @@ fn mv(xy: usize, dir: Dir) -> usize {
 }
 
 pub fn create_cfg(code: &[i32], xy: usize, dir: Dir) -> (Vec<Instr>, Vec<u8>) {
-	let mut pgmap: FnvHashMap<(usize, Dir), u32> = FnvHashMap::default();
+	let mut pgmap: FxHashMap<(usize, Dir), u32> = FxHashMap::default();
 	let mut cfg = vec![];
 	compile(&mut cfg, code, &mut pgmap, xy, dir);
 	let mut pg = vec![0; 320];
@@ -134,13 +145,13 @@ pub fn create_cfg(code: &[i32], xy: usize, dir: Dir) -> (Vec<Instr>, Vec<u8>) {
 fn compile(
 	cfg: &mut Vec<Instr>,
 	code: &[i32],
-	pgmap: &mut FnvHashMap<(usize, Dir), u32>,
+	pgmap: &mut FxHashMap<(usize, Dir), u32>,
 	mut xy: usize,
 	mut dir: Dir,
 ) -> usize {
 	let mut tail = usize::max_value();
 	let mut head = 0;
-	let mut pastspot: FnvHashSet<(usize, Dir)> = FnvHashSet::default();
+	let mut pastspot: FxHashSet<(usize, Dir)> = FxHashSet::default();
 	loop {
 		if !pastspot.insert((xy, dir)) {
 			emit(
@@ -156,11 +167,10 @@ fn compile(
 		if let Some(&n) = pgmap.get(&(xy, dir)) {
 			if tail != usize::max_value() {
 				cfg[tail].n = n;
-				cfg[n as usize].si_add(tail as u32);
+				cfg[n as usize].si_add(tail as u32, false);
 			} else {
 				head = n as usize;
 			}
-			tail = n as usize;
 			for &spot in pastspot.iter() {
 				pgmap.insert(spot, n);
 			}
@@ -168,7 +178,7 @@ fn compile(
 		}
 		let ch = code[xy];
 		match ch {
-			48...57 => emit(
+			48..=57 => emit(
 				cfg,
 				&mut tail,
 				&mut head,
@@ -325,7 +335,7 @@ fn compile(
 				);
 				let d = compile(cfg, code, pgmap, mv(xy, newdir.0), newdir.0);
 				cfg[tail].op = Op::Jz(d as u32);
-				cfg[d].si_add(tail as u32);
+				cfg[d].si_add(tail as u32, true);
 				dir = newdir.1;
 			}
 			63 => {
@@ -341,9 +351,9 @@ fn compile(
 				let d2 = compile(cfg, code, pgmap, mv(xy, Dir::N), Dir::N);
 				let d3 = compile(cfg, code, pgmap, mv(xy, Dir::W), Dir::W);
 				cfg[tail].op = Op::Jr(d1 as u32, d2 as u32, d3 as u32);
-				cfg[d1].si_add(tail as u32);
-				cfg[d2].si_add(tail as u32);
-				cfg[d3].si_add(tail as u32);
+				cfg[d1].si_add(tail as u32, true);
+				cfg[d2].si_add(tail as u32, true);
+				cfg[d3].si_add(tail as u32, true);
 				dir = Dir::S;
 			}
 			64 => {

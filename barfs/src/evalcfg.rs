@@ -1,12 +1,12 @@
-use cfg::{BinOp, Dir, Instr, Op};
-use util::{self, pop, push};
+use crate::cfg::{BinOp, Dir, Instr, Op};
+use crate::util::{self, pop, push};
 
 pub fn eval(
 	cfg: &[Instr],
 	progbits: &[u8],
 	code: &mut [i32],
 	stack: &mut [i32],
-	sidx: &mut usize,
+	sidx: &mut isize,
 ) -> (usize, Dir) {
 	let mut n = 0;
 	loop {
@@ -67,7 +67,7 @@ pub fn eval(
 			}
 			Op::Wum => {
 				let a = pop(stack, sidx);
-				print!("{}", a);
+				print!("{} ", a);
 			}
 			Op::Rem => {
 				let b = pop(stack, sidx);

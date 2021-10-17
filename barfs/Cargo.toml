@@ -2,11 +2,14 @@
 name = "barfs"
 version = "0.1.0"
 authors = ["serprex"]
+edition = "2018"
 
 [dependencies]
-cranelift = "0.25.0"
-cranelift-module = "0.25.0"
-cranelift-simplejit = "0.25.0"
-fnv = "1.0.6"
-rand = "0.6.1"
+cranelift = "0.77"
+cranelift-codegen = "0.77"
+cranelift-jit = "0.77"
+cranelift-module = "0.77"
+cranelift-native = "0.77"
+fxhash = "0.2"
+rand = "0.8"
 

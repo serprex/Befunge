@@ -258,13 +258,13 @@ def main(pro):
 				bc += swap
 			else:
 				bc += loadmkconst(sowrite)
-				bc += loadmkconst(f'{a:c}' if self.arg else f'{+a!r}'+' ')
+				bc += loadmkconst(f'{a:c}' if self.arg else f'{+a!r} ')
 			bc += call1
 			bc += pop
 		def eval(self, st):
 			a, = self.var
 			a = a if a is not None else st.pop() if st else 0
-			sowrite(f'{a:c}' if self.arg else f'{+a!r}'+' ')
+			sowrite(f'{a:c}' if self.arg else f'{+a!r} ')
 			return self.n
 	@mkin(8, 0, 1, "get")
 	class Op8(Inst):
