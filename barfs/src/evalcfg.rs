@@ -11,7 +11,7 @@ pub fn eval(
 	let mut n = 0;
 	loop {
 		let op = &cfg[n];
-		if true {
+		if false {
 			print_stack(stack.as_ptr(), *sidx);
 			println!("{:?}", op);
 		}
