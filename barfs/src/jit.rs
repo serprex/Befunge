@@ -101,30 +101,38 @@ pub fn execute(
 			builder.def_var(vsidx, newstidx);
 		};
 
-		let clpop = |builder: &mut FunctionBuilder| {
+		let clpop = |builder: &mut FunctionBuilder, dep: isize| {
 			let bbpop = builder.create_block();
 			let zbb = builder.create_block();
 			let bb = builder.create_block();
 			builder.append_block_param(bb, I32);
 
 			let stidx = builder.use_var(vsidx);
-			let zerocc = builder.ins().iconst(tptr, 0);
-			builder
-				.ins()
-				.br_icmp(IntCC::SignedLessThan, stidx, zerocc, zbb, &[]);
-			builder.ins().jump(bbpop, &[]);
-			builder.switch_to_block(bbpop);
-			let newstidx = builder.ins().iadd_imm(stidx, -4);
-			let vstack = builder.ins().iconst(tptr, stack.as_ptr() as i64);
-			let slotptr = builder.ins().iadd(vstack, newstidx);
-			builder.def_var(vsidx, newstidx);
-			let loadres = builder.ins().load(I32, aligned, slotptr, 4);
-			builder.ins().jump(bb, &[loadres]);
-			builder.switch_to_block(zbb);
-			let zero = builder.ins().iconst(I32, 0);
-			builder.ins().jump(bb, &[zero]);
-			builder.switch_to_block(bb);
-			builder.block_params(bb)[0]
+			if dep == 0 {
+				let zerocc = builder.ins().iconst(tptr, 0);
+				builder
+					.ins()
+					.br_icmp(IntCC::SignedLessThan, stidx, zerocc, zbb, &[]);
+				builder.ins().jump(bbpop, &[]);
+				builder.switch_to_block(bbpop);
+				let newstidx = builder.ins().iadd_imm(stidx, -4);
+				let vstack = builder.ins().iconst(tptr, stack.as_ptr() as i64);
+				let slotptr = builder.ins().iadd(vstack, newstidx);
+				builder.def_var(vsidx, newstidx);
+				let loadres = builder.ins().load(I32, aligned, slotptr, 4);
+				builder.ins().jump(bb, &[loadres]);
+				builder.switch_to_block(zbb);
+				let zero = builder.ins().iconst(I32, 0);
+				builder.ins().jump(bb, &[zero]);
+				builder.switch_to_block(bb);
+				builder.block_params(bb)[0]
+			} else {
+				let newstidx = builder.ins().iadd_imm(stidx, -4);
+				let vstack = builder.ins().iconst(tptr, stack.as_ptr() as i64);
+				let slotptr = builder.ins().iadd(vstack, newstidx);
+				builder.def_var(vsidx, newstidx);
+				builder.ins().load(I32, aligned, slotptr, 4)
+			}
 		};
 
 		let mut compstack = vec![0u32];
@@ -138,14 +146,16 @@ pub fn execute(
 				})
 				.sum(),
 		);
+		let mut dep = *stackidx;
 		while let Some(n) = compstack.pop() {
 			let op = &cfg[n as usize];
 
 			macro_rules! push {
 				($num:expr, $val:expr) => {
 					if (op.depo & 1 << $num) != 0 {
-						valmap.insert((n, $num), $val);
+						valmap.insert(n << 2 | $num, $val);
 					} else {
+						dep += 1;
 						clpush(&mut builder, $val);
 					}
 				};
@@ -156,13 +166,18 @@ pub fn execute(
 					if let Some(&val) = op.depi.get($idx).and_then(|depi| valmap.get(depi)) {
 						val
 					} else {
-						clpop(&mut builder)
+						let val = clpop(&mut builder, dep);
+						if dep > 0 {
+							dep -= 1;
+						}
+						val
 					}
 				};
 			}
 
 			if op.block {
 				if op.si.len() > 1 {
+					dep = 0;
 					if let Some(&bbref) = bbmap.get(&n) {
 						if !builder.is_filled() {
 							builder.ins().jump(bbref, &[]);
@@ -210,7 +225,7 @@ pub fn execute(
 							builder.ins().jump(bb, &[num]);
 							builder.switch_to_block(bb);
 							builder.block_params(bb)[0]
-						},
+						}
 						BinOp::Mod => {
 							let zero = builder.ins().iconst(I32, 0);
 							let divbb = builder.create_block();
@@ -223,7 +238,7 @@ pub fn execute(
 							builder.ins().jump(bb, &[num]);
 							builder.switch_to_block(bb);
 							builder.block_params(bb)[0]
-						},
+						}
 						BinOp::Cmp => {
 							let cmp = builder.ins().icmp(IntCC::SignedGreaterThan, a, b);
 							builder.ins().bint(I32, cmp)
@@ -239,18 +254,29 @@ pub fn execute(
 				}
 				Op::Pop => {
 					if op.depi.is_empty() {
-						let bb = builder.create_block();
-						builder.append_block_param(bb, tptr);
-						let stidx = builder.use_var(vsidx);
-						let newstidx = builder.ins().iadd_imm(stidx, -4);
-						let zerocc = builder.ins().iconst(tptr, 0);
-						builder
-							.ins()
-							.br_icmp(IntCC::SignedLessThan, stidx, zerocc, bb, &[stidx]);
-						builder.ins().jump(bb, &[newstidx]);
-						builder.switch_to_block(bb);
-						let newstidx = builder.block_params(bb)[0];
-						builder.def_var(vsidx, newstidx);
+						if dep == 0 {
+							let bb = builder.create_block();
+							builder.append_block_param(bb, tptr);
+							let stidx = builder.use_var(vsidx);
+							let newstidx = builder.ins().iadd_imm(stidx, -4);
+							let zerocc = builder.ins().iconst(tptr, 0);
+							builder.ins().br_icmp(
+								IntCC::SignedLessThan,
+								stidx,
+								zerocc,
+								bb,
+								&[stidx],
+							);
+							builder.ins().jump(bb, &[newstidx]);
+							builder.switch_to_block(bb);
+							let newstidx = builder.block_params(bb)[0];
+							builder.def_var(vsidx, newstidx);
+						} else {
+							dep -= 1;
+							let stidx = builder.use_var(vsidx);
+							let newstidx = builder.ins().iadd_imm(stidx, -4);
+							builder.def_var(vsidx, newstidx);
+						}
 					}
 				}
 				Op::Dup => {
@@ -282,7 +308,7 @@ pub fn execute(
 					let a = pop!(0);
 					builder.ins().call(putnum, &[a]);
 				}
-				Op::Rem => {
+				Op::Rem(None) => {
 					let b = pop!(0);
 					let a = pop!(1);
 					let idxbb = builder.create_block();
@@ -311,7 +337,12 @@ pub fn execute(
 					let val = builder.block_params(bb)[0];
 					push!(0, val);
 				}
-				Op::Wem(xydir) => {
+				Op::Rem(Some(off)) => {
+					let vcode = builder.ins().iconst(tptr, code.as_ptr() as i64);
+					let result = builder.ins().load(I32, aligned, vcode, off as i32 * 4);
+					push!(0, result);
+				}
+				Op::Wem(xydir, None) => {
 					let b = pop!(0);
 					let a = pop!(1);
 					let c = pop!(2);
@@ -347,13 +378,28 @@ pub fn execute(
 					builder.ins().brz(bitcheck, bb, &[]);
 					builder.ins().jump(bbexit, &[]);
 					builder.switch_to_block(bbexit);
-					let rstate = builder.ins().iconst(I32, xydir as i64);
 					let stackidxconst = builder.ins().iconst(tptr, stackidx as *const isize as i64);
 					let stidx = builder.use_var(vsidx);
 					let stidx = builder.ins().sdiv_imm(stidx, 4);
 					builder.ins().store(aligned, stidx, stackidxconst, 0);
+					let rstate = builder.ins().iconst(I32, xydir as i64);
 					builder.ins().return_(&[rstate]);
 					builder.switch_to_block(bb);
+				}
+				Op::Wem(xydir, Some(off)) => {
+					let c = pop!(0);
+					let vcode = builder.ins().iconst(tptr, code.as_ptr() as i64);
+					builder.ins().store(aligned, c, vcode, off as i32 * 4);
+					if progbits[off as usize >> 3] & 1 << (off & 7) != 0 {
+						let stackidxconst =
+							builder.ins().iconst(tptr, stackidx as *const isize as i64);
+						let stidx = builder.use_var(vsidx);
+						let stidx = builder.ins().sdiv_imm(stidx, 4);
+						builder.ins().store(aligned, stidx, stackidxconst, 0);
+						let rstate = builder.ins().iconst(I32, xydir as i64);
+						builder.ins().return_(&[rstate]);
+						continue;
+					}
 				}
 				Op::Jr(ref rs) => {
 					let [r0, r1, r2] = **rs;

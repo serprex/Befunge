@@ -77,14 +77,17 @@ pub fn eval(
 				let a = pop(stack, sidx);
 				print!("{} ", a);
 			}
-			Op::Rem => {
+			Op::Rem(None) => {
 				let b = pop(stack, sidx);
 				let a = pop(stack, sidx);
 				let idx = ((a << 5) | b) as usize;
 				let c = if idx < 2560 { code[idx] } else { 0 };
 				push(stack, sidx, c);
 			}
-			Op::Wem(xydir) => {
+			Op::Rem(Some(off)) => {
+				push(stack, sidx, code[off as usize]);
+			}
+			Op::Wem(xydir, None) => {
 				let b = pop(stack, sidx);
 				let a = pop(stack, sidx);
 				let c = pop(stack, sidx);
@@ -94,6 +97,14 @@ pub fn eval(
 					if (progbits[idx >> 3] & (1 << (idx & 7))) != 0 {
 						return xydir;
 					}
+				}
+			}
+			Op::Wem(xydir, Some(idx)) => {
+				let c = pop(stack, sidx);
+				let idx = idx as usize;
+				code[idx] = c;
+				if (progbits[idx >> 3] & (1 << (idx & 7))) != 0 {
+					return xydir;
 				}
 			}
 			Op::Jr(ref rs) => {

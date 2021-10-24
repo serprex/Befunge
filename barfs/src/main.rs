@@ -45,7 +45,8 @@ fn main() {
 			match jit::execute(&cfg, &progbits, &mut code, &mut stack, &mut stackidx) {
 				Ok(res) => {
 					if false {
-						println!("{:?} {}", res, stackidx);
+						print!("{} ", res);
+						util::print_stack(stack.as_ptr(), stackidx);
 					}
 					res
 				}
