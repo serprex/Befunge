@@ -1,4 +1,4 @@
-use crate::cfg::{BinOp, Dir, Instr, Op};
+use crate::cfg::{BinOp, Instr, Op};
 use crate::util::{self, pop, print_stack, push};
 
 pub fn eval(
@@ -7,19 +7,20 @@ pub fn eval(
 	code: &mut [i32],
 	stack: &mut [i32],
 	sidx: &mut isize,
-) -> Option<(usize, Dir)> {
+) -> u32 {
 	let mut n = 0;
 	loop {
-		let op = &cfg[n];
+		let op = &cfg[n as usize];
 		if false {
 			print_stack(stack.as_ptr(), *sidx);
-			println!("{:?}", op);
+			println!("{} {:?}", n, op);
 		}
 		match op.op {
 			Op::Ld(val) => push(stack, sidx, val),
 			Op::Bin(bop) => {
 				let b = pop(stack, sidx);
 				let a = pop(stack, sidx);
+
 				push(
 					stack,
 					sidx,
@@ -67,12 +68,7 @@ pub fn eval(
 				push(stack, sidx, util::read_char());
 			}
 			Op::Wch => {
-				let a = pop(stack, sidx);
-				print!(
-					"{}",
-					std::char::from_u32(a as u32)
-						.unwrap_or(std::char::REPLACEMENT_CHARACTER)
-				);
+				util::putch(pop(stack, sidx));
 			}
 			Op::Rum => {
 				push(stack, sidx, util::read_int());
@@ -88,7 +84,7 @@ pub fn eval(
 				let c = if idx < 2560 { code[idx] } else { 0 };
 				push(stack, sidx, c);
 			}
-			Op::Wem(xy, dir) => {
+			Op::Wem(xydir) => {
 				let b = pop(stack, sidx);
 				let a = pop(stack, sidx);
 				let c = pop(stack, sidx);
@@ -96,33 +92,28 @@ pub fn eval(
 					let idx = ((a << 5) | b) as usize;
 					code[idx] = c;
 					if (progbits[idx >> 3] & (1 << (idx & 7))) != 0 {
-						return Some((xy, dir));
+						return xydir;
 					}
 				}
 			}
-			Op::Jr(r0, r1, r2) => {
+			Op::Jr(ref rs) => {
 				let r = util::rand_nibble();
-				n = match r {
-					0 => r0,
-					1 => r1,
-					2 => r2,
-					_ => op.n,
-				} as usize;
+				n = if r < 3 { rs[r as usize] } else { op.n };
 				continue;
 			}
 			Op::Jz(rz) => {
 				let a = pop(stack, sidx);
 				if a == 0 {
-					n = rz as usize;
+					n = rz;
 					continue;
 				}
 			}
 			Op::Ret => {
-				return None;
+				return u32::max_value();
 			}
 			Op::Hcf => loop {},
 			Op::Nop => (),
 		}
-		n = op.n as usize;
+		n = op.n;
 	}
 }

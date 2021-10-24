@@ -18,7 +18,29 @@ pub enum Dir {
 	S,
 }
 
-#[derive(Copy, Clone, Debug)]
+impl From<Dir> for u32 {
+	fn from(dir: Dir) -> u32 {
+		match dir {
+			Dir::E => 0,
+			Dir::N => 1,
+			Dir::W => 2,
+			Dir::S => 3,
+		}
+	}
+}
+
+impl Into<Dir> for u32 {
+	fn into(self) -> Dir {
+		match self & 3 {
+			0 => Dir::E,
+			1 => Dir::N,
+			2 => Dir::W,
+			_ => Dir::S,
+		}
+	}
+}
+
+#[derive(Clone, Debug)]
 pub enum Op {
 	Ld(i32),
 	Bin(BinOp),
@@ -31,35 +53,62 @@ pub enum Op {
 	Rum,
 	Wum,
 	Rem,
-	Wem(usize, Dir),
-	Jr(u32, u32, u32),
+	Wem(u32),
+	Jr(Box<[u32; 3]>),
 	Jz(u32),
 	Ret,
 	Hcf,
 	Nop,
 }
 
-#[derive(Debug)]
+impl Op {
+	pub fn depth(&self) -> (u8, u8) {
+		match self {
+			Op::Ld(..) => (0, 1),
+			Op::Bin(..) => (2, 1),
+			Op::Not => (1, 1),
+			Op::Pop => (1, 0),
+			Op::Dup => (1, 2),
+			Op::Swp => (2, 2),
+			Op::Rch => (0, 1),
+			Op::Wch => (1, 0),
+			Op::Rum => (0, 1),
+			Op::Wum => (1, 0),
+			Op::Rem => (2, 1),
+			Op::Wem(..) => (3, 0),
+			Op::Jr(..) => (0, 0),
+			Op::Jz(..) => (1, 0),
+			Op::Ret => (0, 0),
+			Op::Hcf => (0, 0),
+			Op::Nop => (0, 0),
+		}
+	}
+
+	pub fn io(&self) -> bool {
+		matches!(self, Op::Rch | Op::Wch | Op::Rum | Op::Wum | Op::Wem(..) | Op::Jz(..) | Op::Jr(..))
+	}
+}
+
+#[derive(Clone, Debug)]
 pub struct Instr {
 	pub op: Op,
 	pub n: u32,
-	pub var: Vec<i32>,
 	pub si: Vec<u32>,
-	pub dep: u32,
-	pub sd: bool,
+	pub depi: Vec<(u32, u8)>,
+	pub depo: u8,
 	pub block: bool,
 }
 
 impl Instr {
 	pub fn new(op: Op) -> Self {
+		let block = matches!(op, Op::Hcf);
 		Self {
-			op: op,
+			op,
 			n: 0,
-			var: Vec::new(),
 			si: Vec::new(),
-			dep: 0,
-			sd: false,
-			block: false,
+			depi: Vec::new(),
+			depo: 0,
+			block,
 		}
 	}
 
@@ -76,20 +125,20 @@ impl Instr {
 
 fn emit(
 	cfg: &mut Vec<Instr>,
-	previnst: &mut usize,
-	ret: &mut usize,
-	pgmap: &mut FxHashMap<(usize, Dir), u32>,
-	pastspot: &mut FxHashSet<(usize, Dir)>,
+	previnst: &mut u32,
+	ret: &mut u32,
+	pgmap: &mut FxHashMap<u32, u32>,
+	pastspot: &mut FxHashSet<u32>,
 	mut inst: Instr,
 ) -> () {
-	let instidx = cfg.len();
-	if *previnst != usize::max_value() {
-		let mut prevop = &mut cfg[*previnst];
-		prevop.n = instidx as u32;
-		if matches!(prevop.op, Op::Jz(_) | Op::Jr(..)) {
+	let instidx = cfg.len() as u32;
+	if *previnst != u32::max_value() {
+		let mut prevop = &mut cfg[*previnst as usize];
+		prevop.n = instidx;
+		if matches!(prevop.op, Op::Jz(..) | Op::Jr(..)) {
 			inst.block = true;
 		}
-		cfg[*previnst].n = instidx as u32;
+		cfg[*previnst as usize].n = instidx as u32;
 		inst.si_add(*previnst as u32, false);
 	} else {
 		*ret = instidx;
@@ -102,7 +151,7 @@ fn emit(
 	pastspot.clear();
 }
 
-fn mv(xy: usize, dir: Dir) -> usize {
+fn mv(xy: u32, dir: Dir) -> u32 {
 	match dir {
 		Dir::E => {
 			if xy >= 2528 {
@@ -135,29 +184,33 @@ fn mv(xy: usize, dir: Dir) -> usize {
 	}
 }
 
-pub fn create_cfg(code: &[i32], xy: usize, dir: Dir) -> (Vec<Instr>, Vec<u8>) {
-	let mut pgmap: FxHashMap<(usize, Dir), u32> = FxHashMap::default();
+pub fn create_cfg(code: &[i32], pg: &mut [u8; 320], xy: u32, dir: Dir) -> Vec<Instr> {
 	let mut cfg = vec![];
-	compile(&mut cfg, code, &mut pgmap, xy, dir);
-	let mut pg = vec![0; 320];
-	for &(idx, _dir) in pgmap.keys() {
-		pg[idx as usize >> 3] |= 1 << (idx as usize & 7) as u8;
+	{
+		let mut pgmap: FxHashMap<u32, u32> = FxHashMap::default();
+		compile(&mut cfg, code, &mut pgmap, xy, dir);
+		for &xydir in pgmap.keys() {
+			let idx = xydir >> 2;
+			pg[idx as usize >> 3] |= 1u8 << (idx as usize & 7);
+		}
 	}
-	(cfg, pg)
+	peep(&mut cfg);
+	cfg
 }
 
 fn compile(
 	cfg: &mut Vec<Instr>,
 	code: &[i32],
-	pgmap: &mut FxHashMap<(usize, Dir), u32>,
-	mut xy: usize,
+	pgmap: &mut FxHashMap<u32, u32>,
+	mut xy: u32,
 	mut dir: Dir,
-) -> usize {
-	let mut tail = usize::max_value();
+) -> u32 {
+	let mut tail = u32::max_value();
 	let mut head = 0;
-	let mut pastspot: FxHashSet<(usize, Dir)> = FxHashSet::default();
+	let mut pastspot: FxHashSet<u32> = FxHashSet::default();
 	loop {
-		if !pastspot.insert((xy, dir)) {
+		let xydir = (xy << 2) | u32::from(dir);
+		if !pastspot.insert(xydir) {
 			emit(
 				cfg,
 				&mut tail,
@@ -168,19 +221,19 @@ fn compile(
 			);
 			return head;
 		}
-		if let Some(&n) = pgmap.get(&(xy, dir)) {
-			if tail != usize::max_value() {
-				cfg[tail].n = n;
-				cfg[n as usize].si_add(tail as u32, false);
+		if let Some(&n) = pgmap.get(&xydir) {
+			if tail != u32::max_value() {
+				cfg[tail as usize].n = n;
+				cfg[n as usize].si_add(tail, false);
 			} else {
-				head = n as usize;
+				head = n;
 			}
 			for &spot in pastspot.iter() {
 				pgmap.insert(spot, n);
 			}
 			return head;
 		}
-		let ch = code[xy];
+		let ch = code[xy as usize];
 		match ch {
 			48..=57 => emit(
 				cfg,
@@ -228,7 +281,7 @@ fn compile(
 				&mut head,
 				pgmap,
 				&mut pastspot,
-				Instr::new(Op::Wem(mv(xy, dir), dir)),
+				Instr::new(Op::Wem(mv(xy, dir) << 2 | u32::from(dir))),
 			),
 			38 => emit(
 				cfg,
@@ -337,9 +390,12 @@ fn compile(
 					&mut pastspot,
 					Instr::new(Op::Nop),
 				);
+				pgmap.insert(xydir ^ 1, tail);
+				pgmap.insert(xydir ^ 2, tail);
+				pgmap.insert(xydir ^ 3, tail);
 				let d = compile(cfg, code, pgmap, mv(xy, newdir.0), newdir.0);
-				cfg[tail].op = Op::Jz(d as u32);
-				cfg[d].si_add(tail as u32, true);
+				cfg[tail as usize].op = Op::Jz(d as u32);
+				cfg[d as usize].si_add(tail as u32, true);
 				dir = newdir.1;
 			}
 			63 => {
@@ -351,13 +407,16 @@ fn compile(
 					&mut pastspot,
 					Instr::new(Op::Nop),
 				);
+				pgmap.insert(xydir ^ 1, tail);
+				pgmap.insert(xydir ^ 2, tail);
+				pgmap.insert(xydir ^ 3, tail);
 				let d1 = compile(cfg, code, pgmap, mv(xy, Dir::E), Dir::E);
 				let d2 = compile(cfg, code, pgmap, mv(xy, Dir::N), Dir::N);
 				let d3 = compile(cfg, code, pgmap, mv(xy, Dir::W), Dir::W);
-				cfg[tail].op = Op::Jr(d1 as u32, d2 as u32, d3 as u32);
-				cfg[d1].si_add(tail as u32, true);
-				cfg[d2].si_add(tail as u32, true);
-				cfg[d3].si_add(tail as u32, true);
+				cfg[tail as usize].op = Op::Jr(Box::new([d1, d2, d3]));
+				cfg[d1 as usize].si_add(tail, true);
+				cfg[d2 as usize].si_add(tail, true);
+				cfg[d3 as usize].si_add(tail, true);
 				dir = Dir::S;
 			}
 			64 => {
@@ -373,7 +432,7 @@ fn compile(
 			}
 			34 => loop {
 				xy = mv(xy, dir);
-				let qch = code[xy];
+				let qch = code[xy as usize];
 				if qch == b'"' as i32 {
 					break;
 				}
@@ -389,5 +448,35 @@ fn compile(
 			_ => (),
 		}
 		xy = mv(xy, dir);
+	}
+}
+
+fn peep(cfg: &mut Vec<Instr>) {
+	let mut cst = Vec::new();
+	let mut idx = 0;
+	while (idx as usize) < cfg.len() {
+		let (isblock, isio, (si, so)) = {
+			let op = &mut cfg[idx as usize];
+			(op.block, op.op.io(), op.op.depth())
+		};
+		if isblock {
+			cst.clear();
+		} else {
+			for _ in 0..si {
+				if let Some((c, cout)) = cst.pop() {
+					cfg[c as usize].depo |= 1u8 << cout;
+					cfg[idx as usize].depi.push((c, cout));
+				} else {
+					break;
+				}
+			}
+			if isio {
+				cst.clear();
+			}
+		}
+		for outidx in 0..so {
+			cst.push((idx, outidx));
+		}
+		idx += 1;
 	}
 }

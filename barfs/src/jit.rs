@@ -1,4 +1,4 @@
-use cranelift::prelude::types::{I32, I64, I8};
+use cranelift::prelude::types::{I32, I8};
 use cranelift::prelude::*;
 use cranelift_codegen::{
 	binemit,
@@ -8,9 +8,9 @@ use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{default_libcall_names, Linkage, Module};
 use fxhash::FxHashMap;
 
-use crate::cfg::{BinOp, Dir, Instr, Op};
+use crate::cfg::{BinOp, Instr, Op};
 
-use crate::util::{print_stack, putnum, rand_nibble, read_int};
+use crate::util;
 
 pub fn execute(
 	cfg: &[Instr],
@@ -18,7 +18,7 @@ pub fn execute(
 	code: &mut [i32],
 	stack: &mut [i32],
 	stackidx: &mut isize,
-) -> Result<Option<(usize, Dir)>, String> {
+) -> Result<u32, String> {
 	let mut flag_builder = settings::builder();
 	flag_builder.set("use_colocated_libcalls", "false").unwrap();
 	flag_builder.set("is_pic", "false").unwrap();
@@ -27,10 +27,11 @@ pub fn execute(
 	let isa = isa_builder.finish(isa_flags);
 	let mut func_ctx = FunctionBuilderContext::new();
 	let mut jit_builder = JITBuilder::with_isa(isa, default_libcall_names());
-	jit_builder.symbol("pn", putnum as *const u8);
-	jit_builder.symbol("gn", read_int as *const u8);
-	jit_builder.symbol("r", rand_nibble as *const u8);
-	jit_builder.symbol("ps", print_stack as *const u8);
+	jit_builder.symbol("pc", util::putch as *const u8);
+	jit_builder.symbol("pn", util::putnum as *const u8);
+	jit_builder.symbol("gn", util::read_int as *const u8);
+	jit_builder.symbol("r", util::rand_nibble as *const u8);
+	jit_builder.symbol("ps", util::print_stack as *const u8);
 
 	let mut module = JITModule::new(jit_builder);
 	let mut ctx = module.make_context();
@@ -42,32 +43,27 @@ pub fn execute(
 		let mut aligned = MemFlags::new();
 		aligned.set_aligned();
 
-		let mut putcharsig = module.make_signature();
-		putcharsig.params.push(AbiParam::new(I32));
-		putcharsig.returns.push(AbiParam::new(I32));
+		let mut putsig = module.make_signature();
+		putsig.params.push(AbiParam::new(I32));
 		let putcharfn = module
-			.declare_function("putchar", Linkage::Import, &putcharsig)
+			.declare_function("pc", Linkage::Import, &putsig)
 			.unwrap();
 		let putchar = module.declare_func_in_func(putcharfn, &mut builder.func);
 
-		let mut getcharsig = module.make_signature();
-		getcharsig.returns.push(AbiParam::new(I32));
+		let mut getsig = module.make_signature();
+		getsig.returns.push(AbiParam::new(I32));
 		let getcharfn = module
-			.declare_function("getchar", Linkage::Import, &getcharsig)
+			.declare_function("getchar", Linkage::Import, &getsig)
 			.unwrap();
 		let getchar = module.declare_func_in_func(getcharfn, &mut builder.func);
 
-		let mut putnumsig = module.make_signature();
-		putnumsig.params.push(AbiParam::new(I32));
 		let putnumfn = module
-			.declare_function("pn", Linkage::Import, &putnumsig)
+			.declare_function("pn", Linkage::Import, &putsig)
 			.unwrap();
 		let putnum = module.declare_func_in_func(putnumfn, &mut builder.func);
 
-		let mut getnumsig = module.make_signature();
-		getnumsig.returns.push(AbiParam::new(I32));
 		let getnumfn = module
-			.declare_function("gn", Linkage::Import, &getnumsig)
+			.declare_function("gn", Linkage::Import, &getsig)
 			.unwrap();
 		let getnum = module.declare_func_in_func(getnumfn, &mut builder.func);
 
@@ -80,7 +76,7 @@ pub fn execute(
 
 		let mut pssig = module.make_signature();
 		pssig.params.push(AbiParam::new(tptr));
-		pssig.params.push(AbiParam::new(I64));
+		pssig.params.push(AbiParam::new(tptr));
 		let psfn = module
 			.declare_function("ps", Linkage::Import, &pssig)
 			.unwrap();
@@ -91,8 +87,10 @@ pub fn execute(
 
 		let stackidxconst = builder.ins().iconst(tptr, (*stackidx * 4) as i64);
 		let vsidx = Variable::new(0);
-		builder.declare_var(vsidx, I64);
+		builder.declare_var(vsidx, tptr);
 		builder.def_var(vsidx, stackidxconst);
+
+		let mut valmap = FxHashMap::default();
 
 		let clpush = |builder: &mut FunctionBuilder, val: Value| {
 			let stidx = builder.use_var(vsidx);
@@ -110,7 +108,7 @@ pub fn execute(
 			builder.append_block_param(bb, I32);
 
 			let stidx = builder.use_var(vsidx);
-			let zerocc = builder.ins().iconst(I64, 0);
+			let zerocc = builder.ins().iconst(tptr, 0);
 			builder
 				.ins()
 				.br_icmp(IntCC::SignedLessThan, stidx, zerocc, zbb, &[]);
@@ -131,17 +129,38 @@ pub fn execute(
 
 		let mut compstack = vec![0u32];
 		let mut bbmap = FxHashMap::default();
-		let jumpmapsize = cfg
-			.iter()
-			.map(|op| match op.op {
-				Op::Jz(_) => 2,
-				Op::Jr(..) => 4,
-				_ => 0,
-			})
-			.sum();
-		let mut jumpmap = Vec::with_capacity(jumpmapsize);
+		let mut jumpmap = Vec::with_capacity(
+			cfg.iter()
+				.map(|op| match op.op {
+					Op::Jz(..) => 2,
+					Op::Jr(..) => 4,
+					_ => 0,
+				})
+				.sum(),
+		);
 		while let Some(n) = compstack.pop() {
 			let op = &cfg[n as usize];
+
+			macro_rules! push {
+				($num:expr, $val:expr) => {
+					if (op.depo & 1 << $num) != 0 {
+						valmap.insert((n, $num), $val);
+					} else {
+						clpush(&mut builder, $val);
+					}
+				};
+			}
+
+			macro_rules! pop {
+				($idx:expr) => {
+					if let Some(&val) = op.depi.get($idx).and_then(|depi| valmap.get(depi)) {
+						val
+					} else {
+						clpop(&mut builder)
+					}
+				};
+			}
+
 			if op.block {
 				if op.si.len() > 1 {
 					if let Some(&bbref) = bbmap.get(&n) {
@@ -170,65 +189,102 @@ pub fn execute(
 			match op.op {
 				Op::Ld(val) => {
 					let num = builder.ins().iconst(I32, val as i64);
-					clpush(&mut builder, num);
+					push!(0, num);
 				}
 				Op::Bin(bop) => {
-					let b = clpop(&mut builder);
-					let a = clpop(&mut builder);
+					let b = pop!(0);
+					let a = pop!(1);
 					let num = match bop {
 						BinOp::Add => builder.ins().iadd(a, b),
 						BinOp::Sub => builder.ins().isub(a, b),
 						BinOp::Mul => builder.ins().imul(a, b),
-						BinOp::Div => builder.ins().sdiv(a, b),
-						BinOp::Mod => builder.ins().srem(a, b),
+						BinOp::Div => {
+							let zero = builder.ins().iconst(I32, 0);
+							let divbb = builder.create_block();
+							let bb = builder.create_block();
+							builder.append_block_param(bb, I32);
+							builder.ins().brz(b, bb, &[zero]);
+							builder.ins().jump(divbb, &[]);
+							builder.switch_to_block(divbb);
+							let num = builder.ins().sdiv(a, b);
+							builder.ins().jump(bb, &[num]);
+							builder.switch_to_block(bb);
+							builder.block_params(bb)[0]
+						},
+						BinOp::Mod => {
+							let zero = builder.ins().iconst(I32, 0);
+							let divbb = builder.create_block();
+							let bb = builder.create_block();
+							builder.append_block_param(bb, I32);
+							builder.ins().brz(b, bb, &[zero]);
+							builder.ins().jump(divbb, &[]);
+							builder.switch_to_block(divbb);
+							let num = builder.ins().srem(a, b);
+							builder.ins().jump(bb, &[num]);
+							builder.switch_to_block(bb);
+							builder.block_params(bb)[0]
+						},
 						BinOp::Cmp => {
 							let cmp = builder.ins().icmp(IntCC::SignedGreaterThan, a, b);
 							builder.ins().bint(I32, cmp)
 						}
 					};
-					clpush(&mut builder, num);
+					push!(0, num);
 				}
 				Op::Not => {
-					let a = clpop(&mut builder);
+					let a = pop!(0);
 					let eq = builder.ins().icmp_imm(IntCC::Equal, a, 0);
 					let eq = builder.ins().bint(I32, eq);
-					clpush(&mut builder, eq);
+					push!(0, eq);
 				}
 				Op::Pop => {
-					clpop(&mut builder);
+					if op.depi.is_empty() {
+						let bb = builder.create_block();
+						builder.append_block_param(bb, tptr);
+						let stidx = builder.use_var(vsidx);
+						let newstidx = builder.ins().iadd_imm(stidx, -4);
+						let zerocc = builder.ins().iconst(tptr, 0);
+						builder
+							.ins()
+							.br_icmp(IntCC::SignedLessThan, stidx, zerocc, bb, &[stidx]);
+						builder.ins().jump(bb, &[newstidx]);
+						builder.switch_to_block(bb);
+						let newstidx = builder.block_params(bb)[0];
+						builder.def_var(vsidx, newstidx);
+					}
 				}
 				Op::Dup => {
-					let a = clpop(&mut builder);
-					clpush(&mut builder, a);
-					clpush(&mut builder, a);
+					let a = pop!(0);
+					push!(0, a);
+					push!(1, a);
 				}
 				Op::Swp => {
-					let b = clpop(&mut builder);
-					let a = clpop(&mut builder);
-					clpush(&mut builder, b);
-					clpush(&mut builder, a);
+					let b = pop!(0);
+					let a = pop!(1);
+					push!(0, b);
+					push!(1, a);
 				}
 				Op::Rch => {
 					let inst = builder.ins().call(getchar, &[]);
 					let a = builder.inst_results(inst)[0];
-					clpush(&mut builder, a);
+					push!(0, a);
 				}
 				Op::Wch => {
-					let a = clpop(&mut builder);
+					let a = pop!(0);
 					builder.ins().call(putchar, &[a]);
 				}
 				Op::Rum => {
 					let inst = builder.ins().call(getnum, &[]);
 					let a = builder.inst_results(inst)[0];
-					clpush(&mut builder, a);
+					push!(0, a);
 				}
 				Op::Wum => {
-					let a = clpop(&mut builder);
+					let a = pop!(0);
 					builder.ins().call(putnum, &[a]);
 				}
 				Op::Rem => {
-					let b = clpop(&mut builder);
-					let a = clpop(&mut builder);
+					let b = pop!(0);
+					let a = pop!(1);
 					let idxbb = builder.create_block();
 					let bb = builder.create_block();
 					builder.append_block_param(bb, I32);
@@ -241,7 +297,11 @@ pub fn execute(
 						.br_icmp(IntCC::UnsignedLessThan, ab, twofivesixzero, idxbb, &[]);
 					builder.ins().jump(bb, &[zero]);
 					builder.switch_to_block(idxbb);
-					let ab = builder.ins().uextend(I64, ab);
+					let ab = if tptr.bits() > 32 {
+						builder.ins().uextend(tptr, ab)
+					} else {
+						ab
+					};
 					let ab = builder.ins().imul_imm(ab, 4);
 					let vcode = builder.ins().iconst(tptr, code.as_ptr() as i64);
 					let vcodeab = builder.ins().iadd(vcode, ab);
@@ -249,12 +309,12 @@ pub fn execute(
 					builder.ins().jump(bb, &[result]);
 					builder.switch_to_block(bb);
 					let val = builder.block_params(bb)[0];
-					clpush(&mut builder, val);
+					push!(0, val);
 				}
-				Op::Wem(xy, dir) => {
-					let b = clpop(&mut builder);
-					let a = clpop(&mut builder);
-					let c = clpop(&mut builder);
+				Op::Wem(xydir) => {
+					let b = pop!(0);
+					let a = pop!(1);
+					let c = pop!(2);
 					let bbwrite = builder.create_block();
 					let bbexit = builder.create_block();
 					let bb = builder.create_block();
@@ -266,7 +326,11 @@ pub fn execute(
 					builder.switch_to_block(bbwrite);
 					let a5 = builder.ins().ishl_imm(a, 5);
 					let ab = builder.ins().bor(a5, b);
-					let ab = builder.ins().uextend(I64, ab);
+					let ab = if tptr.bits() > 32 {
+						builder.ins().uextend(tptr, ab)
+					} else {
+						ab
+					};
 					let ab4 = builder.ins().imul_imm(ab, 4);
 					let vcode = builder.ins().iconst(tptr, code.as_ptr() as i64);
 					let vcodeab = builder.ins().iadd(vcode, ab4);
@@ -283,16 +347,7 @@ pub fn execute(
 					builder.ins().brz(bitcheck, bb, &[]);
 					builder.ins().jump(bbexit, &[]);
 					builder.switch_to_block(bbexit);
-					let rstate = builder.ins().iconst(
-						I64,
-						((xy << 2)
-							| match dir {
-								Dir::E => 0,
-								Dir::N => 1,
-								Dir::W => 2,
-								Dir::S => 3,
-							}) as i64,
-					);
+					let rstate = builder.ins().iconst(I32, xydir as i64);
 					let stackidxconst = builder.ins().iconst(tptr, stackidx as *const isize as i64);
 					let stidx = builder.use_var(vsidx);
 					let stidx = builder.ins().sdiv_imm(stidx, 4);
@@ -300,7 +355,8 @@ pub fn execute(
 					builder.ins().return_(&[rstate]);
 					builder.switch_to_block(bb);
 				}
-				Op::Jr(r0, r1, r2) => {
+				Op::Jr(ref rs) => {
+					let [r0, r1, r2] = **rs;
 					let inst = builder.ins().call(rand, &[]);
 					let a = builder.inst_results(inst)[0];
 					let zero = builder.ins().iconst(I8, 0);
@@ -331,7 +387,7 @@ pub fn execute(
 					jumpmap.push((j, op.n));
 				}
 				Op::Jz(rz) => {
-					let a = clpop(&mut builder);
+					let a = pop!(0);
 					let j = builder.ins().brz(a, Block::from_u32(0), &[]);
 					jumpmap.push((j, rz));
 					compstack.push(rz);
@@ -339,16 +395,15 @@ pub fn execute(
 					jumpmap.push((j, op.n));
 				}
 				Op::Ret => {
-					let _one = builder.ins().iconst(I64, -1);
+					let _one = builder.ins().iconst(I32, -1);
 					builder.ins().return_(&[_one]);
 
-					let newbb = builder.create_block();
-					builder.switch_to_block(newbb);
+					let bb = builder.create_block();
+					builder.switch_to_block(bb);
 					continue;
 				}
 				Op::Hcf => {
-					let bb = builder.create_block();
-					builder.switch_to_block(bb);
+					let bb = builder.current_block().unwrap();
 					builder.ins().jump(bb, &[]);
 					continue;
 				}
@@ -358,7 +413,7 @@ pub fn execute(
 		}
 
 		if !builder.is_filled() {
-			let _one = builder.ins().iconst(I64, -1);
+			let _one = builder.ins().iconst(I32, -1);
 			builder.ins().return_(&[_one]);
 		}
 
@@ -371,11 +426,11 @@ pub fn execute(
 			);
 		}
 
-		// TODO we can seal_block eagerly
+		// TODO seal_block eagerly
 		builder.seal_all_blocks();
 	}
 
-	ctx.func.signature.returns.push(AbiParam::new(tptr));
+	ctx.func.signature.returns.push(AbiParam::new(I32));
 	if false {
 		println!("{:?}", ctx.func);
 		let isa_flags = settings::Flags::new(settings::builder());
@@ -397,21 +452,9 @@ pub fn execute(
 	module.finalize_definitions();
 
 	let func = module.get_finalized_function(id);
-	let result = unsafe { std::mem::transmute::<_, fn() -> usize>(func) }();
+	let result = unsafe { std::mem::transmute::<_, fn() -> u32>(func) }();
 	unsafe {
 		module.free_memory();
 	}
-	Ok(if result == usize::max_value() {
-		None
-	} else {
-		Some((
-			result >> 2,
-			match result & 3 {
-				0 => Dir::E,
-				1 => Dir::N,
-				2 => Dir::W,
-				_ => Dir::S,
-			},
-		))
-	})
+	Ok(result)
 }

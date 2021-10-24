@@ -24,11 +24,15 @@ pub fn read_int() -> i32 {
 	line.trim().parse().unwrap_or(0)
 }
 
+pub fn putch(n: i32) {
+	let mut buf = [0u8; 4];
+	let ch = std::char::from_u32(n as u32).unwrap_or(std::char::REPLACEMENT_CHARACTER);
+	let s = ch.encode_utf8(&mut buf);
+	let _ = io::stdout().write_all(s.as_bytes());
+}
+
 pub fn putnum(n: i32) {
-	let iostdout = io::stdout();
-	let mut stdout = iostdout.lock();
-	let _ = stdout.write_all(format!("{} ", n).as_bytes());
-	let _ = stdout.flush();
+	let _ = io::stdout().write_all(format!("{} ", n).as_bytes());
 }
 
 pub fn pop(data: &mut [i32], stackidx: &mut isize) -> i32 {

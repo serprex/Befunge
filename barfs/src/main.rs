@@ -32,13 +32,14 @@ fn main() {
 	let mut xy = 0;
 	let mut dir = cfg::Dir::E;
 	loop {
-		let (cfg, progbits) = cfg::create_cfg(&code, xy, dir);
+		let mut progbits = [0u8; 320];
+		let cfg = cfg::create_cfg(&code, &mut progbits, xy, dir);
 		if false {
 			for (idx, node) in cfg.iter().enumerate() {
 				println!("{} {:?}", idx, node);
 			}
 		}
-		if let Some((newxy, newdir)) = if false {
+		let newxydir = if false {
 			evalcfg::eval(&cfg, &progbits, &mut code, &mut stack, &mut stackidx)
 		} else {
 			match jit::execute(&cfg, &progbits, &mut code, &mut stack, &mut stackidx) {
@@ -53,11 +54,12 @@ fn main() {
 					break;
 				}
 			}
-		} { 
-			xy = newxy;
-			dir = newdir;
-		} else {
+		};
+
+		if newxydir == u32::max_value() {
 			break;
 		}
+		xy = newxydir >> 2;
+		dir = newxydir.into();
 	}
 }
