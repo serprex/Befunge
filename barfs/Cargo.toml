@@ -5,11 +5,11 @@ authors = ["serprex"]
 edition = "2018"
 
 [dependencies]
-cranelift = "0.77"
-cranelift-codegen = "0.77"
-cranelift-jit = "0.77"
-cranelift-module = "0.77"
-cranelift-native = "0.77"
+cranelift = "0.78"
+cranelift-codegen = "0.78"
+cranelift-jit = "0.78"
+cranelift-module = "0.78"
+cranelift-native = "0.78"
 fxhash = "0.2"
 rand = "0.8"
 
