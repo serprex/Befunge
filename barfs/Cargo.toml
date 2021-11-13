@@ -1,8 +1,11 @@
 [package]
 name = "barfs"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["serprex"]
 edition = "2018"
+license = "MIT"
+description = "Befunge JIT"
+repository = "https://github.com/serprex/Befunge/barfs"
 
 [dependencies]
 cranelift = "0.78"
