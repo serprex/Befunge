@@ -1,9 +1,6 @@
 use cranelift::prelude::types::{I32, I8};
 use cranelift::prelude::*;
-use cranelift_codegen::{
-	binemit,
-	settings::{self, Configurable},
-};
+use cranelift_codegen::settings::{self, Configurable};
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{default_libcall_names, Linkage, Module};
 use fxhash::FxHashMap;
@@ -490,8 +487,6 @@ pub fn execute(
 		.define_function(
 			id,
 			&mut ctx,
-			&mut binemit::NullTrapSink {},
-			&mut binemit::NullStackMapSink {},
 		)
 		.map_err(|e| e.to_string())?;
 	module.clear_context(&mut ctx);
