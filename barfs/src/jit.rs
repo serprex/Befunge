@@ -21,7 +21,7 @@ pub fn execute(
 	flag_builder.set("is_pic", "false").unwrap();
 	let isa_builder = cranelift_native::builder().expect("unsupported host machine");
 	let isa_flags = settings::Flags::new(flag_builder);
-	let isa = isa_builder.finish(isa_flags);
+	let isa = isa_builder.finish(isa_flags).expect("unsupported flags for host machine");
 	let mut func_ctx = FunctionBuilderContext::new();
 	let mut jit_builder = JITBuilder::with_isa(isa, default_libcall_names());
 	jit_builder.symbol("pc", util::putch as *const u8);
