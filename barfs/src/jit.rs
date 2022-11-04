@@ -79,6 +79,7 @@ pub fn execute(
 			.unwrap();
 		let ps = module.declare_func_in_func(psfn, &mut builder.func);
 
+		let mut block_filled = false;
 		let entry_bb = builder.create_block();
 		builder.switch_to_block(entry_bb);
 
@@ -99,13 +100,13 @@ pub fn execute(
 		};
 
 		let clpop = |builder: &mut FunctionBuilder, dep: isize| {
-			let bbpop = builder.create_block();
-			let zbb = builder.create_block();
 			let bb = builder.create_block();
 			builder.append_block_param(bb, I32);
 
 			let stidx = builder.use_var(vsidx);
 			if dep == 0 {
+				let bbpop = builder.create_block();
+				let zbb = builder.create_block();
 				let zerocc = builder.ins().iconst(tptr, 0);
 				builder
 					.ins()
@@ -176,20 +177,23 @@ pub fn execute(
 				if op.si.len() > 1 {
 					dep = 0;
 					if let Some(&bbref) = bbmap.get(&n) {
-						if !builder.is_filled() {
+						if !block_filled {
 							builder.ins().jump(bbref, &[]);
+							block_filled = true;
 						}
 						continue;
 					}
 				}
 
 				let newbb = builder.create_block();
-				if !builder.is_filled() {
+				if !block_filled {
 					builder.ins().jump(newbb, &[]);
 				}
+				block_filled = false;
 				builder.switch_to_block(newbb);
 				bbmap.insert(n, newbb);
 			}
+			debug_assert!(!block_filled);
 
 			if false {
 				let vstack = builder.ins().iconst(tptr, stack.as_ptr() as i64);
@@ -395,6 +399,7 @@ pub fn execute(
 						builder.ins().store(aligned, stidx, stackidxconst, 0);
 						let rstate = builder.ins().iconst(I32, xydir as i64);
 						builder.ins().return_(&[rstate]);
+						block_filled = true;
 						continue;
 					}
 				}
@@ -428,6 +433,7 @@ pub fn execute(
 					compstack.push(r2);
 					let j = builder.ins().jump(Block::from_u32(0), &[]);
 					jumpmap.push((j, op.n));
+					block_filled = true;
 				}
 				Op::Jz(rz) => {
 					let a = pop!(0);
@@ -436,18 +442,18 @@ pub fn execute(
 					compstack.push(rz);
 					let j = builder.ins().jump(Block::from_u32(0), &[]);
 					jumpmap.push((j, op.n));
+					block_filled = true;
 				}
 				Op::Ret => {
 					let _one = builder.ins().iconst(I32, -1);
 					builder.ins().return_(&[_one]);
-
-					let bb = builder.create_block();
-					builder.switch_to_block(bb);
+					block_filled = true;
 					continue;
 				}
 				Op::Hcf => {
 					let bb = builder.current_block().unwrap();
 					builder.ins().jump(bb, &[]);
+					block_filled = true;
 					continue;
 				}
 				Op::Nop => {}
@@ -455,7 +461,7 @@ pub fn execute(
 			compstack.push(op.n);
 		}
 
-		if !builder.is_filled() {
+		if !block_filled {
 			let _one = builder.ins().iconst(I32, -1);
 			builder.ins().return_(&[_one]);
 		}
@@ -469,7 +475,6 @@ pub fn execute(
 			);
 		}
 
-		// TODO seal_block eagerly
 		builder.seal_all_blocks();
 	}
 
