@@ -108,9 +108,8 @@ pub fn execute(
 				let bbpop = builder.create_block();
 				let zbb = builder.create_block();
 				let zerocc = builder.ins().iconst(tptr, 0);
-				builder
-					.ins()
-					.br_icmp(IntCC::SignedLessThan, stidx, zerocc, zbb, &[]);
+				let icmp = builder.ins().icmp(IntCC::SignedLessThan, stidx, zerocc);
+				builder.ins().brnz(icmp, zbb, &[]);
 				builder.ins().jump(bbpop, &[]);
 				builder.switch_to_block(bbpop);
 				let newstidx = builder.ins().iadd_imm(stidx, -4);
@@ -241,8 +240,7 @@ pub fn execute(
 							builder.block_params(bb)[0]
 						}
 						BinOp::Cmp => {
-							let cmp = builder.ins().icmp(IntCC::SignedGreaterThan, a, b);
-							builder.ins().bint(I32, cmp)
+							builder.ins().icmp(IntCC::SignedGreaterThan, a, b)
 						}
 					};
 					push!(0, num);
@@ -250,7 +248,6 @@ pub fn execute(
 				Op::Not => {
 					let a = pop!(0);
 					let eq = builder.ins().icmp_imm(IntCC::Equal, a, 0);
-					let eq = builder.ins().bint(I32, eq);
 					push!(0, eq);
 				}
 				Op::Pop => {
@@ -261,13 +258,8 @@ pub fn execute(
 							let stidx = builder.use_var(vsidx);
 							let newstidx = builder.ins().iadd_imm(stidx, -4);
 							let zerocc = builder.ins().iconst(tptr, 0);
-							builder.ins().br_icmp(
-								IntCC::SignedLessThan,
-								stidx,
-								zerocc,
-								bb,
-								&[stidx],
-							);
+							let cmp = builder.ins().icmp(IntCC::SignedLessThan, stidx, zerocc);
+							builder.ins().brnz(cmp, bb, &[stidx]);
 							builder.ins().jump(bb, &[newstidx]);
 							builder.switch_to_block(bb);
 							let newstidx = builder.block_params(bb)[0];
@@ -319,9 +311,8 @@ pub fn execute(
 					let ab = builder.ins().bor(a5, b);
 					let twofivesixzero = builder.ins().iconst(I32, 2560);
 					let zero = builder.ins().iconst(I32, 0);
-					builder
-						.ins()
-						.br_icmp(IntCC::UnsignedLessThan, ab, twofivesixzero, idxbb, &[]);
+					let cmp = builder.ins().icmp(IntCC::UnsignedLessThan, ab, twofivesixzero);
+					builder.ins().brnz(cmp, idxbb, &[]);
 					builder.ins().jump(bb, &[zero]);
 					builder.switch_to_block(idxbb);
 					let ab = if tptr.bits() > 32 {
@@ -408,27 +399,24 @@ pub fn execute(
 					let inst = builder.ins().call(rand, &[]);
 					let a = builder.inst_results(inst)[0];
 					let zero = builder.ins().iconst(I8, 0);
-					let j = builder
-						.ins()
-						.br_icmp(IntCC::Equal, a, zero, Block::from_u32(0), &[]);
+					let cmp = builder.ins().icmp(IntCC::Equal, a, zero);
+					let j = builder.ins().brnz(cmp, Block::from_u32(0), &[]);
 					jumpmap.push((j, r0));
 					compstack.push(r0);
 					let bb = builder.create_block();
 					builder.ins().jump(bb, &[]);
 					builder.switch_to_block(bb);
 					let one = builder.ins().iconst(I8, 1);
-					let j = builder
-						.ins()
-						.br_icmp(IntCC::Equal, a, one, Block::from_u32(0), &[]);
+					let cmp = builder.ins().icmp(IntCC::Equal, a, one);
+					let j = builder.ins().brnz(cmp, Block::from_u32(0), &[]);
 					jumpmap.push((j, r1));
 					compstack.push(r1);
 					let bb = builder.create_block();
 					builder.ins().jump(bb, &[]);
 					builder.switch_to_block(bb);
 					let two = builder.ins().iconst(I8, 2);
-					let j = builder
-						.ins()
-						.br_icmp(IntCC::Equal, a, two, Block::from_u32(0), &[]);
+					let cmp = builder.ins().icmp(IntCC::Equal, a, two);
+					let j = builder.ins().brnz(cmp, Block::from_u32(0), &[]);
 					jumpmap.push((j, r2));
 					compstack.push(r2);
 					let j = builder.ins().jump(Block::from_u32(0), &[]);
@@ -495,7 +483,7 @@ pub fn execute(
 		)
 		.map_err(|e| e.to_string())?;
 	module.clear_context(&mut ctx);
-	module.finalize_definitions();
+	module.finalize_definitions().map_err(|e| e.to_string())?;
 
 	let func = module.get_finalized_function(id);
 	let result = unsafe { std::mem::transmute::<_, fn() -> u32>(func) }();
