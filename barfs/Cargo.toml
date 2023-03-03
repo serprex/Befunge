@@ -8,11 +8,11 @@ description = "Befunge JIT"
 repository = "https://github.com/serprex/Befunge/barfs"
 
 [dependencies]
-cranelift = "0.92"
-cranelift-codegen = "0.92"
-cranelift-jit = "0.92"
-cranelift-module = "0.92"
-cranelift-native = "0.92"
+cranelift = "0.93"
+cranelift-codegen = "0.93"
+cranelift-jit = "0.93"
+cranelift-module = "0.93"
+cranelift-native = "0.93"
 fxhash = "0.2"
 rand = "0.8"
 

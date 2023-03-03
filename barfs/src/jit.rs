@@ -1,5 +1,6 @@
 use cranelift::prelude::types::{I32, I8};
 use cranelift::prelude::*;
+use cranelift_codegen::ir::Inst;
 use cranelift_codegen::settings::{self, Configurable};
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{default_libcall_names, Linkage, Module};
@@ -8,6 +9,11 @@ use fxhash::FxHashMap;
 use crate::cfg::{BinOp, Instr, Op};
 
 use crate::util;
+
+enum JumpEntry {
+	J1(Inst, u32),
+	J2(Inst, u32, u32),
+}
 
 pub fn execute(
 	cfg: &[Instr],
@@ -21,7 +27,9 @@ pub fn execute(
 	flag_builder.set("is_pic", "false").unwrap();
 	let isa_builder = cranelift_native::builder().expect("unsupported host machine");
 	let isa_flags = settings::Flags::new(flag_builder);
-	let isa = isa_builder.finish(isa_flags).expect("unsupported flags for host machine");
+	let isa = isa_builder
+		.finish(isa_flags)
+		.expect("unsupported flags for host machine");
 	let mut func_ctx = FunctionBuilderContext::new();
 	let mut jit_builder = JITBuilder::with_isa(isa, default_libcall_names());
 	jit_builder.symbol("pc", util::putch as *const u8);
@@ -83,7 +91,17 @@ pub fn execute(
 		let entry_bb = builder.create_block();
 		builder.switch_to_block(entry_bb);
 
+		let zero = builder.ins().iconst(I32, 0);
+		let zero8 = builder.ins().iconst(I8, 0);
+		let one8 = builder.ins().iconst(I8, 1);
+		let _one = builder.ins().iconst(I32, -1);
+		let two8 = builder.ins().iconst(I8, 2);
+		let twofivesixzero = builder.ins().iconst(I32, 2560);
+		let null = builder.ins().iconst(tptr, 0);
 		let stackidxconst = builder.ins().iconst(tptr, (*stackidx * 4) as i64);
+		let vstack = builder.ins().iconst(tptr, stack.as_ptr() as i64);
+		let vcode = builder.ins().iconst(tptr, code.as_ptr() as i64);
+		let vprogbits = builder.ins().iconst(tptr, progbits.as_ptr() as i64);
 		let vsidx = Variable::new(0);
 		builder.declare_var(vsidx, tptr);
 		builder.def_var(vsidx, stackidxconst);
@@ -93,7 +111,6 @@ pub fn execute(
 		let clpush = |builder: &mut FunctionBuilder, val: Value| {
 			let stidx = builder.use_var(vsidx);
 			let newstidx = builder.ins().iadd_imm(stidx, 4);
-			let vstack = builder.ins().iconst(tptr, stack.as_ptr() as i64);
 			let slotptr = builder.ins().iadd(vstack, newstidx);
 			builder.ins().store(aligned, val, slotptr, 0);
 			builder.def_var(vsidx, newstidx);
@@ -106,26 +123,18 @@ pub fn execute(
 			let stidx = builder.use_var(vsidx);
 			if dep == 0 {
 				let bbpop = builder.create_block();
-				let zbb = builder.create_block();
-				let zerocc = builder.ins().iconst(tptr, 0);
-				let icmp = builder.ins().icmp(IntCC::SignedLessThan, stidx, zerocc);
-				builder.ins().brnz(icmp, zbb, &[]);
-				builder.ins().jump(bbpop, &[]);
+				let icmp = builder.ins().icmp(IntCC::SignedLessThan, stidx, null);
+				builder.ins().brif(icmp, bb, &[zero], bbpop, &[]);
 				builder.switch_to_block(bbpop);
 				let newstidx = builder.ins().iadd_imm(stidx, -4);
-				let vstack = builder.ins().iconst(tptr, stack.as_ptr() as i64);
 				let slotptr = builder.ins().iadd(vstack, newstidx);
 				builder.def_var(vsidx, newstidx);
 				let loadres = builder.ins().load(I32, aligned, slotptr, 4);
 				builder.ins().jump(bb, &[loadres]);
-				builder.switch_to_block(zbb);
-				let zero = builder.ins().iconst(I32, 0);
-				builder.ins().jump(bb, &[zero]);
 				builder.switch_to_block(bb);
 				builder.block_params(bb)[0]
 			} else {
 				let newstidx = builder.ins().iadd_imm(stidx, -4);
-				let vstack = builder.ins().iconst(tptr, stack.as_ptr() as i64);
 				let slotptr = builder.ins().iadd(vstack, newstidx);
 				builder.def_var(vsidx, newstidx);
 				builder.ins().load(I32, aligned, slotptr, 4)
@@ -137,8 +146,8 @@ pub fn execute(
 		let mut jumpmap = Vec::with_capacity(
 			cfg.iter()
 				.map(|op| match op.op {
-					Op::Jz(..) => 2,
-					Op::Jr(..) => 4,
+					Op::Jz(..) => 1,
+					Op::Jr(..) => 3,
 					_ => 0,
 				})
 				.sum(),
@@ -195,7 +204,6 @@ pub fn execute(
 			debug_assert!(!block_filled);
 
 			if false {
-				let vstack = builder.ins().iconst(tptr, stack.as_ptr() as i64);
 				let stidx = builder.use_var(vsidx);
 				let stidx = builder.ins().sdiv_imm(stidx, 4);
 				builder.ins().call(ps, &[vstack, stidx]);
@@ -203,7 +211,7 @@ pub fn execute(
 
 			match op.op {
 				Op::Ld(val) => {
-					let num = builder.ins().iconst(I32, val as i64);
+					let num = if val == 0 { zero } else { builder.ins().iconst(I32, val as i64) };
 					push!(0, num);
 				}
 				Op::Bin(bop) => {
@@ -214,12 +222,10 @@ pub fn execute(
 						BinOp::Sub => builder.ins().isub(a, b),
 						BinOp::Mul => builder.ins().imul(a, b),
 						BinOp::Div => {
-							let zero = builder.ins().iconst(I32, 0);
 							let divbb = builder.create_block();
 							let bb = builder.create_block();
 							builder.append_block_param(bb, I32);
-							builder.ins().brz(b, bb, &[zero]);
-							builder.ins().jump(divbb, &[]);
+							builder.ins().brif(b, divbb, &[], bb, &[zero]);
 							builder.switch_to_block(divbb);
 							let num = builder.ins().sdiv(a, b);
 							builder.ins().jump(bb, &[num]);
@@ -227,21 +233,17 @@ pub fn execute(
 							builder.block_params(bb)[0]
 						}
 						BinOp::Mod => {
-							let zero = builder.ins().iconst(I32, 0);
 							let divbb = builder.create_block();
 							let bb = builder.create_block();
 							builder.append_block_param(bb, I32);
-							builder.ins().brz(b, bb, &[zero]);
-							builder.ins().jump(divbb, &[]);
+							builder.ins().brif(b, divbb, &[], bb, &[zero]);
 							builder.switch_to_block(divbb);
 							let num = builder.ins().srem(a, b);
 							builder.ins().jump(bb, &[num]);
 							builder.switch_to_block(bb);
 							builder.block_params(bb)[0]
 						}
-						BinOp::Cmp => {
-							builder.ins().icmp(IntCC::SignedGreaterThan, a, b)
-						}
+						BinOp::Cmp => builder.ins().icmp(IntCC::SignedGreaterThan, a, b),
 					};
 					push!(0, num);
 				}
@@ -257,10 +259,8 @@ pub fn execute(
 							builder.append_block_param(bb, tptr);
 							let stidx = builder.use_var(vsidx);
 							let newstidx = builder.ins().iadd_imm(stidx, -4);
-							let zerocc = builder.ins().iconst(tptr, 0);
-							let cmp = builder.ins().icmp(IntCC::SignedLessThan, stidx, zerocc);
-							builder.ins().brnz(cmp, bb, &[stidx]);
-							builder.ins().jump(bb, &[newstidx]);
+							let cmp = builder.ins().icmp(IntCC::SignedLessThan, stidx, null);
+							builder.ins().brif(cmp, bb, &[stidx], bb, &[newstidx]);
 							builder.switch_to_block(bb);
 							let newstidx = builder.block_params(bb)[0];
 							builder.def_var(vsidx, newstidx);
@@ -309,11 +309,10 @@ pub fn execute(
 					builder.append_block_param(bb, I32);
 					let a5 = builder.ins().ishl_imm(a, 5);
 					let ab = builder.ins().bor(a5, b);
-					let twofivesixzero = builder.ins().iconst(I32, 2560);
-					let zero = builder.ins().iconst(I32, 0);
-					let cmp = builder.ins().icmp(IntCC::UnsignedLessThan, ab, twofivesixzero);
-					builder.ins().brnz(cmp, idxbb, &[]);
-					builder.ins().jump(bb, &[zero]);
+					let cmp = builder
+						.ins()
+						.icmp(IntCC::UnsignedLessThan, ab, twofivesixzero);
+					builder.ins().brif(cmp, idxbb, &[], bb, &[zero]);
 					builder.switch_to_block(idxbb);
 					let ab = if tptr.bits() > 32 {
 						builder.ins().uextend(tptr, ab)
@@ -321,7 +320,6 @@ pub fn execute(
 						ab
 					};
 					let ab = builder.ins().imul_imm(ab, 4);
-					let vcode = builder.ins().iconst(tptr, code.as_ptr() as i64);
 					let vcodeab = builder.ins().iadd(vcode, ab);
 					let result = builder.ins().load(I32, aligned, vcodeab, 0);
 					builder.ins().jump(bb, &[result]);
@@ -330,7 +328,6 @@ pub fn execute(
 					push!(0, val);
 				}
 				Op::Rem(Some(off)) => {
-					let vcode = builder.ins().iconst(tptr, code.as_ptr() as i64);
 					let result = builder.ins().load(I32, aligned, vcode, off as i32 * 4);
 					push!(0, result);
 				}
@@ -344,8 +341,7 @@ pub fn execute(
 					let a80 = builder.ins().icmp_imm(IntCC::UnsignedLessThan, a, 80);
 					let b25 = builder.ins().icmp_imm(IntCC::UnsignedLessThan, b, 25);
 					let ab8025 = builder.ins().band(a80, b25);
-					builder.ins().brz(ab8025, bb, &[]);
-					builder.ins().jump(bbwrite, &[]);
+					builder.ins().brif(ab8025, bbwrite, &[], bb, &[]);
 					builder.switch_to_block(bbwrite);
 					let a5 = builder.ins().ishl_imm(a, 5);
 					let ab = builder.ins().bor(a5, b);
@@ -355,22 +351,17 @@ pub fn execute(
 						ab
 					};
 					let ab4 = builder.ins().imul_imm(ab, 4);
-					let vcode = builder.ins().iconst(tptr, code.as_ptr() as i64);
 					let vcodeab = builder.ins().iadd(vcode, ab4);
 					builder.ins().store(aligned, c, vcodeab, 0);
-					let vprogbits = builder.ins().iconst(tptr, progbits.as_ptr() as i64);
 					let ab3 = builder.ins().ushr_imm(ab, 3);
 					let vprogbitsab3 = builder.ins().iadd(vprogbits, ab3);
 					let progbitsread = builder.ins().load(I8, aligned, vprogbitsab3, 0);
 					let ab7 = builder.ins().band_imm(ab, 7);
 					let ab7 = builder.ins().ireduce(I8, ab7);
-					let one = builder.ins().iconst(I8, 1);
-					let bit = builder.ins().ishl(one, ab7);
+					let bit = builder.ins().ishl(one8, ab7);
 					let bitcheck = builder.ins().band(progbitsread, bit);
-					builder.ins().brz(bitcheck, bb, &[]);
-					builder.ins().jump(bbexit, &[]);
+					builder.ins().brif(bitcheck, bbexit, &[], bb, &[]);
 					builder.switch_to_block(bbexit);
-					let stackidxconst = builder.ins().iconst(tptr, stackidx as *const isize as i64);
 					let stidx = builder.use_var(vsidx);
 					let stidx = builder.ins().sdiv_imm(stidx, 4);
 					builder.ins().store(aligned, stidx, stackidxconst, 0);
@@ -380,11 +371,8 @@ pub fn execute(
 				}
 				Op::Wem(xydir, Some(off)) => {
 					let c = pop!(0);
-					let vcode = builder.ins().iconst(tptr, code.as_ptr() as i64);
 					builder.ins().store(aligned, c, vcode, off as i32 * 4);
 					if progbits[off as usize >> 3] & 1 << (off & 7) != 0 {
-						let stackidxconst =
-							builder.ins().iconst(tptr, stackidx as *const isize as i64);
 						let stidx = builder.use_var(vsidx);
 						let stidx = builder.ins().sdiv_imm(stidx, 4);
 						builder.ins().store(aligned, stidx, stackidxconst, 0);
@@ -398,42 +386,37 @@ pub fn execute(
 					let [r0, r1, r2] = **rs;
 					let inst = builder.ins().call(rand, &[]);
 					let a = builder.inst_results(inst)[0];
-					let zero = builder.ins().iconst(I8, 0);
-					let cmp = builder.ins().icmp(IntCC::Equal, a, zero);
-					let j = builder.ins().brnz(cmp, Block::from_u32(0), &[]);
-					jumpmap.push((j, r0));
+					let cmp = builder.ins().icmp(IntCC::Equal, a, zero8);
+					let bb = builder.create_block();
+					let j = builder.ins().brif(cmp, Block::from_u32(0), &[], bb, &[]);
+					jumpmap.push(JumpEntry::J1(j, r0));
 					compstack.push(r0);
-					let bb = builder.create_block();
-					builder.ins().jump(bb, &[]);
 					builder.switch_to_block(bb);
-					let one = builder.ins().iconst(I8, 1);
-					let cmp = builder.ins().icmp(IntCC::Equal, a, one);
-					let j = builder.ins().brnz(cmp, Block::from_u32(0), &[]);
-					jumpmap.push((j, r1));
+					let cmp = builder.ins().icmp(IntCC::Equal, a, one8);
+					let bb = builder.create_block();
+					let j = builder.ins().brif(cmp, Block::from_u32(0), &[], bb, &[]);
+					jumpmap.push(JumpEntry::J1(j, r1));
 					compstack.push(r1);
-					let bb = builder.create_block();
-					builder.ins().jump(bb, &[]);
 					builder.switch_to_block(bb);
-					let two = builder.ins().iconst(I8, 2);
-					let cmp = builder.ins().icmp(IntCC::Equal, a, two);
-					let j = builder.ins().brnz(cmp, Block::from_u32(0), &[]);
-					jumpmap.push((j, r2));
+					let cmp = builder.ins().icmp(IntCC::Equal, a, two8);
+					let j =
+						builder
+							.ins()
+							.brif(cmp, Block::from_u32(1), &[], Block::from_u32(0), &[]);
+					jumpmap.push(JumpEntry::J2(j, r2, op.n));
 					compstack.push(r2);
-					let j = builder.ins().jump(Block::from_u32(0), &[]);
-					jumpmap.push((j, op.n));
 					block_filled = true;
 				}
 				Op::Jz(rz) => {
 					let a = pop!(0);
-					let j = builder.ins().brz(a, Block::from_u32(0), &[]);
-					jumpmap.push((j, rz));
+					let j = builder
+						.ins()
+						.brif(a, Block::from_u32(1), &[], Block::from_u32(0), &[]);
+					jumpmap.push(JumpEntry::J2(j, op.n, rz));
 					compstack.push(rz);
-					let j = builder.ins().jump(Block::from_u32(0), &[]);
-					jumpmap.push((j, op.n));
 					block_filled = true;
 				}
 				Op::Ret => {
-					let _one = builder.ins().iconst(I32, -1);
 					builder.ins().return_(&[_one]);
 					block_filled = true;
 					continue;
@@ -450,17 +433,29 @@ pub fn execute(
 		}
 
 		if !block_filled {
-			let _one = builder.ins().iconst(I32, -1);
 			builder.ins().return_(&[_one]);
 		}
 
-		for &(inst, loc) in jumpmap.iter() {
-			builder.change_jump_destination(
-				inst,
-				*bbmap
-					.get(&loc)
-					.expect("invalid instruction location during jump patching"),
-			);
+		for jump in jumpmap.iter() {
+			match *jump {
+				JumpEntry::J1(inst, loc) => builder.change_jump_destination(
+					inst,
+					Block::from_u32(0),
+					*bbmap.get(&loc).unwrap(),
+				),
+				JumpEntry::J2(inst, loctrue, locfalse) => {
+					builder.change_jump_destination(
+						inst,
+						Block::from_u32(1),
+						*bbmap.get(&loctrue).unwrap(),
+					);
+					builder.change_jump_destination(
+						inst,
+						Block::from_u32(0),
+						*bbmap.get(&locfalse).unwrap(),
+					)
+				}
+			}
 		}
 
 		builder.seal_all_blocks();
@@ -477,10 +472,7 @@ pub fn execute(
 		.declare_function("f", Linkage::Export, &ctx.func.signature)
 		.map_err(|e| e.to_string())?;
 	module
-		.define_function(
-			id,
-			&mut ctx,
-		)
+		.define_function(id, &mut ctx)
 		.map_err(|e| e.to_string())?;
 	module.clear_context(&mut ctx);
 	module.finalize_definitions().map_err(|e| e.to_string())?;
