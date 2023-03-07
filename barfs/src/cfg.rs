@@ -1,4 +1,5 @@
 use fxhash::FxHashMap;
+use crate::CellInt;
 
 #[derive(Copy, Clone, Debug)]
 pub enum BinOp {
@@ -42,7 +43,7 @@ impl Into<Dir> for u32 {
 
 #[derive(Clone, Debug)]
 pub enum Op {
-	Ld(i32),
+	Ld(CellInt),
 	Bin(BinOp),
 	Not,
 	Pop,
@@ -186,7 +187,7 @@ fn mv(xy: u32, dir: Dir) -> u32 {
 	}
 }
 
-pub fn create_cfg(code: &[i32], pg: &mut [u8; 320], xy: u32, dir: Dir) -> Vec<Instr> {
+pub fn create_cfg(code: &[CellInt], pg: &mut [u8; 320], xy: u32, dir: Dir) -> Vec<Instr> {
 	let mut cfg = vec![];
 	{
 		let mut pgmap: FxHashMap<u32, u32> = FxHashMap::default();
@@ -202,7 +203,7 @@ pub fn create_cfg(code: &[i32], pg: &mut [u8; 320], xy: u32, dir: Dir) -> Vec<In
 
 fn compile(
 	cfg: &mut Vec<Instr>,
-	code: &[i32],
+	code: &[CellInt],
 	pgmap: &mut FxHashMap<u32, u32>,
 	mut xy: u32,
 	mut dir: Dir,
@@ -436,7 +437,7 @@ fn compile(
 			34 => loop {
 				xy = mv(xy, dir);
 				let qch = code[xy as usize];
-				if qch == b'"' as i32 {
+				if qch == b'"' as CellInt {
 					break;
 				}
 				emit(
@@ -507,7 +508,7 @@ fn peep(cfg: &mut Vec<Instr>) {
 										v1.wrapping_rem(v0)
 									}
 								}
-								BinOp::Cmp => (v1 > v0) as i32,
+								BinOp::Cmp => (v1 > v0) as CellInt,
 							});
 							so = 1;
 						}

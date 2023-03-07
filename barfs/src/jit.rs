@@ -1,4 +1,4 @@
-use cranelift::prelude::types::{I32, I8};
+use cranelift::prelude::types::{I64, I32, I8};
 use cranelift::prelude::*;
 use cranelift_codegen::ir::Inst;
 use cranelift_codegen::settings::{self, Configurable};
@@ -8,18 +8,21 @@ use fxhash::FxHashMap;
 
 use crate::cfg::{BinOp, Instr, Op};
 
-use crate::util;
+use crate::{util, CellInt};
 
 enum JumpEntry {
 	J1(Inst, u32),
 	J2(Inst, u32, u32),
 }
 
+const CELL_SIZE: i64 = std::mem::size_of::<CellInt>() as i64;
+const CELL_TYPE: Type = if CELL_SIZE == 4 { I32 } else { I64 };
+
 pub fn execute(
 	cfg: &[Instr],
 	progbits: &[u8],
-	code: &mut [i32],
-	stack: &mut [i32],
+	code: &mut [CellInt],
+	stack: &mut [CellInt],
 	stackidx: &mut isize,
 ) -> Result<u32, String> {
 	let mut flag_builder = settings::builder();
@@ -49,14 +52,14 @@ pub fn execute(
 		aligned.set_aligned();
 
 		let mut putsig = module.make_signature();
-		putsig.params.push(AbiParam::new(I32));
+		putsig.params.push(AbiParam::new(CELL_TYPE));
 		let putcharfn = module
 			.declare_function("pc", Linkage::Import, &putsig)
 			.unwrap();
 		let putchar = module.declare_func_in_func(putcharfn, &mut builder.func);
 
 		let mut getsig = module.make_signature();
-		getsig.returns.push(AbiParam::new(I32));
+		getsig.returns.push(AbiParam::new(CELL_TYPE));
 		let getcharfn = module
 			.declare_function("getchar", Linkage::Import, &getsig)
 			.unwrap();
@@ -91,10 +94,10 @@ pub fn execute(
 		let entry_bb = builder.create_block();
 		builder.switch_to_block(entry_bb);
 
-		let zero = builder.ins().iconst(I32, 0);
+		let zero = builder.ins().iconst(CELL_TYPE, 0);
 		let zero8 = builder.ins().iconst(I8, 0);
 		let one8 = builder.ins().iconst(I8, 1);
-		let _one = builder.ins().iconst(I32, -1);
+		let _one32 = builder.ins().iconst(I32, -1);
 		let two8 = builder.ins().iconst(I8, 2);
 		let twofivesixzero = builder.ins().iconst(I32, 2560);
 		let null = builder.ins().iconst(tptr, 0);
@@ -110,7 +113,7 @@ pub fn execute(
 
 		let clpush = |builder: &mut FunctionBuilder, val: Value| {
 			let stidx = builder.use_var(vsidx);
-			let newstidx = builder.ins().iadd_imm(stidx, 4);
+			let newstidx = builder.ins().iadd_imm(stidx, CELL_SIZE);
 			let slotptr = builder.ins().iadd(vstack, newstidx);
 			builder.ins().store(aligned, val, slotptr, 0);
 			builder.def_var(vsidx, newstidx);
@@ -118,7 +121,7 @@ pub fn execute(
 
 		let clpop = |builder: &mut FunctionBuilder, dep: isize| {
 			let bb = builder.create_block();
-			builder.append_block_param(bb, I32);
+			builder.append_block_param(bb, CELL_TYPE);
 
 			let stidx = builder.use_var(vsidx);
 			if dep == 0 {
@@ -126,18 +129,18 @@ pub fn execute(
 				let icmp = builder.ins().icmp(IntCC::SignedLessThan, stidx, null);
 				builder.ins().brif(icmp, bb, &[zero], bbpop, &[]);
 				builder.switch_to_block(bbpop);
-				let newstidx = builder.ins().iadd_imm(stidx, -4);
+				let newstidx = builder.ins().iadd_imm(stidx, -CELL_SIZE);
 				let slotptr = builder.ins().iadd(vstack, newstidx);
 				builder.def_var(vsidx, newstidx);
-				let loadres = builder.ins().load(I32, aligned, slotptr, 4);
+				let loadres = builder.ins().load(CELL_TYPE, aligned, slotptr, CELL_SIZE as i32);
 				builder.ins().jump(bb, &[loadres]);
 				builder.switch_to_block(bb);
 				builder.block_params(bb)[0]
 			} else {
-				let newstidx = builder.ins().iadd_imm(stidx, -4);
+				let newstidx = builder.ins().iadd_imm(stidx, -CELL_SIZE);
 				let slotptr = builder.ins().iadd(vstack, newstidx);
 				builder.def_var(vsidx, newstidx);
-				builder.ins().load(I32, aligned, slotptr, 4)
+				builder.ins().load(CELL_TYPE, aligned, slotptr, CELL_SIZE as i32)
 			}
 		};
 
@@ -205,13 +208,13 @@ pub fn execute(
 
 			if false {
 				let stidx = builder.use_var(vsidx);
-				let stidx = builder.ins().sdiv_imm(stidx, 4);
+				let stidx = builder.ins().sdiv_imm(stidx, CELL_SIZE);
 				builder.ins().call(ps, &[vstack, stidx]);
 			}
 
 			match op.op {
 				Op::Ld(val) => {
-					let num = if val == 0 { zero } else { builder.ins().iconst(I32, val as i64) };
+					let num = if val == 0 { zero } else { builder.ins().iconst(CELL_TYPE, val as i64) };
 					push!(0, num);
 				}
 				Op::Bin(bop) => {
@@ -224,7 +227,7 @@ pub fn execute(
 						BinOp::Div => {
 							let divbb = builder.create_block();
 							let bb = builder.create_block();
-							builder.append_block_param(bb, I32);
+							builder.append_block_param(bb, CELL_TYPE);
 							builder.ins().brif(b, divbb, &[], bb, &[zero]);
 							builder.switch_to_block(divbb);
 							let num = builder.ins().sdiv(a, b);
@@ -235,7 +238,7 @@ pub fn execute(
 						BinOp::Mod => {
 							let divbb = builder.create_block();
 							let bb = builder.create_block();
-							builder.append_block_param(bb, I32);
+							builder.append_block_param(bb, CELL_TYPE);
 							builder.ins().brif(b, divbb, &[], bb, &[zero]);
 							builder.switch_to_block(divbb);
 							let num = builder.ins().srem(a, b);
@@ -258,7 +261,7 @@ pub fn execute(
 							let bb = builder.create_block();
 							builder.append_block_param(bb, tptr);
 							let stidx = builder.use_var(vsidx);
-							let newstidx = builder.ins().iadd_imm(stidx, -4);
+							let newstidx = builder.ins().iadd_imm(stidx, -CELL_SIZE);
 							let cmp = builder.ins().icmp(IntCC::SignedLessThan, stidx, null);
 							builder.ins().brif(cmp, bb, &[stidx], bb, &[newstidx]);
 							builder.switch_to_block(bb);
@@ -267,7 +270,7 @@ pub fn execute(
 						} else {
 							dep -= 1;
 							let stidx = builder.use_var(vsidx);
-							let newstidx = builder.ins().iadd_imm(stidx, -4);
+							let newstidx = builder.ins().iadd_imm(stidx, -CELL_SIZE);
 							builder.def_var(vsidx, newstidx);
 						}
 					}
@@ -306,7 +309,7 @@ pub fn execute(
 					let a = pop!(1);
 					let idxbb = builder.create_block();
 					let bb = builder.create_block();
-					builder.append_block_param(bb, I32);
+					builder.append_block_param(bb, CELL_TYPE);
 					let a5 = builder.ins().ishl_imm(a, 5);
 					let ab = builder.ins().bor(a5, b);
 					let cmp = builder
@@ -319,16 +322,16 @@ pub fn execute(
 					} else {
 						ab
 					};
-					let ab = builder.ins().imul_imm(ab, 4);
+					let ab = builder.ins().imul_imm(ab, CELL_SIZE);
 					let vcodeab = builder.ins().iadd(vcode, ab);
-					let result = builder.ins().load(I32, aligned, vcodeab, 0);
+					let result = builder.ins().load(CELL_TYPE, aligned, vcodeab, 0);
 					builder.ins().jump(bb, &[result]);
 					builder.switch_to_block(bb);
 					let val = builder.block_params(bb)[0];
 					push!(0, val);
 				}
 				Op::Rem(Some(off)) => {
-					let result = builder.ins().load(I32, aligned, vcode, off as i32 * 4);
+					let result = builder.ins().load(CELL_TYPE, aligned, vcode, off as i32 * 4);
 					push!(0, result);
 				}
 				Op::Wem(xydir, None) => {
@@ -338,7 +341,7 @@ pub fn execute(
 					let bbwrite = builder.create_block();
 					let bbexit = builder.create_block();
 					let bb = builder.create_block();
-					let a80 = builder.ins().icmp_imm(IntCC::UnsignedLessThan, a, 80);
+					let a80 = builder.ins().icmp_imm(IntCC::UnsignedLessThan, a, 0);
 					let b25 = builder.ins().icmp_imm(IntCC::UnsignedLessThan, b, 25);
 					let ab8025 = builder.ins().band(a80, b25);
 					builder.ins().brif(ab8025, bbwrite, &[], bb, &[]);
@@ -350,7 +353,7 @@ pub fn execute(
 					} else {
 						ab
 					};
-					let ab4 = builder.ins().imul_imm(ab, 4);
+					let ab4 = builder.ins().imul_imm(ab, CELL_SIZE);
 					let vcodeab = builder.ins().iadd(vcode, ab4);
 					builder.ins().store(aligned, c, vcodeab, 0);
 					let ab3 = builder.ins().ushr_imm(ab, 3);
@@ -363,7 +366,7 @@ pub fn execute(
 					builder.ins().brif(bitcheck, bbexit, &[], bb, &[]);
 					builder.switch_to_block(bbexit);
 					let stidx = builder.use_var(vsidx);
-					let stidx = builder.ins().sdiv_imm(stidx, 4);
+					let stidx = builder.ins().sdiv_imm(stidx, CELL_SIZE);
 					builder.ins().store(aligned, stidx, stackidxconst, 0);
 					let rstate = builder.ins().iconst(I32, xydir as i64);
 					builder.ins().return_(&[rstate]);
@@ -374,7 +377,7 @@ pub fn execute(
 					builder.ins().store(aligned, c, vcode, off as i32 * 4);
 					if progbits[off as usize >> 3] & 1 << (off & 7) != 0 {
 						let stidx = builder.use_var(vsidx);
-						let stidx = builder.ins().sdiv_imm(stidx, 4);
+						let stidx = builder.ins().sdiv_imm(stidx, CELL_SIZE);
 						builder.ins().store(aligned, stidx, stackidxconst, 0);
 						let rstate = builder.ins().iconst(I32, xydir as i64);
 						builder.ins().return_(&[rstate]);
@@ -417,7 +420,7 @@ pub fn execute(
 					block_filled = true;
 				}
 				Op::Ret => {
-					builder.ins().return_(&[_one]);
+					builder.ins().return_(&[_one32]);
 					block_filled = true;
 					continue;
 				}
@@ -433,7 +436,7 @@ pub fn execute(
 		}
 
 		if !block_filled {
-			builder.ins().return_(&[_one]);
+			builder.ins().return_(&[_one32]);
 		}
 
 		for jump in jumpmap.iter() {

@@ -1,11 +1,12 @@
 use crate::cfg::{BinOp, Instr, Op};
 use crate::util::{self, pop, print_stack, push};
+use crate::CellInt;
 
 pub fn eval(
 	cfg: &[Instr],
 	progbits: &[u8],
-	code: &mut [i32],
-	stack: &mut [i32],
+	code: &mut [CellInt],
+	stack: &mut [CellInt],
 	sidx: &mut isize,
 ) -> u32 {
 	let mut n = 0;
@@ -42,13 +43,13 @@ pub fn eval(
 								a % b
 							}
 						}
-						BinOp::Cmp => (a > b) as i32,
+						BinOp::Cmp => (a > b) as CellInt,
 					},
 				);
 			}
 			Op::Not => {
 				let a = pop(stack, sidx);
-				push(stack, sidx, (a == 0) as i32);
+				push(stack, sidx, (a == 0) as CellInt);
 			}
 			Op::Pop => {
 				pop(stack, sidx);
