@@ -136,7 +136,7 @@ fn emit(
 ) -> () {
 	let instidx = cfg.len() as u32;
 	if *previnst != u32::max_value() {
-		let mut prevop = &mut cfg[*previnst as usize];
+		let prevop = &mut cfg[*previnst as usize];
 		prevop.n = instidx;
 		if matches!(prevop.op, Op::Jz(..) | Op::Jr(..)) {
 			inst.block = true;
