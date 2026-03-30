@@ -59,7 +59,7 @@ fn main() {
 			}
 		};
 
-		if newxydir == u32::max_value() {
+		if newxydir == u32::MAX {
 			break;
 		}
 		xy = newxydir >> 2;

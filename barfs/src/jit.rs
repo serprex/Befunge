@@ -97,7 +97,7 @@ pub fn execute(
 		let zero = builder.ins().iconst(CELL_TYPE, 0);
 		let zero8 = builder.ins().iconst(I8, 0);
 		let one8 = builder.ins().iconst(I8, 1);
-		let _one32 = builder.ins().iconst(I32, -1);
+		let _one32 = builder.ins().iconst(I32, u32::MAX as i64);
 		let two8 = builder.ins().iconst(I8, 2);
 		let twofivesixzero = builder.ins().iconst(I32, 2560);
 		let null = builder.ins().iconst(tptr, 0);
@@ -465,7 +465,7 @@ pub fn execute(
 	}
 
 	ctx.func.signature.returns.push(AbiParam::new(I32));
-	if false {
+	if true {
 		println!("{:?}", ctx.func);
 		let isa_flags = settings::Flags::new(settings::builder());
 		cranelift_codegen::verifier::verify_function(&ctx.func, &isa_flags)
