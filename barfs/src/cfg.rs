@@ -1,5 +1,5 @@
-use fxhash::FxHashMap;
 use crate::CellInt;
+use fxhash::FxHashMap;
 
 #[derive(Copy, Clone, Debug)]
 pub enum BinOp {
@@ -135,7 +135,7 @@ fn emit(
 	mut inst: Instr,
 ) -> () {
 	let instidx = cfg.len() as u32;
-	if *previnst != u32::max_value() {
+	if *previnst != u32::MAX {
 		let prevop = &mut cfg[*previnst as usize];
 		prevop.n = instidx;
 		if matches!(prevop.op, Op::Jz(..) | Op::Jr(..)) {
@@ -208,7 +208,7 @@ fn compile(
 	mut xy: u32,
 	mut dir: Dir,
 ) -> u32 {
-	let mut tail = u32::max_value();
+	let mut tail = u32::MAX;
 	let mut head = 0;
 	let mut pastspot: Vec<u32> = Vec::new();
 	loop {
@@ -226,7 +226,7 @@ fn compile(
 		}
 		pastspot.push(xydir);
 		if let Some(&n) = pgmap.get(&xydir) {
-			if tail != u32::max_value() {
+			if tail != u32::MAX {
 				cfg[tail as usize].n = n;
 				cfg[n as usize].si_add(tail, false);
 			} else {

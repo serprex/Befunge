@@ -1,4 +1,4 @@
-use cranelift::prelude::types::{I64, I32, I8};
+use cranelift::prelude::types::{I32, I64, I8};
 use cranelift::prelude::*;
 use cranelift_codegen::ir::Inst;
 use cranelift_codegen::settings::{self, Configurable};
@@ -132,7 +132,9 @@ pub fn execute(
 				let newstidx = builder.ins().iadd_imm(stidx, -CELL_SIZE);
 				let slotptr = builder.ins().iadd(vstack, newstidx);
 				builder.def_var(vsidx, newstidx);
-				let loadres = builder.ins().load(CELL_TYPE, aligned, slotptr, CELL_SIZE as i32);
+				let loadres = builder
+					.ins()
+					.load(CELL_TYPE, aligned, slotptr, CELL_SIZE as i32);
 				builder.ins().jump(bb, &[loadres]);
 				builder.switch_to_block(bb);
 				builder.block_params(bb)[0]
@@ -140,7 +142,9 @@ pub fn execute(
 				let newstidx = builder.ins().iadd_imm(stidx, -CELL_SIZE);
 				let slotptr = builder.ins().iadd(vstack, newstidx);
 				builder.def_var(vsidx, newstidx);
-				builder.ins().load(CELL_TYPE, aligned, slotptr, CELL_SIZE as i32)
+				builder
+					.ins()
+					.load(CELL_TYPE, aligned, slotptr, CELL_SIZE as i32)
 			}
 		};
 
@@ -214,7 +218,11 @@ pub fn execute(
 
 			match op.op {
 				Op::Ld(val) => {
-					let num = if val == 0 { zero } else { builder.ins().iconst(CELL_TYPE, val as i64) };
+					let num = if val == 0 {
+						zero
+					} else {
+						builder.ins().iconst(CELL_TYPE, val as i64)
+					};
 					push!(0, num);
 				}
 				Op::Bin(bop) => {
@@ -331,7 +339,9 @@ pub fn execute(
 					push!(0, val);
 				}
 				Op::Rem(Some(off)) => {
-					let result = builder.ins().load(CELL_TYPE, aligned, vcode, off as i32 * 4);
+					let result = builder
+						.ins()
+						.load(CELL_TYPE, aligned, vcode, off as i32 * 4);
 					push!(0, result);
 				}
 				Op::Wem(xydir, None) => {

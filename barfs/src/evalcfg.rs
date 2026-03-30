@@ -121,7 +121,7 @@ pub fn eval(
 				}
 			}
 			Op::Ret => {
-				return u32::max_value();
+				return u32::MAX;
 			}
 			Op::Hcf => loop {},
 			Op::Nop => (),

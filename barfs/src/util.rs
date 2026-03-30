@@ -1,6 +1,6 @@
+use crate::CellInt;
 use rand;
 use std::io::{self, Read, Write};
-use crate::CellInt;
 
 pub fn rand_nibble() -> u8 {
 	rand::random::<u8>() & 3
