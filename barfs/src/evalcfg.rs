@@ -1,6 +1,6 @@
+use crate::CellInt;
 use crate::cfg::{BinOp, Instr, Op};
 use crate::util::{self, pop, print_stack, push};
-use crate::CellInt;
 
 pub fn eval(
 	cfg: &[Instr],

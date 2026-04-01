@@ -1,14 +1,14 @@
-use cranelift::prelude::types::{I32, I64, I8};
+use cranelift::prelude::types::{I8, I32, I64};
 use cranelift::prelude::*;
 use cranelift_codegen::ir::Inst;
 use cranelift_codegen::settings::{self, Configurable};
 use cranelift_jit::{JITBuilder, JITModule};
-use cranelift_module::{default_libcall_names, Linkage, Module};
+use cranelift_module::{Linkage, Module, default_libcall_names};
 use fxhash::FxHashMap;
 
 use crate::cfg::{BinOp, Instr, Op};
 
-use crate::{util, CellInt};
+use crate::{CellInt, util};
 
 enum JumpEntry {
 	J1(Inst, u32),
@@ -99,14 +99,13 @@ pub fn execute(
 		let one8 = builder.ins().iconst(I8, 1);
 		let _one32 = builder.ins().iconst(I32, u32::MAX as i64);
 		let two8 = builder.ins().iconst(I8, 2);
-		let twofivesixzero = builder.ins().iconst(I32, 2560);
+		let twofivesixzero = builder.ins().iconst(CELL_TYPE, 2560);
 		let null = builder.ins().iconst(tptr, 0);
 		let stackidxconst = builder.ins().iconst(tptr, (*stackidx * 4) as i64);
 		let vstack = builder.ins().iconst(tptr, stack.as_ptr() as i64);
 		let vcode = builder.ins().iconst(tptr, code.as_ptr() as i64);
 		let vprogbits = builder.ins().iconst(tptr, progbits.as_ptr() as i64);
-		let vsidx = Variable::new(0);
-		builder.declare_var(vsidx, tptr);
+		let vsidx = builder.declare_var(tptr);
 		builder.def_var(vsidx, stackidxconst);
 
 		let mut valmap = FxHashMap::default();
@@ -127,7 +126,7 @@ pub fn execute(
 			if dep == 0 {
 				let bbpop = builder.create_block();
 				let icmp = builder.ins().icmp(IntCC::SignedLessThan, stidx, null);
-				builder.ins().brif(icmp, bb, &[zero], bbpop, &[]);
+				builder.ins().brif(icmp, bb, &[zero.into()], bbpop, &[]);
 				builder.switch_to_block(bbpop);
 				let newstidx = builder.ins().iadd_imm(stidx, -CELL_SIZE);
 				let slotptr = builder.ins().iadd(vstack, newstidx);
@@ -135,7 +134,7 @@ pub fn execute(
 				let loadres = builder
 					.ins()
 					.load(CELL_TYPE, aligned, slotptr, CELL_SIZE as i32);
-				builder.ins().jump(bb, &[loadres]);
+				builder.ins().jump(bb, &[loadres.into()]);
 				builder.switch_to_block(bb);
 				builder.block_params(bb)[0]
 			} else {
@@ -236,10 +235,10 @@ pub fn execute(
 							let divbb = builder.create_block();
 							let bb = builder.create_block();
 							builder.append_block_param(bb, CELL_TYPE);
-							builder.ins().brif(b, divbb, &[], bb, &[zero]);
+							builder.ins().brif(b, divbb, &[], bb, &[zero.into()]);
 							builder.switch_to_block(divbb);
 							let num = builder.ins().sdiv(a, b);
-							builder.ins().jump(bb, &[num]);
+							builder.ins().jump(bb, &[num.into()]);
 							builder.switch_to_block(bb);
 							builder.block_params(bb)[0]
 						}
@@ -247,10 +246,10 @@ pub fn execute(
 							let divbb = builder.create_block();
 							let bb = builder.create_block();
 							builder.append_block_param(bb, CELL_TYPE);
-							builder.ins().brif(b, divbb, &[], bb, &[zero]);
+							builder.ins().brif(b, divbb, &[], bb, &[zero.into()]);
 							builder.switch_to_block(divbb);
 							let num = builder.ins().srem(a, b);
-							builder.ins().jump(bb, &[num]);
+							builder.ins().jump(bb, &[num.into()]);
 							builder.switch_to_block(bb);
 							builder.block_params(bb)[0]
 						}
@@ -271,7 +270,9 @@ pub fn execute(
 							let stidx = builder.use_var(vsidx);
 							let newstidx = builder.ins().iadd_imm(stidx, -CELL_SIZE);
 							let cmp = builder.ins().icmp(IntCC::SignedLessThan, stidx, null);
-							builder.ins().brif(cmp, bb, &[stidx], bb, &[newstidx]);
+							builder
+								.ins()
+								.brif(cmp, bb, &[stidx.into()], bb, &[newstidx.into()]);
 							builder.switch_to_block(bb);
 							let newstidx = builder.block_params(bb)[0];
 							builder.def_var(vsidx, newstidx);
@@ -323,9 +324,9 @@ pub fn execute(
 					let cmp = builder
 						.ins()
 						.icmp(IntCC::UnsignedLessThan, ab, twofivesixzero);
-					builder.ins().brif(cmp, idxbb, &[], bb, &[zero]);
+					builder.ins().brif(cmp, idxbb, &[], bb, &[zero.into()]);
 					builder.switch_to_block(idxbb);
-					let ab = if tptr.bits() > 32 {
+					let ab = if CELL_TYPE.bits() < tptr.bits() {
 						builder.ins().uextend(tptr, ab)
 					} else {
 						ab
@@ -333,7 +334,7 @@ pub fn execute(
 					let ab = builder.ins().imul_imm(ab, CELL_SIZE);
 					let vcodeab = builder.ins().iadd(vcode, ab);
 					let result = builder.ins().load(CELL_TYPE, aligned, vcodeab, 0);
-					builder.ins().jump(bb, &[result]);
+					builder.ins().jump(bb, &[result.into()]);
 					builder.switch_to_block(bb);
 					let val = builder.block_params(bb)[0];
 					push!(0, val);
@@ -358,7 +359,7 @@ pub fn execute(
 					builder.switch_to_block(bbwrite);
 					let a5 = builder.ins().ishl_imm(a, 5);
 					let ab = builder.ins().bor(a5, b);
-					let ab = if tptr.bits() > 32 {
+					let ab = if CELL_TYPE.bits() < tptr.bits() {
 						builder.ins().uextend(tptr, ab)
 					} else {
 						ab

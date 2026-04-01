@@ -2,19 +2,19 @@
 name = "barfs"
 version = "0.1.2"
 authors = ["serprex"]
-edition = "2021"
+edition = "2024"
 license = "MIT"
 description = "Befunge JIT"
 repository = "https://github.com/serprex/Befunge/barfs"
 
 [dependencies]
-cranelift = "0.100"
-cranelift-codegen = "0.100"
-cranelift-jit = "0.100"
-cranelift-module = "0.100"
-cranelift-native = "0.100"
+cranelift = "0.130"
+cranelift-codegen = "0.130"
+cranelift-jit = "0.130"
+cranelift-module = "0.130"
+cranelift-native = "0.130"
 fxhash = "0.2"
-rand = "0.8"
+rand = "0.10"
 
 [profile.release]
 panic = "abort"
