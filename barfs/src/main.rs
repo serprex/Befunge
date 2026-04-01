@@ -41,7 +41,7 @@ fn main() {
 				println!("{} {:?}", idx, node);
 			}
 		}
-		let newxydir = if false {
+		let newxydir = if env::args().skip(2).any(|arg| arg == "--no-jit") {
 			evalcfg::eval(&cfg, &progbits, &mut code, &mut stack, &mut stackidx)
 		} else {
 			match jit::execute(&cfg, &progbits, &mut code, &mut stack, &mut stackidx) {

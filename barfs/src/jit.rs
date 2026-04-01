@@ -101,12 +101,13 @@ pub fn execute(
 		let two8 = builder.ins().iconst(I8, 2);
 		let twofivesixzero = builder.ins().iconst(CELL_TYPE, 2560);
 		let null = builder.ins().iconst(tptr, 0);
-		let stackidxconst = builder.ins().iconst(tptr, (*stackidx * 4) as i64);
+		let stackidx_ptr = builder.ins().iconst(tptr, stackidx as *mut isize as i64);
 		let vstack = builder.ins().iconst(tptr, stack.as_ptr() as i64);
 		let vcode = builder.ins().iconst(tptr, code.as_ptr() as i64);
 		let vprogbits = builder.ins().iconst(tptr, progbits.as_ptr() as i64);
+		let stackidx_val = builder.ins().iconst(tptr, (*stackidx as i64 * CELL_SIZE) as i64);
 		let vsidx = builder.declare_var(tptr);
-		builder.def_var(vsidx, stackidxconst);
+		builder.def_var(vsidx, stackidx_val);
 
 		let mut valmap = FxHashMap::default();
 
@@ -378,7 +379,7 @@ pub fn execute(
 					builder.switch_to_block(bbexit);
 					let stidx = builder.use_var(vsidx);
 					let stidx = builder.ins().sdiv_imm(stidx, CELL_SIZE);
-					builder.ins().store(aligned, stidx, stackidxconst, 0);
+					builder.ins().store(aligned, stidx, stackidx_ptr, 0);
 					let rstate = builder.ins().iconst(I32, xydir as i64);
 					builder.ins().return_(&[rstate]);
 					builder.switch_to_block(bb);
@@ -389,7 +390,7 @@ pub fn execute(
 					if progbits[off as usize >> 3] & 1 << (off & 7) != 0 {
 						let stidx = builder.use_var(vsidx);
 						let stidx = builder.ins().sdiv_imm(stidx, CELL_SIZE);
-						builder.ins().store(aligned, stidx, stackidxconst, 0);
+						builder.ins().store(aligned, stidx, stackidx_ptr, 0);
 						let rstate = builder.ins().iconst(I32, xydir as i64);
 						builder.ins().return_(&[rstate]);
 						block_filled = true;
@@ -477,7 +478,6 @@ pub fn execute(
 
 	ctx.func.signature.returns.push(AbiParam::new(I32));
 	if true {
-		println!("{:?}", ctx.func);
 		let isa_flags = settings::Flags::new(settings::builder());
 		cranelift_codegen::verifier::verify_function(&ctx.func, &isa_flags)
 			.map_err(|e| e.to_string())?;
