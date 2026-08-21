@@ -1,4 +1,3 @@
-'use strict';
 function varint(v, value) {
 	for (;;) {
 		const b = value & 127;
@@ -1484,8 +1483,9 @@ function bfCompile(ir, sp, imports, opts) {
 	return WebAssembly.instantiate(new Uint8Array(bc), imports);
 }
 
-exports.r4 = () => (Math.random() * 4) | 0;
-exports.runSource = function (board, imp, opts) {
+export const r4 = () => (Math.random() * 4) | 0;
+
+export function runSource(board, imp, opts) {
 	// 0000:cdff stack
 	// ce00:f5ff source
 	// f600:ffff xbits
@@ -1518,4 +1518,4 @@ exports.runSource = function (board, imp, opts) {
 		}
 	}
 	bfRun(imp, 10112, 0, opts);
-};
+}

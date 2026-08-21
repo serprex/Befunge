@@ -1,6 +1,6 @@
 #!/bin/node
-const funge = require('./funge');
-const fs = require('fs');
+import * as funge from './funge.js';
+import fs from 'node:fs';
 function readline() {
 	let ret = '';
 	const buf = new Buffer.alloc(1);
