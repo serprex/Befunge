@@ -22,6 +22,19 @@ function varuint(v, value) {
 	}
 }
 
+// 0x0000:SRC-1 stack, SRC:XBIT-1 source, XBIT:0xffff xbits
+const SRC = 0xd300,
+	SRC32 = SRC >> 2,
+	XBIT = 0xfb00;
+
+function getxbit(mem, cell) {
+	return mem[XBIT + (cell >> 1)] & (1 << ((cell & 1) << 2));
+}
+
+function setxbit(mem, cell) {
+	mem[XBIT + (cell >> 1)] |= 1 << ((cell & 1) << 2);
+}
+
 function pushString(v, str) {
 	for (let i = 0; i < str.length; i++) {
 		v.push(str.charCodeAt(i));
@@ -152,8 +165,8 @@ Tracer.prototype.trace = function (i) {
 		}
 		this.pg[i] = inst;
 		pist.push(i);
-		this.mem[0xf600 + (i >> 2)] = 1;
-		let i2 = this.mem32[(0xce00 + i) >> 2];
+		setxbit(this.mem, i >> 2);
+		let i2 = this.mem32[(SRC + i) >> 2];
 		if (48 <= i2 && i2 < 58) {
 			emit(0, i2 - 48);
 		} else if (i2 in mvs) {
@@ -204,8 +217,8 @@ Tracer.prototype.trace = function (i) {
 				case 8:
 					for (;;) {
 						i = mv(i);
-						this.mem[0xf600 + (i >> 2)] = 1;
-						i2 = this.mem32[(0xce00 + i) >> 2];
+						setxbit(this.mem, i >> 2);
+						i2 = this.mem32[(SRC + i) >> 2];
 						if (i2 === 34) {
 							break;
 						}
@@ -318,33 +331,33 @@ Interpreter.prototype.eval = function (op) {
 				break;
 			case 8:
 				if (op.arg !== null) {
-					this.push(this.mem32[0x3380 + op.arg], op.depo);
+					this.push(this.mem32[SRC32 + op.arg], op.depo);
 				} else {
 					let y = this.pop(op.depi & 1),
 						x = this.pop(op.depi & 2);
 					y |= x << 5;
-					this.push(0 <= y && y < 2560 ? this.mem32[0x3380 + y] : 0, op.depo);
+					this.push(0 <= y && y < 2560 ? this.mem32[SRC32 + y] : 0, op.depo);
 				}
 				break;
 			case 9:
 				if (op.arg & 0x1000) {
 					const z = this.pop(op.depi & 1),
 						y = op.arg & 0xfff;
-					this.mem32[0x3380 + y] = z;
-					if (this.mem[0xf600 + y]) return (op.arg & 0xffff0000) | this.sp;
+					this.mem32[SRC32 + y] = z;
+					if (getxbit(this.mem, y)) return (op.arg & 0xffff0000) | this.sp;
 				} else {
 					let y = this.pop(op.depi & 1),
 						x = this.pop(op.depi & 2),
 						z = this.pop(op.depi & 4);
 					if (0 <= x && x < 80 && 0 <= y && y < 25) {
 						y |= x << 5;
-						this.mem32[0x3380 + y] = z;
-						if (this.mem[0xf600 + y]) return (op.arg & 0xffff0000) | this.sp;
+						this.mem32[SRC32 + y] = z;
+						if (getxbit(this.mem, y)) return (op.arg & 0xffff0000) | this.sp;
 					}
 				}
 				break;
 			case 10:
-				a = this.imp.r4();
+				a = this.imp.r();
 				op = a > 2 ? op.n : op.arg[a];
 				continue;
 			case 11:
@@ -541,7 +554,7 @@ function peep(n, code) {
 							n.meta = metas[3];
 						} else {
 							n.arg |= a.arg | (b.arg << 5) | 0x1000;
-							if (code[0xf600 + (a.arg | (b.arg << 5))]) return;
+							if (getxbit(code, a.arg | (b.arg << 5))) return;
 						}
 					} else if (c) {
 						a.depo = b.depo = c.depo = true;
@@ -562,8 +575,9 @@ function peep(n, code) {
 				a = cst.pop();
 				if (a) {
 					if (!a.meta.op) {
+						const dead = a.arg ? n.arg : n.n;
+						if (dead !== (a.arg ? n.n : n.arg)) dead.si.delete(n);
 						if (!a.arg) n.n = n.arg;
-						n.arg.si.delete(n);
 						n.arg = null;
 						n.meta = metanop;
 						a.meta = metanop;
@@ -588,12 +602,14 @@ function peep(n, code) {
 		if (n.n.si.size > 1) {
 			let sis = 0;
 			while (sis < cst.length && cst[cst.length - sis - 1]) sis++;
-			if (sis && n.n.meta.siop && sis >= n.n.meta.siop) {
+			if (sis && !n.n.sd && n.n.meta.siop && sis >= n.n.meta.siop) {
 				n.n.si.delete(n);
 				const nn = new Op(n.n.meta);
 				nn.arg = n.n.arg;
 				nn.n = n.n.n;
 				nn.n.si.add(nn);
+				if (nn.meta.op === 11) nn.arg.si.add(nn);
+				else if (nn.meta.op === 10) for (const b of nn.arg) b.si.add(nn);
 				nn.si.add(n);
 				n.n = nn;
 			} else {
@@ -611,15 +627,18 @@ async function bfRun(imp, cursor, sp, opts = {}) {
 		const tracer = new Tracer(code);
 		const ir = tracer.trace(cursor);
 		(opts.nopeep ? fakepeep : peep)(ir, code);
+		let ret;
 		if (opts.interpret) {
 			const ctx = new Interpreter(imp, sp, opts);
-			cursor = ctx.eval(ir);
+			ret = ctx.eval(ir);
 		} else {
 			const f = await bfCompile(ir, sp, imp, opts);
-			cursor = f.instance.exports.f();
+			ret = f.instance.exports.f();
 		}
-		if (~cursor) {
-			code.fill(0, 0xf600);
+		if (~ret) {
+			cursor = ret >>> 16;
+			sp = ret & 0xffff;
+			code.fill(0, XBIT);
 		} else {
 			if (opts.time) console.timeEnd('run');
 			return;
@@ -731,6 +750,22 @@ function bfCompile(ir, sp, imports, opts) {
 		nobr = new Set(),
 		spiller = [0x36, 2, 0, 0x20, 0, 0x41, 4, 0x6a, 0x21, 0];
 
+	function xbitTest(block) {
+		block.push(0x20, 1, 0x41, 1, 0x76, 0x2d, 0);
+		varuint(block, XBIT);
+		block.push(0x41, 1, 0x20, 1, 0x41, 1, 0x71, 0x41, 2, 0x74, 0x74, 0x71);
+	}
+
+	function binop(block, op) {
+		if (op === 0x6d || op === 0x6f) {
+			block.push(0x21, 1, 0x21, 2, 0x20, 1, 0x04, 0x7f);
+			block.push(0x20, 2, 0x20, 1, op);
+			block.push(0x05, 0x41, 0, 0x0b);
+		} else {
+			block.push(op);
+		}
+	}
+
 	function blockpile(blocks, n, opts) {
 		if (~n.sd) return;
 		let block = [],
@@ -769,32 +804,19 @@ function bfCompile(ir, sp, imports, opts) {
 					break;
 				case 1:
 					if (n.depi) {
-						if (n.depi === 1) {
-							block.push(
-								0x21,
-								1,
-								0x20,
-								0,
-								0x41,
-								4,
-								0x6b,
-								0x22,
-								0,
-								0x28,
-								2,
-								0,
-								0x20,
-								1,
-							);
-						} else if (n.depi === 2) {
+						if (n.depi !== 3) {
+							if (n.depi === 1) block.push(0x21, 1);
+							if (!dep) block.push(0x20, 0, 0x04, 0x7f);
 							block.push(0x20, 0, 0x41, 4, 0x6b, 0x22, 0, 0x28, 2, 0);
+							if (!dep) block.push(0x05, 0x41, 0, 0x0b);
+							if (n.depi === 1) block.push(0x20, 1);
 						}
-						block.push(n.arg);
+						binop(block, n.arg);
 						if (!n.depo) {
 							block.push(0x21, 1, 0x20, 0, 0x20, 1);
 							pushArray(block, spiller);
 							if (n.depi === 3) dep++;
-						} else if (n.depi !== 3) dep--;
+						} else if (n.depi !== 3) dep = Math.max(dep - 1, 0);
 					} else {
 						if (dep < 2) {
 							if (dep) {
@@ -805,7 +827,8 @@ function bfCompile(ir, sp, imports, opts) {
 							block.push(0x41, 4, 0x47, 0x04, 0x40);
 						}
 						block.push(0x20, 0, 0x41, 8, 0x6b, 0x22, 0, 0x20, 0, 0x28, 2, 0);
-						block.push(0x20, 0, 0x41, 4, 0x6a, 0x22, 0, 0x28, 2, 0, n.arg);
+						block.push(0x20, 0, 0x41, 4, 0x6a, 0x22, 0, 0x28, 2, 0);
+						binop(block, n.arg);
 						block.push(0x36, 2, 0);
 						if (dep < 2) {
 							switch (n.arg) {
@@ -854,7 +877,7 @@ function bfCompile(ir, sp, imports, opts) {
 							block.push(0x0b);
 							if (dep === 0) {
 								block.push(0x0b);
-							} else if (~'*%/'.indexOf(n.arg)) {
+							} else if (n.arg === 0x6c || n.arg === 0x6d || n.arg === 0x6f) {
 								dep = 0;
 							}
 						} else {
@@ -1114,7 +1137,7 @@ function bfCompile(ir, sp, imports, opts) {
 							0x28,
 							2,
 						);
-						varint(block, 0xce00);
+						varint(block, SRC);
 						if (!n.depo) {
 							block.push(0x21, 1, 0x20, 0, 0x20, 1);
 							pushArray(block, spiller);
@@ -1124,7 +1147,7 @@ function bfCompile(ir, sp, imports, opts) {
 						if (n.arg !== null) {
 							if (!n.depo) block.push(0x20, 0);
 							block.push(0x41);
-							varint(block, 0xce00 + (n.arg << 2));
+							varint(block, SRC + (n.arg << 2));
 							block.push(0x28, 2, 0);
 							if (!n.depo) {
 								block.push(0x36, 2, 0, 0x20, 0, 0x41, 4, 0x6a, 0x21, 0);
@@ -1135,17 +1158,17 @@ function bfCompile(ir, sp, imports, opts) {
 								if (!dep) {
 									block.push(0x20, 0, 0x04, 0x40);
 								}
-								block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40); // *0 = *(0xce00+(*0<<2))
+								block.push(0x20, 0, 0x41, 4, 0x46, 0x04, 0x40); // *0 = *(SRC+(*0<<2))
 								if (!n.depo) block.push(0x41, 0);
 								block.push(0x41, 0, 0x28, 2, 0, 0x22, 1, 0x41);
 								varint(block, 2560);
 								block.push(0x4f, 0x04, 0x7f, 0x41, 31, 0x05, 0x20, 1, 0x0b);
 								block.push(0x41, 2, 0x74, 0x28, 2);
-								varuint(block, 0xce00);
+								varuint(block, SRC);
 								if (!n.depo) {
 									block.push(0x36, 2, 0);
 								}
-								block.push(0x05); // *(sp-=4) = *(0xce00+((*sp|*(sp-4)<<5)<<2))
+								block.push(0x05); // *(sp-=4) = *(SRC+((*sp|*(sp-4)<<5)<<2))
 							}
 							block.push(
 								0x20,
@@ -1182,7 +1205,7 @@ function bfCompile(ir, sp, imports, opts) {
 							varint(block, 2560);
 							block.push(0x4f, 0x04, 0x7f, 0x41, 31, 0x05, 0x20, 1, 0x0b);
 							block.push(0x41, 2, 0x74, 0x28, 2);
-							varuint(block, 0xce00);
+							varuint(block, SRC);
 							if (!n.depo) {
 								block.push(0x36, 2, 0);
 							}
@@ -1190,7 +1213,7 @@ function bfCompile(ir, sp, imports, opts) {
 								block.push(0x0b);
 								if (!dep) {
 									block.push(0x05, 0x41, 0, 0x41);
-									varint(block, 0xce00);
+									varint(block, SRC);
 									block.push(0x28, 2, 0);
 									if (!n.depo) {
 										block.push(0x36, 2, 0, 0x41, 4, 0x21, 0);
@@ -1207,16 +1230,15 @@ function bfCompile(ir, sp, imports, opts) {
 						// TODO bounds checking
 						block.push(0x21, 1, 0x41, 5, 0x74, 0x20, 1, 0x72, 0x21, 1);
 						block.push(0x21, 2, 0x20, 1, 0x41, 2, 0x74, 0x20, 2, 0x36, 2);
-						varint(block, 0xce00);
-						block.push(0x20, 1, 0x2d, 0);
-						varint(block, 0xf600);
+						varint(block, SRC);
+						xbitTest(block);
 						block.push(0x04, 0x40, 0x41);
 						varint(block, n.arg & 0xffff0000);
 						block.push(0x20, 0, 0x72, 0x0f, 0x0b);
 					} else {
 						if (n.arg & 0x1000) {
 							block.push(0x41);
-							varint(block, 0xce00 + ((n.arg & 0xfff) << 2));
+							varint(block, SRC + ((n.arg & 0xfff) << 2));
 							if (!dep) {
 								block.push(0x20, 0, 0x04, 0x7f);
 							}
@@ -1225,7 +1247,7 @@ function bfCompile(ir, sp, imports, opts) {
 								block.push(0x05, 0x41, 0, 0x0b);
 							} else dep--;
 							block.push(0x36, 2, 0);
-							if (mem[0xf600 + (n.arg & 0xfff)]) {
+							if (getxbit(mem, n.arg & 0xfff)) {
 								block.push(0x41);
 								varint(block, n.arg & 0xffff0000);
 								block.push(0x20, 0, 0x72, 0x0f);
@@ -1321,7 +1343,7 @@ function bfCompile(ir, sp, imports, opts) {
 								0x04,
 								0x40,
 							);
-							// *(0xce00 + ((sp[4]<<5|sp[8])<<2)) = sp[0]
+							// *(SRC + ((sp[4]<<5|sp[8])<<2)) = sp[0]
 							block.push(
 								0x20,
 								0,
@@ -1345,12 +1367,11 @@ function bfCompile(ir, sp, imports, opts) {
 							);
 							block.push(0x20, 0, 0x28, 2, 0);
 							block.push(0x36, 2);
-							varuint(block, 0xce00);
-							// if *(0xf600 + %1), ret arg<<16|sp
-							block.push(0x20, 1, 0x2d, 0);
-							varuint(block, 0xf600);
+							varuint(block, SRC);
+							// if traced, ret arg<<16|sp
+							xbitTest(block);
 							block.push(0x04, 0x40, 0x41);
-							varuint(block, n.arg & 0xffff0000);
+							varint(block, n.arg & 0xffff0000);
 							block.push(0x20, 0, 0x72, 0x0f);
 							block.push(0x0b, 0x0b);
 						}
@@ -1486,33 +1507,29 @@ function bfCompile(ir, sp, imports, opts) {
 export const r4 = () => (Math.random() * 4) | 0;
 
 export function runSource(board, imp, opts) {
-	// 0000:cdff stack
-	// ce00:f5ff source
-	// f600:ffff xbits
 	const code = new Uint8Array(imp[''].m.buffer);
 	let i = 0,
 		ch;
 	yout: for (let y = 0; y < 25; y++) {
 		for (let x = 0; x < 80; x++) {
 			if (i === board.length) {
-				for (; x < 80; x++) code[0xce00 + ((y | (x << 5)) << 2)] = 32;
+				for (; x < 80; x++) code[SRC + ((y | (x << 5)) << 2)] = 32;
 				for (y++; y < 25; y++)
-					for (x = 0; x < 80; x++) code[0xce00 + ((y | (x << 5)) << 2)] = 32;
+					for (x = 0; x < 80; x++) code[SRC + ((y | (x << 5)) << 2)] = 32;
 				break yout;
 			}
 			ch = board.charCodeAt(i++);
 			if (ch === 10) {
-				for (; x < 80; x++) code[0xce00 + ((y | (x << 5)) << 2)] = 32;
+				for (; x < 80; x++) code[SRC + ((y | (x << 5)) << 2)] = 32;
 				break;
 			}
-			code[0xce00 + ((y | (x << 5)) << 2)] = ch;
+			code[SRC + ((y | (x << 5)) << 2)] = ch;
 		}
 		if (ch !== 10) {
 			i = board.indexOf('\n', i) + 1;
 			if (!i) {
 				for (y++; y < 25; y++)
-					for (let x = 0; x < 80; x++)
-						code[0xce00 + ((y | (x << 5)) << 2)] = 32;
+					for (let x = 0; x < 80; x++) code[SRC + ((y | (x << 5)) << 2)] = 32;
 				break;
 			}
 		}
